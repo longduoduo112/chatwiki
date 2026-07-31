@@ -32,6 +32,23 @@ export const getRobotInfo = ({ id }) => {
   })
 }
 
+export const getRobotRateLimitConf = (params = {}) => {
+  return request.get({
+    url: '/manage/getRobotRateLimitConf',
+    params
+  })
+}
+
+export const saveRobotRateLimitConf = (data = {}) => {
+  return request.post({
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    url: '/manage/saveRobotRateLimitConf',
+    data
+  })
+}
+
 export const getRobotStartNode = (params) => {
   return request.get({url: '/manage/getStartNode', params})
 }

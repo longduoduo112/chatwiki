@@ -3,6 +3,18 @@
   "btn_recall_settings": "召回设置",
   "btn_associate_knowledge_base": "关联知识库",
   "btn_unlink": "取消关联",
+  "btn_set_default": "设为默认",
+  "label_normal_library": "普通知识库",
+  "label_external_library": "对外知识库",
+  "label_qa_library": "问答知识库",
+  "label_official_account_library": "公众号知识库",
+  "label_docs": "文档",
+  "label_size": "大小",
+  "label_related_apps": "关联应用",
+  "msg_graph_disabled": "未开启知识图谱生成",
+  "msg_graph_enabled": "已开启知识图谱生成",
+  "msg_confirm_set_default": "确定将{library_name}设为默认知识库吗？",
+  "msg_one_default_library": "一个 Agent 只能有一个默认知识库",
   "empty_tip": "暂未关联知识库，点击右上方“关联知识库”按钮添加",
   "msg_saved": "保存成功"
 }

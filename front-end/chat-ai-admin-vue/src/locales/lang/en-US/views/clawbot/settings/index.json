@@ -8,6 +8,7 @@
   "menu_unknown_issue": "Unknown Issues",
   "menu_export_record": "Export Records",
   "menu_model_management": "Model Management",
+  "menu_rate_limit": "Rate Limit Settings",
   "menu_e2b_settings": "E2B Settings",
   "transfer_tab_setting": "Settings",
   "transfer_tab_date_range": "Date Range",

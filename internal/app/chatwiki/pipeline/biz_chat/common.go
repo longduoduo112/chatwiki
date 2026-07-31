@@ -5,12 +5,35 @@ package biz_chat
 import (
 	"chatwiki/internal/app/chatwiki/common"
 	"chatwiki/internal/app/chatwiki/define"
+	"chatwiki/internal/app/chatwiki/i18n"
 	"chatwiki/internal/pkg/lib_define"
+	"regexp"
 
+	"github.com/cloudwego/eino/schema"
 	"github.com/gin-contrib/sse"
 	"github.com/spf13/cast"
+	"github.com/zhimaAi/go_tools/logs"
 	"github.com/zhimaAi/go_tools/tool"
 )
+
+func SendDefaultUnknownQuestionPrompt(in *ChatInParam, out *ChatOutParam, errmsg string) {
+	in.Stream(sse.Event{Event: `error`, Data: `SYSERR:` + errmsg})
+	code := `unknown`
+	if ms := regexp.MustCompile(`ERROR\s+CODE:\s?(.*)`).FindStringSubmatch(errmsg); len(ms) > 1 {
+		code = ms[1]
+	}
+	logs.Error(`robot_id:%s,openid:%s,gpt_error:%s`, in.params.Robot[`id`], in.params.Openid, errmsg)
+	out.content = i18n.Show(in.params.Lang, `gpt_error`, code)
+	StreamContent(in, out.content)
+}
+
+func StreamContent(in *ChatInParam, content string) {
+	if cast.ToInt(in.params.Robot[`application_type`]) == define.ApplicationTypeClaw {
+		in.Stream(sse.Event{Event: `stream_message`, Data: schema.AssistantMessage(content, nil)})
+		return
+	}
+	in.Stream(sse.Event{Event: `sending`, Data: content})
+}
 
 // DoRequestChatUnify unified logic for requesting large language model
 func DoRequestChatUnify(in *ChatInParam, out *ChatOutParam) {
@@ -48,7 +71,7 @@ func DoRequestChatUnify(in *ChatInParam, out *ChatOutParam) {
 	out.content = out.chatResp.Result
 	out.reasoningContent = out.chatResp.ReasoningContent
 	if out.Error != nil {
-		common.SendDefaultUnknownQuestionPrompt(in.params, out.Error.Error(), in.chanStream, &out.content)
+		SendDefaultUnknownQuestionPrompt(in, out, out.Error.Error())
 	} else {
 		if content, ok := common.ReplaceMiniCardMarkersForRobotPromptReply(in.params.AdminUserId, out.content); ok {
 			out.content = content

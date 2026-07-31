@@ -3,6 +3,18 @@
   "btn_recall_settings": "Recall Settings",
   "btn_associate_knowledge_base": "Associate Knowledge Base",
   "btn_unlink": "Unlink",
+  "btn_set_default": "Set as Default",
+  "label_normal_library": "Normal Knowledge Base",
+  "label_external_library": "External Knowledge Base",
+  "label_qa_library": "Q&A Knowledge Base",
+  "label_official_account_library": "Official Account Knowledge Base",
+  "label_docs": "Docs",
+  "label_size": "Size",
+  "label_related_apps": "Related Apps",
+  "msg_graph_disabled": "Knowledge graph generation is disabled",
+  "msg_graph_enabled": "Knowledge graph generation is enabled",
+  "msg_confirm_set_default": "Are you sure you want to set {library_name} as the default knowledge base?",
+  "msg_one_default_library": "An Agent can have only one default knowledge base",
   "empty_tip": "No knowledge base is associated yet. Click \"Associate Knowledge Base\" in the top right to add one.",
   "msg_saved": "Saved successfully"
 }

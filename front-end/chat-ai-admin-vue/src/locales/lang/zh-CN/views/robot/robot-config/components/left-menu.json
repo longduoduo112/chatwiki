@@ -12,5 +12,6 @@
   "label_unknown_issues": "未知问题",
   "label_statistical_analysis": "统计分析",
   "label_export_records": "导出记录",
+  "label_rate_limit": "限流设置",
   "label_invocation_logs": "调用日志"
 }

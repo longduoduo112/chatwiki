@@ -6,7 +6,8 @@ export function init() {
   let config = {
     iframeSrc: import.meta.env.VITE_AI_CHAT_BASE_URL + '/#/chat',
     remote: '',
-    params: {}
+    params: {},
+    showFloatButton: true
   };
 
   const sdkEl = document.getElementById("ai_chat_js")
@@ -23,7 +24,15 @@ export function init() {
     }
     
     try{
-      config.params = JSON.parse(params)
+      const parsedParams = JSON.parse(params) || {}
+
+      if (Object.prototype.hasOwnProperty.call(parsedParams, 'show_float_button')) {
+        const showFloatButton = parsedParams.show_float_button
+        config.showFloatButton = showFloatButton !== false && showFloatButton !== 0 && showFloatButton !== '0'
+        delete parsedParams.show_float_button
+      }
+
+      config.params = parsedParams
     } catch (error) {
       console.error('Failed to stringify data:', error);
       return;

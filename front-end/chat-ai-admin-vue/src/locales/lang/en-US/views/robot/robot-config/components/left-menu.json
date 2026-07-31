@@ -12,5 +12,6 @@
   "label_unknown_issues": "Unknown Issues",
   "label_statistical_analysis": "Statistical Analysis",
   "label_export_records": "Export Records",
+  "label_rate_limit": "Rate Limit Settings",
   "label_invocation_logs": "Invocation Logs"
 }

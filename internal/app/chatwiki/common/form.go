@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -114,7 +115,7 @@ func GetFormEntryList(adminUserId, formId, filterId, page, size int, startTimeSt
 					} else if fieldValue[`type`] == `integer` {
 						entry[field[`name`]] = fieldValue[`integer_content`]
 					} else if fieldValue[`type`] == `number` {
-						entry[field[`name`]] = fieldValue[`number_content`]
+						entry[field[`name`]] = strconv.FormatFloat(cast.ToFloat64(fieldValue[`number_content`]), 'f', -1, 64)
 					} else if fieldValue[`type`] == `boolean` {
 						entry[field[`name`]] = fieldValue[`boolean_content`]
 					}
@@ -308,7 +309,7 @@ func SaveFormEntry(adminUserId, formId, formEntryId int, entryValues map[string]
 				`admin_user_id`:  adminUserId,
 				`form_field_id`:  formField[`id`],
 				`type`:           `number`,
-				`number_content`: cast.ToFloat32(content),
+				`number_content`: cast.ToFloat64(content),
 				`update_time`:    tool.Time2Int(),
 			})
 		} else if formField[`type`] == `boolean` {

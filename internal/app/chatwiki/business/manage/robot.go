@@ -1626,8 +1626,7 @@ func DeleteRobot(c *gin.Context) {
 	}
 	// delete robot relation data
 	go func() {
-		err := deleteRobotRelationData(id, info[`robot_key`])
-		if err != nil {
+		if err = deleteRobotRelationData(id, info[`robot_key`]); err != nil {
 			logs.Error(err.Error())
 		}
 		work_flow.DeleteRobotFollow(userId, id)
@@ -1639,9 +1638,47 @@ func deleteRobotRelationData(robotId int, robotKey string) error {
 	if robotId <= 0 || robotKey == "" {
 		return nil
 	}
-	err := deleteRobotApiKey(robotKey)
-	err = deleteFastCommandByRobotId(robotId)
-	err = deleteWorkFlowByRobotId(robotId)
+	var errs []error
+	for _, handle := range []func(robotId int) error{
+		//deleteStaffServiceByRobotId,
+		deleteFastCommandByRobotId,
+		deleteWechatAppByRobotId,
+		deleteWorkFlowByRobotId,
+	} {
+		if err := handle(robotId); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	for _, handle := range []func(robotKey string) error{
+		deleteRobotApiKey,
+		common.DeleteRobotRateLimitConf,
+	} {
+		if err := handle(robotKey); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	return errors.Join(errs...)
+}
+
+func deleteWechatAppByRobotId(robotId int) error {
+	m := msql.Model(`chat_ai_wechat_app`, define.Postgres)
+	appInfo, err := m.Where(`robot_id`, cast.ToString(robotId)).Find()
+	if err != nil {
+		logs.Error(err.Error())
+		return err
+	}
+	if len(appInfo) <= 0 {
+		return err
+	}
+	_, err = m.Where(`robot_id`, cast.ToString(robotId)).Delete()
+	if err != nil {
+		logs.Error(err.Error())
+		return err
+	}
+	//clear cached data
+	lib_redis.DelCacheData(define.Redis, &common.WechatAppCacheBuildHandler{Field: `id`, Value: appInfo[`id`]})
+	lib_redis.DelCacheData(define.Redis, &common.WechatAppCacheBuildHandler{Field: `app_id`, Value: appInfo[`app_id`]})
+	lib_redis.DelCacheData(define.Redis, &common.WechatAppCacheBuildHandler{Field: `access_key`, Value: appInfo[`access_key`]})
 	return err
 }
 

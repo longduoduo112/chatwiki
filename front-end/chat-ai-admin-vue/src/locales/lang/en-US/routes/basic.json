@@ -17,6 +17,7 @@
   "qa_feedback": "Q&A Feedback",
   "session_record": "Session Record",
   "export_record": "Export Record",
+  "rate_limit": "Rate Limit Settings",
   "invoke_logs": "Invoke Logs",
   "unknown_issue": "Unknown Issue",
   "statistical_analysis": "Statistical Analysis",

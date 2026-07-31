@@ -6,6 +6,10 @@ import path from 'path';
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [vue()],
+  server: {
+    port: 5180,
+    strictPort: true,
+  },
   build: {
     outDir: fileURLToPath(new URL('../../static/chat-ai-pc/sdk', import.meta.url)),
     lib: {

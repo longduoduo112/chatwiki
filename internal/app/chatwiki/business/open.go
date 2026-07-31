@@ -99,6 +99,7 @@ func ChatMessages(c *gin.Context) {
 		if define.IsDev {
 			c.Header(`Access-Control-Allow-Origin`, `*`)
 		}
+		params.StopCtx = c.Request.Context()
 		go func() {
 			_, _ = DoChatRequest(params, req.Stream, chanStream)
 		}()
@@ -112,13 +113,14 @@ func ChatMessages(c *gin.Context) {
 			}
 			return false
 		})
+		*params.IsClose = true
+		for range chanStream {
+			// discard
+		}
 	} else {
 		go func(chanStream chan sse.Event) {
-			for event := range chanStream {
-				if define.IsDev {
-					event.Data, _ = tool.JsonEncode(event.Data)
-					logs.Debug(`event:%v`, event)
-				}
+			for range chanStream {
+				// discard
 			}
 		}(chanStream)
 		message, err := DoChatRequest(params, req.Stream, chanStream)

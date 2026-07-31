@@ -192,8 +192,11 @@ export default {
         e.preventDefault()
       }
     },
-    onScroll() {
+    onScroll(event) {
       if (!this.isBodyPopupContainer) {
+        return
+      }
+      if (this.$refs.dropdownList?.contains(event.target)) {
         return
       }
       this.hideDropdownMenus()

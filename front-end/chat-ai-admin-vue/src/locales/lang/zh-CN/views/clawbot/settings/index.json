@@ -8,6 +8,7 @@
   "menu_unknown_issue": "未知问题",
   "menu_export_record": "导出记录",
   "menu_model_management": "模型管理",
+  "menu_rate_limit": "限流设置",
   "menu_e2b_settings": "E2B设置",
   "transfer_tab_setting": "设置",
   "transfer_tab_date_range": "时间范围",

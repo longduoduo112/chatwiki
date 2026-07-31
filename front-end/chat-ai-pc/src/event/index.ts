@@ -9,9 +9,9 @@ window.addEventListener('message', function(event) {
         emitter.emit('openWindow', event.data)
     }
 
-    if(res.action === 'clostWindow'){
-      emitter.emit('clostWindow', event.data)
-  }
+    if(res.action === 'closeWindow'){
+      emitter.emit('closeWindow', event.data)
+    }
 
     const chatStore = useChatStore()
     const { upDataUiStyle, updataQuickComand } = chatStore

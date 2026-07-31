@@ -188,9 +188,8 @@ func AdditionAiMessage(in *ChatInParam, out *ChatOutParam) pipeline.PipeResult {
 	return pipeline.PipeContinue
 }
 
-// PushAiMessageFinish push robot message and finish flag
-func PushAiMessageFinish(in *ChatInParam, out *ChatOutParam) pipeline.PipeResult {
+// PushAiMessage push robot message
+func PushAiMessage(in *ChatInParam, out *ChatOutParam) pipeline.PipeResult {
 	in.Stream(sse.Event{Event: `data`, Data: out.AiMessage})
-	in.Stream(sse.Event{Event: `finish`, Data: tool.Time2Int()})
 	return pipeline.PipeContinue
 }

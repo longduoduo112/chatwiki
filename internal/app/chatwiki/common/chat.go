@@ -10,11 +10,9 @@ import (
 	"fmt"
 	"math/rand"
 	"path/filepath"
-	"regexp"
 	"strings"
 	"time"
 
-	"github.com/gin-contrib/sse"
 	"github.com/spf13/cast"
 	"github.com/zhimaAi/go_tools/logs"
 	"github.com/zhimaAi/go_tools/msql"
@@ -75,16 +73,6 @@ func BuildOpenApiContent(params *define.ChatRequestParam, messages []adaptor.Zhi
 		logs.Debug("%+v", messages)
 	}
 	return messages
-}
-
-func SendDefaultUnknownQuestionPrompt(params *define.ChatRequestParam, errmsg string, chanStream chan sse.Event, content *string) {
-	chanStream <- sse.Event{Event: `error`, Data: `SYSERR:` + errmsg}
-	code := `unknown`
-	if ms := regexp.MustCompile(`ERROR\s+CODE:\s?(.*)`).FindStringSubmatch(errmsg); len(ms) > 1 {
-		code = ms[1]
-	}
-	*content = i18n.Show(params.Lang, `gpt_error`, code)
-	chanStream <- sse.Event{Event: `sending`, Data: *content}
 }
 
 func BuildLibraryChatRequestMessage(params *define.ChatRequestParam, curMsgId int64, dialogueId, sessionId int, debugLog *[]any) ([]adaptor.ZhimaChatCompletionMessage, []msql.Params, LibUseTime, error) {

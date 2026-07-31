@@ -1,10 +1,10 @@
 import createAvatar from "./create-avater";
-import AiChatWidget from './ai-chat'
 class AiAvatar {
   avatarElWrapper = null;
   avatarContentEl = null;
   avatarEl = null;
-  click = null;
+  onClick = null;
+  enabled = true;
   
   left = 0;
   top = 0;
@@ -35,10 +35,13 @@ class AiAvatar {
    
   }
 
-  init(data) {
+  init(data, enabled = true, onClick) {
     const { config } = data;
   
     this.config = config.floatBtn;
+    this.enabled = enabled;
+    // 打开行为由控制器注入，悬浮按钮不反向依赖 AiChatWidget。
+    this.onClick = onClick;
 
     this.insertAvatar();
   }
@@ -143,7 +146,8 @@ class AiAvatar {
     }
     this.avatarElWrapper = document.createElement("div");
     this.avatarElWrapper.className = "zm_chat-wiki-avatar-wrapper";
-    this.avatarElWrapper.style.display = "block";
+    // 隐藏时保留布局尺寸，确保异步内容加载后仍能正确计算初始位置。
+    this.avatarElWrapper.style.visibility = this.enabled ? "visible" : "hidden";
     this.avatarElWrapper.style.left = "-99999px";
     this.avatarElWrapper.style.top = "-99999px";
 
@@ -178,9 +182,10 @@ class AiAvatar {
     })
   }
 
-  handleClick(e) {
-    this.hide();
-    AiChatWidget.open();
+  handleClick() {
+    if (typeof this.onClick === 'function') {
+      this.onClick();
+    }
   }
 
   removeAvatar() {
@@ -192,11 +197,25 @@ class AiAvatar {
   }
 
   show() {
-    this.avatarElWrapper.style.display = "block";
+    if (!this.enabled || !this.avatarElWrapper) {
+      return
+    }
+    this.avatarElWrapper.style.visibility = "visible";
   }
 
   hide() {
-    this.avatarElWrapper.style.display = "none";
+    if (!this.avatarElWrapper) {
+      return
+    }
+    this.avatarElWrapper.style.visibility = "hidden";
+  }
+
+  setEnabled(enabled) {
+    this.enabled = enabled
+
+    if (!enabled) {
+      this.hide()
+    }
   }
 }
 

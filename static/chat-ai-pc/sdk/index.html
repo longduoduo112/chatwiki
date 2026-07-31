@@ -1,33 +1,21 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-CN">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>SDK2</title>
+    <title>Chat AI SDK 静态接入示例</title>
+    <style>
+      body { max-width: 720px; margin: 64px auto; padding: 0 24px; font: 16px/1.7 sans-serif; color: #16181d; }
+      button { margin-right: 8px; padding: 10px 18px; cursor: pointer; }
+      code { padding: 2px 6px; background: #f1f1f1; }
+      #status { margin: 24px 0; color: #666; }
+    </style>
   </head>
   <body>
+    
+
     <script>
-      (function (z, h, i, m, a, j, s) {
-        z[m] =
-          z[m] ||
-          function () {
-            (z[m].a = z[m].a || []).push(arguments);
-          };
-        (j = h.createElement(i)), (s = h.getElementsByTagName(i)[0]);
-        j.async = true;
-        j.charset = "UTF-8";
-        j.setAttribute(
-          "data-json",
-          JSON.stringify({
-            robot_key: "rlM9p0etgY",
-            language: "zh-CN",
-            preview: true,
-          })
-        );
-        j.id = "ai_chat_js";
-        j.src = 'http://pc.zhima_chat_ai.applnk.cn/sdk/ai-chat-sdk.umd.cjs';
-        s.parentNode.insertBefore(j, s);
-      })(window, document, "script", "_ai_chat");
+      window.location.href = './sdk-test.html';
     </script>
   </body>
 </html>

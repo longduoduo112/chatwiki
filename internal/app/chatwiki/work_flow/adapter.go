@@ -1332,7 +1332,7 @@ func (n *FormSelectNode) Running(flow *WorkFlow) (output common.SimpleFields, ne
 				case `integer`:
 					value = cast.ToInt(value)
 				case `number`:
-					value = cast.ToFloat32(value)
+					value = cast.ToFloat64(value)
 				case `boolean`:
 					value = cast.ToBool(value)
 				}

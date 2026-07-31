@@ -1,69 +1,70 @@
-var d = Object.defineProperty;
-var m = (i, t, e) => t in i ? d(i, t, { enumerable: !0, configurable: !0, writable: !0, value: e }) : i[t] = e;
-var s = (i, t, e) => (m(i, typeof t != "symbol" ? t + "" : t, e), e);
-function p(i) {
-  if (!i)
+var z = Object.defineProperty;
+var O = (a, t, e) => t in a ? z(a, t, { enumerable: !0, configurable: !0, writable: !0, value: e }) : a[t] = e;
+var n = (a, t, e) => (O(a, typeof t != "symbol" ? t + "" : t, e), e);
+function D(a) {
+  if (!a)
     return "";
   const t = [];
-  for (let e in i)
-    if (i.hasOwnProperty(e)) {
-      let a = i[e];
-      (Array.isArray(a) || typeof a == "object" && a !== null) && (a = JSON.stringify(a)), a !== void 0 && t.push(encodeURIComponent(e) + "=" + encodeURIComponent(a));
+  for (let e in a)
+    if (a.hasOwnProperty(e)) {
+      let i = a[e];
+      (Array.isArray(i) || typeof i == "object" && i !== null) && (i = JSON.stringify(i)), i !== void 0 && t.push(encodeURIComponent(e) + "=" + encodeURIComponent(i));
     }
   return t.join("&");
 }
-function g() {
-  const i = document.getElementById("ai_chat_js"), t = document.createElement("link"), e = new URL(i.src).origin;
+function _() {
+  const a = document.getElementById("ai_chat_js"), t = document.createElement("link"), e = new URL(a.src).origin;
   t.type = "text/css", t.rel = "stylesheet", t.href = e + "/sdk/style.css", document.getElementsByTagName("head")[0].appendChild(t);
 }
-function u(i) {
+function B(a) {
   return new Promise((t, e) => {
-    let a = new Image();
-    a.src = i, a.onload = () => t(a), a.onerror = e;
+    let i = new Image();
+    i.src = a, i.onload = () => t(i), i.onerror = e;
   });
 }
-async function f(i) {
+async function L(a) {
   let t = document.createElement("img");
-  return t.src = i.buttonIcon, t.style.width = "50px", t.style.height = "50px", t;
+  return t.src = a.buttonIcon, t.style.width = "50px", t.style.height = "50px", t;
 }
-async function v(i) {
+async function S(a) {
   let t = document.createElement("div");
   t.className = "chat-wiki-avatar_type2";
   let e = document.createElement("img");
-  e.src = i.buttonIcon, e.className = "chat-wiki-avatar_type2_icon", t.appendChild(e);
-  let a = document.createElement("div");
-  return a.className = "chat-wiki-avatar_type2_text", a.innerText = i.buttonText, t.appendChild(a), t;
+  e.src = a.buttonIcon, e.className = "chat-wiki-avatar_type2_icon", t.appendChild(e);
+  let i = document.createElement("div");
+  return i.className = "chat-wiki-avatar_type2_text", i.innerText = a.buttonText, t.appendChild(i), t;
 }
-async function w(i) {
+async function N(a) {
   try {
-    const t = await u(i.buttonIcon);
+    const t = await B(a.buttonIcon);
     return t.style.width = t.width + "px", t.style.height = t.height + "px", t;
   } catch (t) {
     console.log(t);
   }
 }
-async function E(i) {
-  return i.displayType === 3 ? w(i) : i.displayType === 2 ? v(i) : f(i);
+async function P(a) {
+  return a.displayType === 3 ? N(a) : a.displayType === 2 ? S(a) : L(a);
 }
-class y {
+class k {
   constructor(t) {
-    s(this, "avatarElWrapper", null);
-    s(this, "avatarContentEl", null);
-    s(this, "avatarEl", null);
-    s(this, "click", null);
-    s(this, "left", 0);
-    s(this, "top", 0);
-    s(this, "right", 0);
-    s(this, "bottom", 0);
-    s(this, "width", 50);
-    s(this, "height", 50);
-    s(this, "initialX", 0);
-    s(this, "initialY", 0);
-    s(this, "initialMouseX", 0);
-    s(this, "initialMouseY", 0);
+    n(this, "avatarElWrapper", null);
+    n(this, "avatarContentEl", null);
+    n(this, "avatarEl", null);
+    n(this, "onClick", null);
+    n(this, "enabled", !0);
+    n(this, "left", 0);
+    n(this, "top", 0);
+    n(this, "right", 0);
+    n(this, "bottom", 0);
+    n(this, "width", 50);
+    n(this, "height", 50);
+    n(this, "initialX", 0);
+    n(this, "initialY", 0);
+    n(this, "initialMouseX", 0);
+    n(this, "initialMouseY", 0);
     // 拖拽状态标志位
-    s(this, "dragging", !1);
-    s(this, "config", {
+    n(this, "dragging", !1);
+    n(this, "config", {
       displayType: 1,
       buttonText: "快来聊聊吧~",
       buttonIcon: "",
@@ -73,20 +74,20 @@ class y {
       showNewMessageTip: 1
     });
     // 拖拽移动
-    s(this, "handleDrag", (t) => {
+    n(this, "handleDrag", (t) => {
       this.dragging = !0;
-      const e = t.clientX - this.initialMouseX, a = t.clientY - this.initialMouseY, n = window.innerWidth, r = window.innerHeight;
-      this.left = Math.max(0, Math.min(e, n - this.width)), this.top = Math.max(0, Math.min(a, r - this.height)), this.right = n - this.left - this.width, this.bottom = r - this.top - this.height, this.updataPosition();
+      const e = t.clientX - this.initialMouseX, i = t.clientY - this.initialMouseY, s = window.innerWidth, o = window.innerHeight;
+      this.left = Math.max(0, Math.min(e, s - this.width)), this.top = Math.max(0, Math.min(i, o - this.height)), this.right = s - this.left - this.width, this.bottom = o - this.top - this.height, this.updataPosition();
     });
     // 拖拽结束
-    s(this, "handleDragEnd", () => {
+    n(this, "handleDragEnd", () => {
       const t = Math.abs(this.initialX - this.left), e = Math.abs(this.initialY - this.top);
       t <= 3 && e <= 3 && this.handleClick(), this.dragging = !1, document.removeEventListener("mousemove", this.handleDrag), document.removeEventListener("mouseup", this.handleDragEnd);
     });
   }
-  init(t) {
-    const { config: e } = t;
-    this.config = e.floatBtn, this.insertAvatar();
+  init(t, e = !0, i) {
+    const { config: s } = t;
+    this.config = s.floatBtn, this.enabled = e, this.onClick = i, this.insertAvatar();
   }
   // 设置初始位置
   setInitialPosition() {
@@ -98,8 +99,8 @@ class y {
   }
   onWindowResize() {
     const t = window.innerWidth;
-    let a = window.innerHeight - this.height - this.bottom, n = t - this.width - this.right;
-    this.top = Math.max(0, a), this.left = Math.max(0, n), this.updataPosition();
+    let i = window.innerHeight - this.height - this.bottom, s = t - this.width - this.right;
+    this.top = Math.max(0, i), this.left = Math.max(0, s), this.updataPosition();
   }
   // 启用拖拽
   enableDrag() {
@@ -108,38 +109,53 @@ class y {
     });
   }
   insertAvatar() {
-    document.getElementById("zm_chat-wiki-avatar") || (this.avatarElWrapper = document.createElement("div"), this.avatarElWrapper.className = "zm_chat-wiki-avatar-wrapper", this.avatarElWrapper.style.display = "block", this.avatarElWrapper.style.left = "-99999px", this.avatarElWrapper.style.top = "-99999px", this.avatarContentEl = document.createElement("div"), this.avatarContentEl.className = "zm_chat-wiki-avatar-content", this.avatarEl = document.createElement("div"), this.avatarEl.id = "zm_chat-wiki-avatar", this.avatarContentEl.appendChild(this.avatarEl), this.avatarElWrapper.appendChild(this.avatarContentEl), document.body.appendChild(this.avatarElWrapper), E(this.config).then((t) => {
+    document.getElementById("zm_chat-wiki-avatar") || (this.avatarElWrapper = document.createElement("div"), this.avatarElWrapper.className = "zm_chat-wiki-avatar-wrapper", this.avatarElWrapper.style.visibility = this.enabled ? "visible" : "hidden", this.avatarElWrapper.style.left = "-99999px", this.avatarElWrapper.style.top = "-99999px", this.avatarContentEl = document.createElement("div"), this.avatarContentEl.className = "zm_chat-wiki-avatar-content", this.avatarEl = document.createElement("div"), this.avatarEl.id = "zm_chat-wiki-avatar", this.avatarContentEl.appendChild(this.avatarEl), this.avatarElWrapper.appendChild(this.avatarContentEl), document.body.appendChild(this.avatarElWrapper), P(this.config).then((t) => {
       this.avatarEl.appendChild(t), this.width = this.avatarEl.offsetWidth, this.height = this.avatarEl.offsetHeight, this.setInitialPosition(), this.enableDrag();
     }).catch((t) => {
       console.error("图片加载失败");
     }));
   }
-  handleClick(t) {
-    this.hide(), c.open();
+  handleClick() {
+    typeof this.onClick == "function" && this.onClick();
   }
   removeAvatar() {
     this.avatarElWrapper && document.body.removeChild(this.avatarElWrapper);
   }
   show() {
-    this.avatarElWrapper.style.display = "block";
+    !this.enabled || !this.avatarElWrapper || (this.avatarElWrapper.style.visibility = "visible");
   }
   hide() {
-    this.avatarElWrapper.style.display = "none";
+    this.avatarElWrapper && (this.avatarElWrapper.style.visibility = "hidden");
+  }
+  setEnabled(t) {
+    this.enabled = t, t || this.hide();
   }
 }
-const o = new y();
-class W {
+const l = new k();
+class R {
   constructor() {
-    s(this, "dotEl", null);
+    n(this, "dotEl", null);
   }
   create(t) {
-    t.value == 0 && !this.dotEl || (t.value > 0 && !this.dotEl && (this.dotEl = document.createElement("div"), o.avatarContentEl.appendChild(this.dotEl)), this.dotEl && t.value <= 0 ? (this.dotEl.remove(), this.dotEl = null) : (this.dotEl.className = `ai-dot${Number(t.value) > 9 ? " ai-dot-plus" : ""}`, this.dotEl.textContent = t.value));
+    if (t.value <= 0) {
+      this.remove();
+      return;
+    }
+    if (t.value > 0 && !this.dotEl) {
+      if (!l.avatarContentEl)
+        return;
+      this.dotEl = document.createElement("div"), l.avatarContentEl.appendChild(this.dotEl);
+    }
+    this.dotEl && (this.dotEl.className = `ai-dot${Number(t.value) > 9 ? " ai-dot-plus" : ""}`, this.dotEl.textContent = t.value);
+  }
+  remove() {
+    this.dotEl && (this.dotEl.remove(), this.dotEl = null);
   }
 }
-const M = new W(), b = `<svg fill="none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" class="design-iconfont">
+const W = new R(), F = `<svg fill="none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" class="design-iconfont">
   <path d="M5 5L11 11" stroke="#595959" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
   <path d="M5 11L11 5" stroke="#595959" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
-</svg>`, C = {
+</svg>`, A = {
   1: {
     value: "text",
     label: "text"
@@ -153,10 +169,10 @@ const M = new W(), b = `<svg fill="none" xmlns="http://www.w3.org/2000/svg" view
     label: "[图片]"
   }
 };
-class k {
+class T {
   constructor() {
-    s(this, "listDomWrapper", null);
-    s(this, "timer", null);
+    n(this, "listDomWrapper", null);
+    n(this, "timer", null);
   }
   create(t) {
     if (t.length === 0 && this.listDomWrapper) {
@@ -166,15 +182,19 @@ class k {
     this.listDomWrapper && this.remove(), this.listDomWrapper = document.createElement("div"), this.listDomWrapper.className = "new-message-list-wrapper";
     let e = document.createElement("div");
     e.className = "new-message-list";
-    for (let n = 0; n < t.length; n++) {
-      let r = t[n], l = this.getMessageDom(r);
-      e.innerHTML += l;
+    for (let s = 0; s < t.length; s++) {
+      let o = t[s], c = this.getMessageDom(o);
+      e.innerHTML += c;
     }
-    this.listDomWrapper.appendChild(e), o.avatarContentEl.appendChild(this.listDomWrapper), this.listDomWrapper.querySelectorAll(".close-btn").forEach((n) => {
-      n.addEventListener("click", function(r) {
-        r.stopPropagation();
-        const l = this.closest(".message-item");
-        l && l.remove();
+    if (this.listDomWrapper.appendChild(e), !l.avatarContentEl) {
+      this.listDomWrapper = null;
+      return;
+    }
+    l.avatarContentEl.appendChild(this.listDomWrapper), this.listDomWrapper.querySelectorAll(".close-btn").forEach((s) => {
+      s.addEventListener("click", function(o) {
+        o.stopPropagation();
+        const c = this.closest(".message-item");
+        c && c.remove();
       });
     }), this.timer && (clearTimeout(this.timer), this.timer = null), this.timer = setTimeout(() => {
       this.remove();
@@ -182,9 +202,9 @@ class k {
   }
   getMessageDom(t) {
     let e = t.content;
-    return (t.msg_type == 2 || t.msg_type == 3) && (e = C[t.msg_type].label), `<div class="message-item">
+    return (t.msg_type == 2 || t.msg_type == 3) && (e = A[t.msg_type].label), `<div class="message-item">
       <div class="ai-assistant">
-        <span class="close-btn">${b}</span>
+        <span class="close-btn">${F}</span>
         <div class="message-header">
           <img class="ai-icon" src="${t.avatar}" />
           <span class="ai-name">${t.robot_name}</span>
@@ -197,100 +217,525 @@ class k {
     this.listDomWrapper && (this.listDomWrapper.remove(), this.listDomWrapper = null);
   }
 }
-const h = new k();
-class D {
+const b = new T(), d = {
+  width: 418,
+  height: 680,
+  right: 50,
+  bottom: 50
+}, h = {
+  minWidth: 320,
+  minHeight: 400,
+  maxWidth: 2e3,
+  maxHeight: 2e3,
+  maxMargin: 2e3
+}, M = "zm_chat-wiki-iframe-bounds", x = [
+  "top",
+  "right",
+  "bottom",
+  "left",
+  "top-left",
+  "top-right",
+  "bottom-left",
+  "bottom-right"
+], $ = {
+  top: "ns-resize",
+  right: "ew-resize",
+  bottom: "ns-resize",
+  left: "ew-resize",
+  "top-left": "nwse-resize",
+  "top-right": "nesw-resize",
+  "bottom-left": "nesw-resize",
+  "bottom-right": "nwse-resize"
+};
+function m(a, t, e) {
+  return Math.min(e, Math.max(t, a));
+}
+function p(a, t, e, i) {
+  const s = Number(a);
+  return Number.isFinite(s) ? m(Math.round(s), e, i) : t;
+}
+function I(a) {
+  return a === !0 || a === 1 || a === "1";
+}
+class Y {
   constructor() {
-    s(this, "iframe", null);
-    s(this, "iframeSrc", null);
-    s(this, "config", {});
+    n(this, "container", null);
+    n(this, "iframe", null);
+    n(this, "dragHandle", null);
+    n(this, "resizeHandles", []);
+    n(this, "iframeSrc", "");
+    n(this, "boundsStorageKey", M);
+    n(this, "expectedOrigin", "");
+    n(this, "onMessage", null);
+    n(this, "listening", !1);
+    n(this, "windowResizeListening", !1);
+    n(this, "activeHandle", null);
+    n(this, "activePointerId", null);
+    n(this, "interaction", null);
+    n(this, "pendingPoint", null);
+    n(this, "animationFrame", null);
+    n(this, "previousCursor", "");
+    n(this, "bounds", { ...d });
+    n(this, "permissions", {
+      drag: !1,
+      resize: !1
+    });
+    n(this, "handleDragPointerDown", (t) => {
+      this.permissions.drag && this.startInteraction(t, "drag");
+    });
+    n(this, "handleResizePointerDown", (t) => {
+      this.permissions.resize && this.startInteraction(t, "resize", t.currentTarget.dataset.direction);
+    });
+    n(this, "handleInteractionMove", (t) => {
+      this.pendingPoint = { clientX: t.clientX, clientY: t.clientY }, this.animationFrame === null && (this.animationFrame = window.requestAnimationFrame(() => {
+        this.animationFrame = null, this.pendingPoint && (this.applyInteraction(this.pendingPoint.clientX, this.pendingPoint.clientY), this.pendingPoint = null);
+      }));
+    });
+    n(this, "handleInteractionEnd", (t) => {
+      this.interaction && (this.applyInteraction(t.clientX, t.clientY), this.storeBounds()), this.endInteraction();
+    });
+    n(this, "handleInteractionCancel", () => {
+      this.endInteraction();
+    });
+    n(this, "handleWindowResize", () => {
+      this.endInteraction(), this.bounds = this.fitBounds(this.bounds), this.renderBounds();
+    });
+    n(this, "handleMessage", (t) => {
+      if (!t.origin)
+        return;
+      let e = "";
+      try {
+        e = new URL(t.origin).origin;
+      } catch {
+        return;
+      }
+      e === this.expectedOrigin && typeof this.onMessage == "function" && this.onMessage(t.data);
+    });
   }
-  init(t) {
-    return this.config = t, this.iframeSrc = this.config.iframeSrc, this.insertAiChat(), this.getExpectedOrigin(), window.addEventListener("message", this.handleMessage.bind(this), !1), {
-      open: this.open.bind(this),
-      close: this.close.bind(this)
+  init({ iframeSrc: t, params: e, onMessage: i }) {
+    this.iframeSrc = t, this.boundsStorageKey = e != null && e.robot_key ? `${M}:${e.robot_key}` : M, this.expectedOrigin = new URL(t).origin, this.onMessage = i, this.insertIframe(e), this.listening || (window.addEventListener("message", this.handleMessage, !1), this.listening = !0), this.windowResizeListening || (window.addEventListener("resize", this.handleWindowResize), this.windowResizeListening = !0);
+  }
+  insertIframe(t) {
+    this.container = document.getElementById("zm_chat-wiki-iframe-container");
+    const e = !this.container;
+    if (this.container || (this.container = document.createElement("div"), this.container.id = "zm_chat-wiki-iframe-container", this.container.style.display = "none", document.body.appendChild(this.container)), this.iframe = document.getElementById("zm_chat-wiki-iframe"), !this.iframe) {
+      const i = D(t);
+      this.iframe = document.createElement("iframe"), this.iframe.id = "zm_chat-wiki-iframe", this.iframe.src = this.iframeSrc + "?" + i;
+    }
+    this.iframe.style.display = "block", this.iframe.style.width = "", this.iframe.style.height = "", this.iframe.style.right = "", this.iframe.style.bottom = "", this.iframe.parentNode !== this.container && this.container.prepend(this.iframe), this.createControls(), e || this.renderBounds();
+  }
+  createControls() {
+    this.dragHandle || !this.container || (this.dragHandle = document.createElement("div"), this.dragHandle.className = "zm_chat-wiki-drag-handle", this.dragHandle.addEventListener("pointerdown", this.handleDragPointerDown), this.container.appendChild(this.dragHandle), this.resizeHandles = x.map((t) => {
+      const e = document.createElement("div");
+      return e.className = `zm_chat-wiki-resize-handle zm_chat-wiki-resize-${t}`, e.dataset.direction = t, e.addEventListener("pointerdown", this.handleResizePointerDown), this.container.appendChild(e), e;
+    }), this.updateControls());
+  }
+  applyConfig(t = {}) {
+    this.permissions.drag = I(t.iframe_drag_enabled), this.permissions.resize = I(t.iframe_resize_enabled);
+    const e = {
+      width: p(
+        t.iframe_width,
+        d.width,
+        h.minWidth,
+        h.maxWidth
+      ),
+      height: p(
+        t.iframe_height,
+        d.height,
+        h.minHeight,
+        h.maxHeight
+      ),
+      right: p(t.iframe_right, d.right, 0, h.maxMargin),
+      bottom: p(
+        t.iframe_bottom,
+        d.bottom,
+        0,
+        h.maxMargin
+      )
+    };
+    this.bounds = this.fitBounds(this.getStoredBounds() || e), this.renderBounds(), this.updateControls();
+  }
+  getStoredBounds() {
+    try {
+      const t = JSON.parse(window.localStorage.getItem(this.boundsStorageKey)), e = ["width", "height", "right", "bottom"].map(
+        (i) => Number(t == null ? void 0 : t[i])
+      );
+      return !t || e.some((i) => !Number.isFinite(i)) ? null : {
+        width: p(
+          t.width,
+          d.width,
+          h.minWidth,
+          h.maxWidth
+        ),
+        height: p(
+          t.height,
+          d.height,
+          h.minHeight,
+          h.maxHeight
+        ),
+        right: p(
+          t.right,
+          d.right,
+          0,
+          h.maxMargin
+        ),
+        bottom: p(
+          t.bottom,
+          d.bottom,
+          0,
+          h.maxMargin
+        )
+      };
+    } catch {
+      return null;
+    }
+  }
+  storeBounds() {
+    try {
+      window.localStorage.setItem(
+        this.boundsStorageKey,
+        JSON.stringify({
+          width: Math.round(this.bounds.width),
+          height: Math.round(this.bounds.height),
+          right: Math.round(this.bounds.right),
+          bottom: Math.round(this.bounds.bottom)
+        })
+      );
+    } catch {
+    }
+  }
+  updateControls() {
+    this.dragHandle && (this.dragHandle.style.display = this.permissions.drag ? "block" : "none"), this.resizeHandles.forEach((t) => {
+      t.style.display = this.permissions.resize ? "block" : "none";
+    });
+  }
+  fitBounds(t) {
+    const e = Math.max(1, window.innerWidth), i = Math.max(1, window.innerHeight), s = Math.min(Math.max(1, t.width), e), o = Math.min(Math.max(1, t.height), i);
+    return {
+      width: s,
+      height: o,
+      right: m(t.right, 0, Math.max(0, e - s)),
+      bottom: m(t.bottom, 0, Math.max(0, i - o))
     };
   }
-  removeAiChat() {
-    const t = document.getElementById("zm_chat-wiki-iframe");
-    t && (document.body.removeChild(t), this.iframe = null);
+  renderBounds() {
+    this.container && (this.container.style.width = `${Math.round(this.bounds.width)}px`, this.container.style.height = `${Math.round(this.bounds.height)}px`, this.container.style.right = `${Math.round(this.bounds.right)}px`, this.container.style.bottom = `${Math.round(this.bounds.bottom)}px`);
   }
-  onInit(t) {
-    o.init(t);
-  }
-  open() {
-    this.iframe.style.display = "block", this.postMessage("openWindow", {});
-  }
-  close() {
-    o.show(), this.iframe.style.display = "none", this.postMessage("closeWindow", {});
-  }
-  onClose() {
-    o.show(), this.iframe.style.display = "none";
-  }
-  createDot(t) {
-    M.create({ value: t });
-  }
-  createNewMessage(t) {
-    let e = t || [];
-    if (e.length === 0) {
-      h.remove();
+  startInteraction(t, e, i = "") {
+    if (!this.container || t.pointerType !== "mouse" || t.button !== 0 || e === "resize" && !x.includes(i))
       return;
+    this.endInteraction(), t.preventDefault();
+    const s = this.container.getBoundingClientRect();
+    this.interaction = {
+      type: e,
+      direction: i,
+      startX: t.clientX,
+      startY: t.clientY,
+      rect: {
+        left: s.left,
+        top: s.top,
+        right: s.right,
+        bottom: s.bottom,
+        width: s.width,
+        height: s.height
+      }
+    }, this.activeHandle = t.currentTarget, this.activePointerId = t.pointerId, this.activeHandle.addEventListener("pointermove", this.handleInteractionMove), this.activeHandle.addEventListener("pointerup", this.handleInteractionEnd), this.activeHandle.addEventListener("pointercancel", this.handleInteractionCancel), this.activeHandle.addEventListener("lostpointercapture", this.handleInteractionCancel), this.activeHandle.setPointerCapture(this.activePointerId), this.previousCursor = document.documentElement.style.cursor, document.documentElement.style.cursor = e === "drag" ? "move" : $[i], window.addEventListener("blur", this.handleInteractionCancel);
+  }
+  applyInteraction(t, e) {
+    if (!this.interaction)
+      return;
+    const i = t - this.interaction.startX, s = e - this.interaction.startY, o = Math.max(1, window.innerWidth), c = Math.max(1, window.innerHeight), r = this.interaction.rect;
+    let f = r.left, w = r.top, v = r.right, y = r.bottom;
+    if (this.interaction.type === "drag")
+      f = m(r.left + i, 0, Math.max(0, o - r.width)), w = m(r.top + s, 0, Math.max(0, c - r.height)), v = f + r.width, y = w + r.height;
+    else {
+      const E = this.interaction.direction;
+      if (E.includes("left")) {
+        const g = Math.min(h.minWidth, r.right);
+        f = m(
+          r.left + i,
+          Math.max(0, r.right - h.maxWidth),
+          r.right - g
+        );
+      }
+      if (E.includes("right")) {
+        const g = Math.max(1, o - r.left), C = Math.min(h.minWidth, g);
+        v = m(
+          r.right + i,
+          r.left + C,
+          Math.min(o, r.left + h.maxWidth)
+        );
+      }
+      if (E.includes("top")) {
+        const g = Math.min(h.minHeight, r.bottom);
+        w = m(
+          r.top + s,
+          Math.max(0, r.bottom - h.maxHeight),
+          r.bottom - g
+        );
+      }
+      if (E.includes("bottom")) {
+        const g = Math.max(1, c - r.top), C = Math.min(h.minHeight, g);
+        y = m(
+          r.bottom + s,
+          r.top + C,
+          Math.min(c, r.top + h.maxHeight)
+        );
+      }
     }
-    e = e.slice(-1), h.create(e);
+    this.bounds = {
+      width: Math.max(1, v - f),
+      height: Math.max(1, y - w),
+      right: Math.max(0, o - v),
+      bottom: Math.max(0, c - y)
+    }, this.renderBounds();
   }
-  getExpectedOrigin() {
-    return new URL(this.iframeSrc).origin;
+  endInteraction() {
+    this.animationFrame !== null && (window.cancelAnimationFrame(this.animationFrame), this.animationFrame = null), this.pendingPoint = null, this.interaction = null, window.removeEventListener("blur", this.handleInteractionCancel), this.activeHandle && (document.documentElement.style.cursor = this.previousCursor, this.previousCursor = "", this.activeHandle.removeEventListener("pointermove", this.handleInteractionMove), this.activeHandle.removeEventListener("pointerup", this.handleInteractionEnd), this.activeHandle.removeEventListener("pointercancel", this.handleInteractionCancel), this.activeHandle.removeEventListener("lostpointercapture", this.handleInteractionCancel), this.activePointerId !== null && this.activeHandle.hasPointerCapture(this.activePointerId) && this.activeHandle.releasePointerCapture(this.activePointerId)), this.activeHandle = null, this.activePointerId = null;
   }
-  handleMessage(t) {
-    if (!t.origin || !(new URL(t.origin).origin === this.getExpectedOrigin()))
-      return;
-    let n = t.data;
-    n && (n.action === "closeChat" && this.onClose(), n.action === "init" && this.onInit(n.data), n.action === "dot" && this.createDot(n.data), n.action === "newMessage" && this.createNewMessage(n.data));
+  show() {
+    return this.container ? (this.container.style.display = "block", !0) : !1;
   }
-  postMessage(t, e) {
+  hide() {
+    this.container && (this.container.style.display = "none");
+  }
+  send(t, e) {
+    var i;
     if (e)
       try {
         e = JSON.parse(JSON.stringify(e));
-      } catch (a) {
-        console.error("Failed to stringify data:", a);
+      } catch (s) {
+        console.error("Failed to stringify data:", s);
         return;
       }
-    if (this.iframe.contentWindow && typeof this.iframe.contentWindow.postMessage == "function")
+    if ((i = this.iframe) != null && i.contentWindow && typeof this.iframe.contentWindow.postMessage == "function")
       try {
         this.iframe.contentWindow.postMessage({ action: t, data: e }, "*");
-      } catch (a) {
-        console.error("Failed to post message:", a);
+      } catch (s) {
+        console.error("Failed to post message:", s);
       }
     else
-      console.warn(
-        "frame.contentWindow is not available or postMessage is not supported."
-      );
+      console.warn("frame.contentWindow is not available or postMessage is not supported.");
   }
-  insertAiChat() {
-    if (document.getElementById("zm_chat-wiki-iframe"))
-      return;
-    const t = p(this.config.params);
-    this.iframe = document.createElement("iframe"), this.iframe.id = "zm_chat-wiki-iframe", this.iframe.src = this.iframeSrc + "?" + t, this.iframe.style.display = "none", document.body.appendChild(this.iframe);
+  remove() {
+    var t, e;
+    this.endInteraction(), this.dragHandle && this.dragHandle.removeEventListener("pointerdown", this.handleDragPointerDown), this.resizeHandles.forEach((i) => {
+      i.removeEventListener("pointerdown", this.handleResizePointerDown);
+    }), this.listening && (window.removeEventListener("message", this.handleMessage, !1), this.listening = !1), this.windowResizeListening && (window.removeEventListener("resize", this.handleWindowResize), this.windowResizeListening = !1), (t = this.container) != null && t.parentNode ? this.container.parentNode.removeChild(this.container) : (e = this.iframe) != null && e.parentNode && this.iframe.parentNode.removeChild(this.iframe), this.container = null, this.iframe = null, this.dragHandle = null, this.resizeHandles = [], this.iframeSrc = "", this.boundsStorageKey = M, this.expectedOrigin = "", this.onMessage = null, this.bounds = { ...d }, this.permissions = { drag: !1, resize: !1 };
   }
 }
-const c = new D();
-function x() {
-  let i = {
+const u = new Y();
+class X {
+  constructor(t = []) {
+    n(this, "supportedEvents", /* @__PURE__ */ new Set());
+    n(this, "listeners", /* @__PURE__ */ new Map());
+    t.forEach((e) => {
+      this.supportedEvents.add(e), this.listeners.set(e, /* @__PURE__ */ new Set());
+    });
+  }
+  on(t, e, i = {}) {
+    if (!this.supportedEvents.has(t))
+      return console.warn(`Unsupported event: ${t}`), () => {
+      };
+    if (typeof e != "function")
+      return console.warn("Event callback must be a function."), () => {
+      };
+    if (Object.prototype.hasOwnProperty.call(i, "replayPayload")) {
+      let o = !0;
+      return queueMicrotask(() => {
+        o && this.callListener(t, e, i.replayPayload);
+      }), () => {
+        o = !1;
+      };
+    }
+    const s = this.listeners.get(t);
+    return s.add(e), () => {
+      s.delete(e);
+    };
+  }
+  emit(t, e) {
+    const i = this.listeners.get(t);
+    if (!i) {
+      console.warn(`Unsupported event: ${t}`);
+      return;
+    }
+    Array.from(i).forEach((s) => {
+      this.callListener(t, s, e);
+    });
+  }
+  clear(t) {
+    if (t === void 0) {
+      this.listeners.forEach((i) => i.clear());
+      return;
+    }
+    const e = this.listeners.get(t);
+    if (!e) {
+      console.warn(`Unsupported event: ${t}`);
+      return;
+    }
+    e.clear();
+  }
+  callListener(t, e, i) {
+    try {
+      e(i);
+    } catch (s) {
+      console.error(`Failed to handle SDK event: ${t}`, s);
+    }
+  }
+}
+const U = ["ready", "open", "close"];
+function H(a) {
+  return Object.prototype.toString.call(a) === "[object Object]";
+}
+class j {
+  constructor() {
+    n(this, "config", {});
+    n(this, "ready", !1);
+    n(this, "opened", !1);
+    n(this, "desiredOpen", !1);
+    n(this, "pendingOpenOptions", {});
+    n(this, "initData", null);
+    n(this, "runtimeConfig", {
+      showFloatButton: !0
+    });
+    n(this, "eventEmitter", new X(U));
+  }
+  init(t) {
+    return this.config = t, this.runtimeConfig.showFloatButton = this.config.showFloatButton !== !1, u.init({
+      iframeSrc: this.config.iframeSrc,
+      params: this.config.params,
+      onMessage: this.handleMessage.bind(this)
+    }), {
+      open: this.open.bind(this),
+      close: this.close.bind(this),
+      setConfig: this.setConfig.bind(this),
+      on: this.on.bind(this),
+      onReady: this.onReady.bind(this),
+      isReady: this.isReady.bind(this)
+    };
+  }
+  removeAiChat() {
+    u.remove();
+  }
+  onInit(t) {
+    this.initData = t, u.applyConfig(t == null ? void 0 : t.config), l.init(t, this.runtimeConfig.showFloatButton, () => this.open()), this.desiredOpen && l.hide(), !this.ready && (this.ready = !0, this.eventEmitter.emit("ready", { type: "ready" }), this.eventEmitter.clear("ready"), this.desiredOpen && this.performOpen(this.pendingOpenOptions));
+  }
+  open(t = {}) {
+    if (t = this.normalizeOpenOptions(t), !this.opened) {
+      if (!this.ready) {
+        this.desiredOpen = !0, this.pendingOpenOptions = t;
+        return;
+      }
+      this.performOpen(t);
+    }
+  }
+  performOpen(t) {
+    this.opened || !u.show() || (this.desiredOpen = !1, this.pendingOpenOptions = {}, l.hide(), u.send("openWindow", t), this.opened = !0, this.eventEmitter.emit("open", { type: "open", options: t }));
+  }
+  close() {
+    if (this.desiredOpen = !1, this.pendingOpenOptions = {}, u.hide(), !this.opened) {
+      l.show();
+      return;
+    }
+    this.opened = !1, u.send("closeWindow", {}), l.show(), this.eventEmitter.emit("close", { type: "close", source: "sdk" });
+  }
+  onClose() {
+    const t = this.opened;
+    this.desiredOpen = !1, this.pendingOpenOptions = {}, this.opened = !1, l.show(), u.hide(), t && this.eventEmitter.emit("close", { type: "close", source: "iframe" });
+  }
+  setConfig(t, e) {
+    let i = t;
+    if (typeof t == "string") {
+      if (arguments.length < 2) {
+        console.warn("setConfig requires a value when called with a key.");
+        return;
+      }
+      i = { [t]: e };
+    }
+    if (!H(i)) {
+      console.warn("setConfig requires a key/value pair or a plain object.");
+      return;
+    }
+    Object.keys(i).forEach((s) => {
+      if (s !== "showFloatButton") {
+        console.warn(`Unsupported config: ${s}`);
+        return;
+      }
+      if (typeof i[s] != "boolean") {
+        console.warn("showFloatButton must be a boolean.");
+        return;
+      }
+      this.runtimeConfig.showFloatButton = i[s], l.setEnabled(i[s]), i[s] ? this.ready && !this.opened && l.show() : (W.remove(), b.remove());
+    });
+  }
+  on(t, e) {
+    return t === "ready" && this.ready ? this.eventEmitter.on(t, e, {
+      replayPayload: { type: "ready" }
+    }) : this.eventEmitter.on(t, e);
+  }
+  onReady(t) {
+    return this.on("ready", t);
+  }
+  isReady() {
+    return this.ready;
+  }
+  normalizeOpenOptions(t) {
+    if (!H(t))
+      return console.warn("open options must be a plain object."), {};
+    try {
+      return JSON.parse(JSON.stringify(t));
+    } catch (e) {
+      return console.warn("open options must be serializable.", e), {};
+    }
+  }
+  createDot(t) {
+    if (!this.runtimeConfig.showFloatButton) {
+      W.remove();
+      return;
+    }
+    W.create({ value: t });
+  }
+  createNewMessage(t) {
+    if (!this.runtimeConfig.showFloatButton) {
+      b.remove();
+      return;
+    }
+    let e = t || [];
+    if (e.length === 0) {
+      b.remove();
+      return;
+    }
+    e = e.slice(-1), b.create(e);
+  }
+  handleMessage(t) {
+    t && (t.action === "closeChat" && this.onClose(), t.action === "init" && this.onInit(t.data), t.action === "dot" && this.createDot(t.data), t.action === "newMessage" && this.createNewMessage(t.data));
+  }
+}
+const J = new j();
+function K() {
+  let a = {
     iframeSrc: "/#/chat",
     remote: "",
-    params: {}
+    params: {},
+    showFloatButton: !0
   };
   const t = document.getElementById("ai_chat_js");
   if (t) {
-    let e = t.getAttribute("data-json"), a = new URL(t.src).origin;
-    i.iframeSrc = a + "/web/#/chat";
+    let e = t.getAttribute("data-json"), i = new URL(t.src).origin;
+    a.iframeSrc = i + "/web/#/chat";
     try {
-      i.params = JSON.parse(e);
-    } catch (n) {
-      console.error("Failed to stringify data:", n);
+      const s = JSON.parse(e) || {};
+      if (Object.prototype.hasOwnProperty.call(s, "show_float_button")) {
+        const o = s.show_float_button;
+        a.showFloatButton = o !== !1 && o !== 0 && o !== "0", delete s.show_float_button;
+      }
+      a.params = s;
+    } catch (s) {
+      console.error("Failed to stringify data:", s);
       return;
     }
   }
-  return c.init(i);
+  return J.init(a);
 }
-g();
-window.AiChatSDK = x();
+_();
+window.AiChatSDK = K();

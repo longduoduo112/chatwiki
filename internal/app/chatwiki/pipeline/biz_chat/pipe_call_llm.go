@@ -106,7 +106,7 @@ func DoApplicationTypeFlow(in *ChatInParam, out *ChatOutParam) pipeline.PipeResu
 			in.exitChat = true // exit flag
 			out.debugLog = append(out.debugLog, map[string]string{`type`: `cur_question`, `content`: in.params.Question})
 			in.Stream(sse.Event{Event: `debug`, Data: out.debugLog}) // render prompt log
-			common.SendDefaultUnknownQuestionPrompt(in.params, out.Error.Error(), in.chanStream, &out.content)
+			SendDefaultUnknownQuestionPrompt(in, out, out.Error.Error())
 		} else {
 			// show citation logic
 			callLlm := pipeline.NewPipeline(in, out)
@@ -213,7 +213,7 @@ func DoRelationWorkFlow(in *ChatInParam, out *ChatOutParam) pipeline.PipeResult 
 				in.Stream(sse.Event{Event: `request_time`, Data: out.requestTime})
 				in.Stream(sse.Event{Event: `sending`, Data: out.content})
 			} else {
-				common.SendDefaultUnknownQuestionPrompt(in.params, out.Error.Error(), in.chanStream, &out.content)
+				SendDefaultUnknownQuestionPrompt(in, out, out.Error.Error())
 			}
 			in.saveRobotChatCache = false // related workflow not saved to chat cache
 		}

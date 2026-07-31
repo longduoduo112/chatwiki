@@ -378,7 +378,7 @@ func ChatRequest(c *gin.Context) {
 	})
 	*params.IsClose = true // set flag
 	for range chanStream {
-		// discard unpushed data flows
+		// discard
 	}
 }
 
@@ -394,7 +394,7 @@ func ChatRequestNotStream(c *gin.Context) {
 	chanStream := make(chan sse.Event)
 	go func() {
 		for range chanStream {
-			// Consume stream events to prevent blocking
+			// discard
 		}
 	}()
 	out, err := DoChatRequest(params, false, chanStream)

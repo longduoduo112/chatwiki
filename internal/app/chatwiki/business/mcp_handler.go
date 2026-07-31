@@ -340,11 +340,11 @@ func chatMessage(adminUserId int, robotKey string) func(context.Context, mcp.Cal
 
 		// Execute non-streaming chat request
 		chanStream := make(chan sse.Event)
-		go func() {
+		go func(chanStream chan sse.Event) {
 			for range chanStream {
-				// Consume stream events to prevent blocking
+				// discard
 			}
-		}()
+		}(chanStream)
 
 		message, err := DoChatRequest(chatParams, false, chanStream)
 		if err != nil {

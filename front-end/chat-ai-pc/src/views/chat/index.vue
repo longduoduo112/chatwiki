@@ -175,8 +175,7 @@
 
 <script setup lang="ts">
 import type { Message } from './types'
-import type { Chat } from '@/stores/modules/chat'
-import { getOpenid, getUuid } from '@/utils/index'
+import { getUuid } from '@/utils/index'
 import { useI18n } from '@/hooks/web/useI18n'
 import { useLocale } from '@/hooks/web/useLocale'
 import { useLocaleStoreWithOut } from '@/stores/modules/locale'
@@ -199,6 +198,7 @@ import FastComand from './components/fast-comand/index.vue'
 import LeftSideBar from '@/views/chat/components/left-side-bar/index.vue'
 import VariableModal from './components/variable-modal/index.vue'
 import { getLang } from '@/utils/getLangConfig'
+import { parseChatInitParams } from '@/utils/chat-init'
 
 type MessageListComponent = {
   scrollToMessage: (id: number | string) => void
@@ -215,21 +215,6 @@ interface LeftSideBarRefState {
 }
 const { windowWidth } = useWindowWidth()
 const route = useRoute()
-
-const getRouteChatData = (): Chat => {
-  const query = route.query || {}
-
-  return {
-    isOpen: false,
-    unreadNumber: 0,
-    openid: String(query.openid || getOpenid()),
-    robot_key: String(query.robot_key || ''),
-    avatar: String(query.avatar || ''),
-    name: String(query.name || ''),
-    nickname: String(query.nickname || ''),
-    dialogue_id: Number(query.dialogue_id) || 0
-  }
-}
 
 const isMobileDevice = computed(() => {
   return windowWidth.value <= 500
@@ -293,6 +278,11 @@ const handleMessageListScrollToBottom = () => {
   }
 }
 
+watch(
+  () => messageList.value.length,
+  handleMessageListScrollToBottom
+)
+
 // 滚动
 const onScroll = (event) => {
   const isAtBottom = Math.abs(event.scrollHeight - event.clientHeight - event.scrollTop) <= scrollEndDiff
@@ -303,7 +293,7 @@ const onScroll = (event) => {
 
 // 滚动到顶部
 const onScrollStart = async () => {
-  isAllowedScrollToBottom = true // 允许滚动到底部
+  isAllowedScrollToBottom = false
   let msgId = messageList.value[0].uid
 
   let res = await onGetChatMessage()
@@ -337,7 +327,7 @@ const SDKInit = (data: any) => {
 const init = async () => {
   isAllowedScrollToBottom = true
 
-  const chatData = getRouteChatData()
+  const chatData = parseChatInitParams(route.query)
 
   await getMyChatList(chatData.robot_key, chatData.openid)
 
@@ -525,8 +515,6 @@ const openNewChat = async () => {
   message.value = ''
 
   let data = {
-    isOpen: false,
-    unreadNumber: 0,
     openid: '',
     robot_key: robot.robot_key,
     avatar: '',
