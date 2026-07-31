@@ -36,28 +36,46 @@
   }
 }
 .box-right {
-  width: 343px;
+  width: 418px;
   margin: 0 96px 0 48px;
 
+  .demo-box {
+    overflow: hidden;
+  }
   .preview-img {
     display: block;
     border-radius: 9px;
     box-shadow: 0 4px 32px 0 rgba(0, 0, 0, 0.16);
   }
   iframe {
-    width: 375px;
-    height: 720px;
+    display: block;
+    transform-origin: top left;
     border-radius: 4px;
     box-shadow: 0 4px 32px 0 rgba(0, 0, 0, 0.16);
   }
 }
 
-.window-size-box{
+.window-size-box {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
   gap: 16px;
   margin-top: 14px;
+}
+
+.iframe-setting-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.iframe-switch-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+  color: #595959;
 }
 </style>
 
@@ -92,6 +110,58 @@
                 :name="['pageStyle', 'headBackgroundColor']"
               >
                 <GradientColorPicker v-model:value="formState.pageStyle.headBackgroundColor" />
+              </a-form-item>
+              <a-form-item class="form-item" :label="t('iframe_size_label')">
+                <div class="iframe-setting-row">
+                  <a-flex align="center" :gap="8">
+                    <span>{{ t('iframe_width_label') }}</span>
+                    <a-input-number
+                      v-model:value="formState.iframe_width"
+                      :min="320"
+                      :max="2000"
+                      :precision="0"
+                    />
+                  </a-flex>
+                  <a-flex align="center" :gap="8">
+                    <span>{{ t('iframe_height_label') }}</span>
+                    <a-input-number
+                      v-model:value="formState.iframe_height"
+                      :min="400"
+                      :max="2000"
+                      :precision="0"
+                    />
+                  </a-flex>
+                </div>
+                <div class="iframe-switch-row">
+                  <span>{{ t('iframe_resize_label') }}</span>
+                  <a-switch v-model:checked="formState.iframe_resize_enabled" />
+                </div>
+              </a-form-item>
+              <a-form-item class="form-item" :label="t('iframe_position_label')">
+                <div class="iframe-setting-row">
+                  <a-flex align="center" :gap="8">
+                    <span>{{ t('iframe_right_label') }}</span>
+                    <a-input-number
+                      v-model:value="formState.iframe_right"
+                      :min="0"
+                      :max="2000"
+                      :precision="0"
+                    />
+                  </a-flex>
+                  <a-flex align="center" :gap="8">
+                    <span>{{ t('iframe_bottom_label') }}</span>
+                    <a-input-number
+                      v-model:value="formState.iframe_bottom"
+                      :min="0"
+                      :max="2000"
+                      :precision="0"
+                    />
+                  </a-flex>
+                </div>
+                <div class="iframe-switch-row">
+                  <span>{{ t('iframe_drag_label') }}</span>
+                  <a-switch v-model:checked="formState.iframe_drag_enabled" />
+                </div>
               </a-form-item>
               <a-form-item class="form-item" :label="t('language_label')" name="lang">
                 <a-select
@@ -172,8 +242,13 @@
       </div>
     </div>
     <div class="box-right">
-      <div class="demo-box">
-        <iframe id="web-preview" :src="previewIframeSrc" frameborder="0"></iframe>
+      <div class="demo-box" :style="previewBoxStyle">
+        <iframe
+          id="web-preview"
+          :src="previewIframeSrc"
+          :style="previewIframeStyle"
+          frameborder="0"
+        ></iframe>
       </div>
     </div>
   </div>
@@ -218,6 +293,12 @@ const formState = reactive({
   open_type: external_config_pc.value.open_type,
   window_width: external_config_pc.value.window_width,
   window_height: external_config_pc.value.window_height,
+  iframe_width: external_config_pc.value.iframe_width,
+  iframe_height: external_config_pc.value.iframe_height,
+  iframe_right: external_config_pc.value.iframe_right,
+  iframe_bottom: external_config_pc.value.iframe_bottom,
+  iframe_resize_enabled: external_config_pc.value.iframe_resize_enabled,
+  iframe_drag_enabled: external_config_pc.value.iframe_drag_enabled,
   new_session_btn_show: external_config_pc.value.new_session_btn_show,
   avatarShow: external_config_pc.value.avatarShow
 })
@@ -226,6 +307,33 @@ const previewIframeSrc = computed(() => {
   let { pc_domain, robot_key } = robotInfo.value
   return `${pc_domain}/web/#/chat?robot_key=${robot_key}`
 })
+
+const toIntegerInRange = (value, fallback, min, max) => {
+  const number = Number(value)
+  if (!Number.isFinite(number)) {
+    return fallback
+  }
+  return Math.min(max, Math.max(min, Math.round(number)))
+}
+
+const previewSize = computed(() => {
+  const width = toIntegerInRange(formState.iframe_width, 418, 320, 2000)
+  const height = toIntegerInRange(formState.iframe_height, 680, 400, 2000)
+  const scale = Math.min(1, 418 / width, 720 / height)
+
+  return { width, height, scale }
+})
+
+const previewBoxStyle = computed(() => ({
+  width: `${previewSize.value.width * previewSize.value.scale}px`,
+  height: `${previewSize.value.height * previewSize.value.scale}px`
+}))
+
+const previewIframeStyle = computed(() => ({
+  width: `${previewSize.value.width}px`,
+  height: `${previewSize.value.height}px`,
+  transform: `scale(${previewSize.value.scale})`
+}))
 
 watch(formState, (val) => {
   updatePreview(val)
@@ -287,6 +395,10 @@ const saveWebSiteInfo = () => {
   const { id } = robotInfo.value
   formState.window_width = +formState.window_width || 1200
   formState.window_height = +formState.window_height || 650
+  formState.iframe_width = toIntegerInRange(formState.iframe_width, 418, 320, 2000)
+  formState.iframe_height = toIntegerInRange(formState.iframe_height, 680, 400, 2000)
+  formState.iframe_right = toIntegerInRange(formState.iframe_right, 50, 0, 2000)
+  formState.iframe_bottom = toIntegerInRange(formState.iframe_bottom, 50, 0, 2000)
   let formData = { ...toRaw(formState) }
 
   editExternalConfig({

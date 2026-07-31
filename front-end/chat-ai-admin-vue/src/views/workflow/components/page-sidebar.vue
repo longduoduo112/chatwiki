@@ -302,6 +302,12 @@ const menus = computed(() => [
     iconName: 'export-record'
   },
   {
+    label: t('menu_rate_limit'),
+    value: 'rate-limit',
+    path: '/robot/config/rate-limit',
+    iconName: 'alarm-clock'
+  },
+  {
     label: t('menu_invoke_logs'),
     value: 'invoke-logs',
     path: '/robot/config/invoke-logs',

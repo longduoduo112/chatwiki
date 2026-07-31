@@ -45,6 +45,11 @@ class NewMssage {
 
     this.listDomWrapper.appendChild(listDom);
 
+    if (!AiAvatar.avatarContentEl) {
+      this.listDomWrapper = null
+      return
+    }
+
     AiAvatar.avatarContentEl.appendChild(this.listDomWrapper);
 
     // 添加关闭按钮点击事件

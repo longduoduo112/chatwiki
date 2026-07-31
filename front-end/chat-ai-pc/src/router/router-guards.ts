@@ -1,22 +1,10 @@
 import type { Router } from 'vue-router';
 import { NO_REDIRECT_WHITE_LIST } from '@/constants/index'
 import { useChatStore } from '@/stores/modules/chat'
-import type { Chat } from '@/stores/modules/chat'
 import { useLocaleStoreWithOut } from '@/stores/modules/locale'
 import { useLocale } from '@/hooks/web/useLocale'
 import { getLang } from '@/utils/getLangConfig'
-
-// 辅助函数：从路由的查询参数中提取Chat数据  
-function extractChatDataFromQuery(query: any): Partial<Chat> {  
-    return {  
-        openid: query.openid || '',  
-        robot_key: query.robot_key || '',  
-        avatar: query.avatar || '',  
-        name: query.name || '',  
-        nickname: query.nickname || '',  
-        dialogue_id: query.dialogue_id || '',  
-    };  
-}  
+import { parseChatInitParams } from '@/utils/chat-init'
 
 // 辅助函数：检查是否需要重定向  
 function shouldRedirect(to: any): boolean {  
@@ -53,9 +41,10 @@ export function createRouterGuards(router: Router) {
 
     // 导航守卫  
     router.beforeEach(async (to, from, next) => {  
-        const data = extractChatDataFromQuery(to.query);  
-  
-        const res1 = await chatStore.setH5Config(data as Chat);
+        const data = parseChatInitParams(to.query);
+
+        // 路由阶段预取机器人展示及语言配置；完整会话仍由聊天页 createChat 初始化。
+        const res1 = await chatStore.setH5Config(data);
         if (res1?.data?.robot) {
             handleLanguageSwitch(res1.data.robot);
         }
@@ -69,7 +58,7 @@ export function createRouterGuards(router: Router) {
                 next();  
             } else {  
                 try {  
-                    const res = await chatStore.createChat(data as Chat);
+                    const res = await chatStore.createChat(data);
                     // 在 createChat 完成后处理语言切换
                     if (res?.data?.robot) {
                         handleLanguageSwitch(res.data.robot);

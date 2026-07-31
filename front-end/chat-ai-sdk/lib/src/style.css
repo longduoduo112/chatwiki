@@ -10,15 +10,107 @@
   position: relative;
 }
 
-#zm_chat-wiki-iframe {
+#zm_chat-wiki-iframe-container {
   position: fixed;
   right: 50px;
   bottom: 50px;
-  width: 400px;
-  height: 600px;
-  border: 0;
+  width: 418px;
+  height: 680px;
   z-index: 9999;
+  border-radius: 4px;
   box-shadow: rgba(180, 180, 180, 0.5) 0px 2px 14px 0px;
+}
+
+#zm_chat-wiki-iframe {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  border-radius: inherit;
+}
+
+.zm_chat-wiki-drag-handle,
+.zm_chat-wiki-resize-handle {
+  position: absolute;
+  user-select: none;
+  touch-action: none;
+}
+
+.zm_chat-wiki-drag-handle {
+  top: 6px;
+  right: 40px;
+  left: 6px;
+  height: 58px;
+  z-index: 1;
+  cursor: move;
+}
+
+.zm_chat-wiki-resize-handle {
+  z-index: 2;
+}
+
+.zm_chat-wiki-resize-top,
+.zm_chat-wiki-resize-bottom {
+  right: 12px;
+  left: 12px;
+  height: 6px;
+  cursor: ns-resize;
+}
+
+.zm_chat-wiki-resize-top {
+  top: 0;
+}
+
+.zm_chat-wiki-resize-bottom {
+  bottom: 0;
+}
+
+.zm_chat-wiki-resize-left,
+.zm_chat-wiki-resize-right {
+  top: 12px;
+  bottom: 12px;
+  width: 6px;
+  cursor: ew-resize;
+}
+
+.zm_chat-wiki-resize-left {
+  left: 0;
+}
+
+.zm_chat-wiki-resize-right {
+  right: 0;
+}
+
+.zm_chat-wiki-resize-top-left,
+.zm_chat-wiki-resize-top-right,
+.zm_chat-wiki-resize-bottom-left,
+.zm_chat-wiki-resize-bottom-right {
+  width: 12px;
+  height: 12px;
+}
+
+.zm_chat-wiki-resize-top-left {
+  top: 0;
+  left: 0;
+  cursor: nwse-resize;
+}
+
+.zm_chat-wiki-resize-top-right {
+  top: 0;
+  right: 0;
+  cursor: nesw-resize;
+}
+
+.zm_chat-wiki-resize-bottom-left {
+  bottom: 0;
+  left: 0;
+  cursor: nesw-resize;
+}
+
+.zm_chat-wiki-resize-bottom-right {
+  right: 0;
+  bottom: 0;
+  cursor: nwse-resize;
 }
 
 #zm_chat-wiki-avatar .chat-wiki-avatar_type2 {

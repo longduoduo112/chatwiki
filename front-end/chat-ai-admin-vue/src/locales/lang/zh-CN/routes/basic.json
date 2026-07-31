@@ -17,6 +17,7 @@
   "qa_feedback": "问答反馈",
   "session_record": "会话记录",
   "export_record": "导出记录",
+  "rate_limit": "限流设置",
   "invoke_logs": "调用日志",
   "unknown_issue": "未知问题",
   "statistical_analysis": "统计分析",

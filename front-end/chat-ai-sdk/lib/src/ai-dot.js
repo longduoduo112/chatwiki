@@ -4,23 +4,29 @@ class AiDot {
   dotEl = null;
 
   create(config) {
-    if(config.value == 0 && !this.dotEl){
+    if(config.value <= 0){
+      this.remove()
       return;
     }
 
     if(config.value > 0 && !this.dotEl){
+      if (!AiAvatar.avatarContentEl) {
+        return
+      }
       this.dotEl = document.createElement("div");
       AiAvatar.avatarContentEl.appendChild(this.dotEl);
     }
 
-    if(this.dotEl && config.value <= 0){
-      // 移除dotEl
-      this.dotEl.remove();
-      this.dotEl = null;
-    }else{
-      // 如果dotEl存在则更新它的文本内容
+    if(this.dotEl){
       this.dotEl.className = `ai-dot${Number(config.value) > 9 ? ' ai-dot-plus' : ''}`;
       this.dotEl.textContent = config.value;
+    }
+  }
+
+  remove() {
+    if (this.dotEl) {
+      this.dotEl.remove();
+      this.dotEl = null;
     }
   }
 }

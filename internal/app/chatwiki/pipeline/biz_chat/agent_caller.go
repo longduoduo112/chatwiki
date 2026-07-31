@@ -39,12 +39,7 @@ func runClawbotForWorkflow(robotInfo msql.Params, question string, lang string) 
 		Lang:          lang,
 		Question:      question,
 	}
-	// A non-nil channel with a draining goroutine is required: the error path of
-	// doApplicationTypeClaw (pipe_clawbot.go) calls SendDefaultUnknownQuestionPrompt,
-	// which writes to chanStream directly (bypassing in.Stream). A nil channel would
-	// block forever on send. The goroutine discards events so nothing reaches the
-	// C-side, preserving the "no trace" behaviour. useStream is false, so the normal
-	// path never writes to the channel (in.Stream is a no-op when useStream is false).
+
 	chanStream := make(chan sse.Event)
 	go func() {
 		for range chanStream {

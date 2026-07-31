@@ -137,6 +137,19 @@ Feel free to contact us for help or to provide suggestions to improve ChatWiki. 
 ---
 For the complete changelog, please click 👉️👉️[UpdateLog.md](./UpdateLog.md)
 
+**2026/07/31**
+
+1.External Service: Embed website SDK supports initialization parameters<br/>
+2.Optimized data table integer/number field data storage and rendering<br/>
+3.Fixed issue where variable list dropdown was not working when inserting variables in bot prompts<br/>
+4.External Service: Added popup size and position settings for embedded website<br/>
+5.Agent local knowledge base query tool: Support LLM autonomous selection of which knowledge base to query<br/>
+6.Agent bot, chat bot, and workflow: Added rate limiting settings<br/>
+7.[STD] Associated ChatWiki bot: Additionally forward image, voice, and video messages when multimodal is enabled<br/>
+8.Agent bot: Optimized associated knowledge base<br/>
+9.Fixed issue where chat test and external service user messages were obscured when rate limiting had no reply<br/>
+10.[STD] Cloud version supports DingTalk, WeCom, and Feishu login<br/>
+
 **2026/07/24**
 
 1.Workflow - Added product library search node<br/>
@@ -169,19 +182,6 @@ For the complete changelog, please click 👉️👉️[UpdateLog.md](./UpdateLo
 15.Agent bots add new skill generation tool: Web to Skill<br/>
 16.[STD] SSO login - DingTalk, Feishu, WeCom<br/>
 17.Clear agent nodes in workflow when exporting workflow<br/>
-
-**2026/07/03**
-
-1.LLM calls now pass tool_call_id in Tool Messages<br/>
-2.Optimized LLM output handling for \<think>reasoning process...\</think> data<br/>
-3.Agent bots now support uploading custom skills<br/>
-4.External services support connecting to WhatsApp through Alibaba Cloud<br/>
-5.Added logs for changes to bot/workflow basic configurations<br/>
-6.Agent optimization: streamlined system prompts and support for disabling built-in tools<br/>
-7.Official Account, WeChat Customer Service, and Mini Program channels now support sending Mini Program cards<br/>
-8.PDF plain-text parsing now supports custom fonts, control-character cleanup, and Kangxi radical conversion<br/>
-9.Added product library, and Agent bots now support querying the product library tool<br/>
-10.Agent bots now support configuring E2B for script and command execution<br/>
 
 ## License
 

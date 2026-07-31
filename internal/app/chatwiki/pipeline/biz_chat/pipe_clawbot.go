@@ -317,7 +317,7 @@ func doApplicationTypeClaw(in *ChatInParam, out *ChatOutParam) error {
 				break // client disconnect/stop: keep partial content, skip fallback
 			}
 			out.Error = event.Err
-			common.SendDefaultUnknownQuestionPrompt(in.params, out.Error.Error(), in.chanStream, &out.content)
+			SendDefaultUnknownQuestionPrompt(in, out, out.Error.Error())
 			return nil
 		}
 		if event.Action != nil && event.Action.Interrupted != nil {
@@ -332,7 +332,7 @@ func doApplicationTypeClaw(in *ChatInParam, out *ChatOutParam) error {
 				break // client disconnect/stop: keep partial content, skip fallback
 			}
 			out.Error = err
-			common.SendDefaultUnknownQuestionPrompt(in.params, out.Error.Error(), in.chanStream, &out.content)
+			SendDefaultUnknownQuestionPrompt(in, out, out.Error.Error())
 			return nil
 		}
 		role := event.Output.MessageOutput.Role
@@ -599,12 +599,54 @@ func newKbsearchTool(params *define.ChatRequestParam, sessionId int) einotool.Ba
 	if cast.ToBool(params.Robot[`search_knowledge_close`]) {
 		return nil // knowledge base search has been disabled
 	}
-	kbSearchTool := custom_eino.BuildKbsearchTool(func(query string) (string, error) {
+	libraryIds := strings.TrimSpace(params.LibraryIds)
+	if len(libraryIds) == 0 || !common.CheckIds(libraryIds) { //no custom is used
+		libraryIds = strings.TrimSpace(params.Robot[`library_ids`])
+	}
+	if len(libraryIds) == 0 || !common.CheckIds(libraryIds) {
+		return nil
+	}
+	availableLibraryIds := make([]string, 0)
+	seenLibraryIds := make(map[string]struct{})
+	for _, libraryId := range strings.Split(libraryIds, `,`) {
+		libraryId = strings.TrimSpace(libraryId)
+		if _, ok := seenLibraryIds[libraryId]; ok {
+			continue
+		}
+		seenLibraryIds[libraryId] = struct{}{}
+		availableLibraryIds = append(availableLibraryIds, libraryId)
+	}
+	list, err := msql.Model(`chat_ai_library`, define.Postgres).
+		Where(`admin_user_id`, cast.ToString(params.AdminUserId)).
+		Where(`id`, `in`, strings.Join(availableLibraryIds, `,`)).
+		Field(`id,library_name,library_intro`).
+		Select()
+	if err != nil {
+		logs.Error(`get kbsearch library list failed: ` + err.Error())
+		return nil
+	}
+	libraryMap := make(map[string]msql.Params, len(list))
+	for _, library := range list {
+		libraryMap[library[`id`]] = library
+	}
+	libraries := make([]custom_eino.KbsearchLibrary, 0, len(list))
+	for _, libraryId := range availableLibraryIds {
+		library, ok := libraryMap[libraryId]
+		if !ok {
+			continue
+		}
+		libraries = append(libraries, custom_eino.KbsearchLibrary{
+			ID:           library[`id`],
+			Name:         library[`library_name`],
+			Introduction: library[`library_intro`],
+		})
+	}
+	if len(libraries) == 0 {
+		return nil
+	}
+	kbSearchTool := custom_eino.BuildKbsearchTool(libraries, func(query string, libraryIds []string) (string, error) {
 		// Replace chat variable placeholders in metadata filter config (if enabled)
 		common.ReplaceMetaSearchChatVariables(params.Lang, sessionId, &params.Robot)
-		if len(params.LibraryIds) == 0 || !common.CheckIds(params.LibraryIds) { //no custom is used
-			params.LibraryIds = params.Robot[`library_ids`]
-		}
 		var appId string
 		if tool.InArrayString(params.AppType, lib_define.AppTypeList) {
 			appId = params.AppInfo[`app_id`]
@@ -616,7 +658,7 @@ func newKbsearchTool(params *define.ChatRequestParam, sessionId int) einotool.Ba
 			appId,
 			query,
 			[]string{},
-			params.LibraryIds,
+			strings.Join(libraryIds, `,`),
 			cast.ToInt(params.Robot[`top_k`]),
 			cast.ToFloat64(params.Robot[`similarity`]),
 			cast.ToInt(params.Robot[`search_type`]),

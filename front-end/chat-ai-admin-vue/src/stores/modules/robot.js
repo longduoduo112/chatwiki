@@ -42,6 +42,12 @@ const external_config_pc_default = {
   open_type: 1, // 1新标签页
   window_width: 1200,
   window_height: 650,
+  iframe_width: 418,
+  iframe_height: 680,
+  iframe_right: 50,
+  iframe_bottom: 50,
+  iframe_resize_enabled: false,
+  iframe_drag_enabled: false,
   new_session_btn_show: 2,
 }
 
@@ -334,7 +340,11 @@ export const useRobotStore = defineStore('robot', () => {
     // 嵌入网站配置
     if (data.external_config_pc !== '') {
       const pcConfig = JSON.parse(data.external_config_pc)
-      Object.assign(external_config_pc, pcConfig)
+      Object.assign(
+        external_config_pc,
+        JSON.parse(JSON.stringify(external_config_pc_default)),
+        pcConfig
+      )
       ensureAvatarShow(external_config_pc, robotInfo.application_type, pcConfig)
     } else {
       Object.assign(external_config_pc, JSON.parse(JSON.stringify(external_config_pc_default)))

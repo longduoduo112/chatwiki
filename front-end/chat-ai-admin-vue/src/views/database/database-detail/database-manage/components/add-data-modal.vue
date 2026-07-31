@@ -42,6 +42,8 @@
             <a-input-number
               style="width: 100%"
               v-model:value.number="formState[item.name]"
+              :min="Number.MIN_SAFE_INTEGER"
+              :max="Number.MAX_SAFE_INTEGER"
               :placeholder="t('ph_input_content')"
             />
           </template>
@@ -123,7 +125,19 @@ const show = (data) => {
   formRef.value && formRef.value.resetFields()
   formatField()
   formState.id = ''
-  Object.assign(formState, convertNumberStringsToObjectNumbers(data))
+  const formData = { ...data }
+  props.column.forEach((item) => {
+    const value = formData[item.name]
+    if (
+      (item.type == 'number' || item.type == 'integer') &&
+      typeof value === 'string' &&
+      value != '' &&
+      !Number.isNaN(Number(value))
+    ) {
+      formData[item.name] = Number(value)
+    }
+  })
+  Object.assign(formState, formData)
   if (formState.id) {
     modalTitle.value = t('modal_title_edit')
   } else {
@@ -142,32 +156,6 @@ const handleOk = () => {
     })
   })
 }
-function convertNumberStringsToObjectNumbers(obj) {
-  // 创建一个新对象来存放转换后的属性
-  const newObj = {}
-
-  // 遍历传入对象的所有可枚举属性
-  for (let key in obj) {
-    if (obj.hasOwnProperty(key)) {
-      // 确保属性是对象自身的属性，而不是继承来的
-      const value = obj[key]
-
-      // 使用Number()函数尝试将属性值转换为数字
-      // 如果转换成功（即不是NaN），并且原始值是字符串类型
-      // 则将转换后的数字赋值给新对象的同名属性
-      if (!isNaN(Number(value)) && typeof value === 'string' && value != '') {
-        newObj[key] = Number(value)
-      } else {
-        // 如果转换失败或者原始值不是字符串，则直接复制原始值到新对象
-        newObj[key] = value
-      }
-    }
-  }
-
-  // 返回新对象
-  return newObj
-}
-
 defineExpose({
   show
 })

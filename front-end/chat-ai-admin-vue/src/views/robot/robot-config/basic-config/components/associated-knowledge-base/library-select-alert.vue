@@ -226,7 +226,7 @@
                 </div>
                 <div class="check-block">
                   <a-checkbox
-                    :disabled="robotInfo.default_library_id == item.id"
+                    :disabled="effectiveDefaultLibraryId == item.id"
                     :checked="state.checkedList.includes(item.id)"
                   ></a-checkbox>
                 </div>
@@ -263,7 +263,16 @@ const props = defineProps({
   showWxType: {
     type: Boolean,
     default: false
+  },
+  defaultLibraryId: {
+    type: [String, Number],
+    default: null
   }
+})
+
+// Agent 与机器人使用不同 Store，显式传入时优先使用当前业务对象的默认知识库。
+const effectiveDefaultLibraryId = computed(() => {
+  return props.defaultLibraryId === null ? robotInfo.default_library_id : props.defaultLibraryId
 })
 
 const state = reactive({
@@ -355,7 +364,7 @@ const getList = async () => {
 
 const handleChangeChecked = (e) => {
   let value = e.id
-  if (robotInfo.default_library_id == value) {
+  if (effectiveDefaultLibraryId.value == value) {
     return
   }
   if (state.checkedList.includes(value)) {

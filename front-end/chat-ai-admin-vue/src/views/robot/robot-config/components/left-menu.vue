@@ -271,6 +271,19 @@ const baseItems = [
     menuIn: ['0', '1']
   },
   {
+    key: 'rate-limit',
+    id: 'rate-limit',
+    icon: () =>
+      h(SvgIcon, {
+        name: 'alarm-clock',
+        class: 'menu-icon'
+      }),
+    label: 'label_rate_limit',
+    title: 'label_rate_limit',
+    path: '/robot/config/rate-limit',
+    menuIn: ['0', '1']
+  },
+  {
     key: 'invoke-logs',
     id: 'invoke-logs',
     icon: () =>

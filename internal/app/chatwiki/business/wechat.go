@@ -464,11 +464,8 @@ func SendReply(push *lib_define.PushMessage) {
 
 	chanStream := make(chan sse.Event)
 	go func(chanStream chan sse.Event) {
-		for event := range chanStream {
-			if define.IsDev {
-				event.Data, _ = tool.JsonEncode(event.Data)
-				logs.Debug(`event:%v`, event)
-			}
+		for range chanStream {
+			// discard
 		}
 	}(chanStream)
 	message, err := DoChatRequest(params, false, chanStream)

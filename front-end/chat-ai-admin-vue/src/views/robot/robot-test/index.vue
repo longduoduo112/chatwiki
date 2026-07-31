@@ -526,6 +526,8 @@ const onMessageListChange = () => {
   if (!isAllowedScrollToBottom) {
     return
   }
+
+  messageListScrollToBottom()
 }
 
 // 加载对话记录(对话记录加载下一页)
@@ -554,10 +556,8 @@ const handleEditVariableForm = () => {
 }
 
 watch(
-  () => messageList.value,
-  () => {
-    onMessageListChange()
-  }
+  () => messageList.value.length,
+  onMessageListChange
 )
 
 onMounted(async () => {

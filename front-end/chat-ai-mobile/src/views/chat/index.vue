@@ -343,6 +343,11 @@ const handleMessageListScrollToBottom = () => {
   }
 }
 
+watch(
+  () => messageList.value.length,
+  handleMessageListScrollToBottom
+)
+
 // 滚动
 const onScroll = (event) => {
   const isAtBottom = Math.abs(event.scrollHeight - event.clientHeight - event.scrollTop) <= scrollEndDiff
@@ -377,7 +382,7 @@ const onTrigger = () => {
 
 // 滚动到顶部
 const onScrollStart = async () => {
-  isAllowedScrollToBottom = true // 允许滚动到底部
+  isAllowedScrollToBottom = false
   let msgId = messageList.value[0].uid
 
   let res = await onGetChatMessage()

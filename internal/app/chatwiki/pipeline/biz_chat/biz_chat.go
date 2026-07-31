@@ -102,7 +102,7 @@ func DoChatRequest(params *define.ChatRequestParam, useStream bool, chanStream c
 	}
 	// defer
 	defer func() {
-		in.Stream(sse.Event{Event: `finish`, Data: tool.Time2Int()})
+		in.Stream(sse.Event{Event: `finish`, Data: tool.Time2Int()}) // push finish flag
 		if in.monitor != nil {
 			in.monitor.DebugLog = out.debugLog
 			in.monitor.Save(out.Error) // save monitor data
@@ -128,10 +128,11 @@ func DoChatRequest(params *define.ChatRequestParam, useStream bool, chanStream c
 	request.Pipe(SaveCustomerMsg)          // save customer message
 	request.Pipe(UpLastChatByC)            // update last_chat
 	request.Pipe(WebsocketNotifyByC)       // reception change notification
+	request.Pipe(CheckRobotRateLimit)      // check robot message rate limit
 	request.Pipe(SetRobotAbilityPayment)   // set robot payment switch flag
 	request.Pipe(CheckPaymentManager)      // set current session is auth code manager
 	request.Process()
-	if out.Error != nil {
+	if in.exitChat || out.Error != nil {
 		return // terminate logic after error
 	}
 
@@ -205,7 +206,11 @@ func DoChatRequest(params *define.ChatRequestParam, useStream bool, chanStream c
 	workFlow.Pipe(DoRelationWorkFlow)            // chat robot support related workflow
 	workFlow.Process()                           // ignore error, continue execution
 
-	// ending
+	processEnding(in, out)
+	return
+}
+
+func processEnding(in *ChatInParam, out *ChatOutParam) {
 	ending := pipeline.NewPipeline(in, out)
 	ending.Pipe(CheckSaveRobotMsg)         // check need save ai message
 	ending.Pipe(SetMonitorFromLlm)         // record llm monitor data
@@ -218,7 +223,6 @@ func DoChatRequest(params *define.ChatRequestParam, useStream bool, chanStream c
 	ending.Pipe(WebsocketNotifyByAi)       // reception change notification
 	ending.Pipe(SaveAnswerSource)          // save answer source
 	ending.Pipe(AdditionAiMessage)         // append robot message return fields
-	ending.Pipe(PushAiMessageFinish)       // push robot message and finish flag
+	ending.Pipe(PushAiMessage)             // push robot message
 	ending.Process()                       // cleanup work, ignore result
-	return
 }

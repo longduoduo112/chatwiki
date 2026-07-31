@@ -167,5 +167,6 @@ func ChatClawChat(c *gin.Context) {
 	})
 	*params.IsClose = true
 	for range chanStream {
+		// discard
 	}
 }

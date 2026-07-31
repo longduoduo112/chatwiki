@@ -46,6 +46,12 @@
             </div>
           </div>
 
+          <RateLimitSetting
+            v-else-if="activeMenuKey === 'rate-limit'"
+            :key="`rate-limit-${robotId}`"
+            embedded
+          />
+
           <component
             v-else-if="activePageComponent"
             :is="activePageComponent"
@@ -88,6 +94,7 @@ import SessionRecordPage from '@/views/robot/robot-config/session-record/index.v
 import ApiKeyManagePage from '@/views/robot/api-key-manage/index.vue'
 import UnknownIssuePage from '@/views/robot/robot-config/unknown_issue/unknow-index.vue'
 import ExportRecordPage from '@/views/robot/robot-config/export-record/index.vue'
+import RateLimitSetting from '@/views/robot/robot-config/rate-limit/index.vue'
 
 const { t } = useI18n('views.clawbot.settings.index')
 
@@ -110,6 +117,7 @@ const menuItems = computed(() => ([
   { key: 'unknown_issue', label: t('menu_unknown_issue'), title: t('menu_unknown_issue'), icon: QuestionCircleOutlined, component: markRaw(UnknownIssuePage) },
   { key: 'export-record', label: t('menu_export_record'), title: t('menu_export_record'), icon: DownloadOutlined, component: markRaw(ExportRecordPage) },
   { key: 'model-management', label: t('menu_model_management'), title: t('menu_model_management'), icon: ProfileOutlined },
+  { key: 'rate-limit', label: t('menu_rate_limit'), title: t('menu_rate_limit'), iconName: 'alarm-clock' },
   { key: 'e2b-settings', label: t('menu_e2b_settings'), title: t('menu_e2b_settings'), iconName: 'e2b-settings', component: markRaw(E2bSettingPage) }
 ]))
 

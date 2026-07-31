@@ -105,6 +105,10 @@ func init() {
 	Route[http.MethodGet][`/manage/getE2bConf`] = manage.GetE2bConf
 	Route[http.MethodPost][`/manage/saveE2bConf`] = manage.SaveE2bConf
 
+	/* Robot Rate Limit Conf */
+	Route[http.MethodGet][`/manage/getRobotRateLimitConf`] = manage.GetRobotRateLimitConf
+	Route[http.MethodPost][`/manage/saveRobotRateLimitConf`] = manage.SaveRobotRateLimitConf
+
 	/* Web-to-Skill Task */
 	Route[http.MethodGet][`/manage/getWebToSkillTaskList`] = manage.GetWebToSkillTaskList
 	Route[http.MethodPost][`/manage/createWebToSkillTask`] = manage.CreateWebToSkillTask

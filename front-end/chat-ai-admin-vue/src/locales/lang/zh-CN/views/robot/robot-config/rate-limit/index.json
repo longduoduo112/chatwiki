@@ -1,0 +1,27 @@
+{
+  "title": "限流设置",
+  "config_title": "限流设置",
+  "trigger_action": "触发限流后处理",
+  "action_no_reply": "不回复",
+  "action_reply_content": "回复指定文案",
+  "reply_placeholder": "请输入限流提示文案，例如：您发送消息太频繁，请稍后再试",
+  "save_config": "保存配置",
+  "msg_missing_robot_key": "缺少机器人标识，无法获取限流配置",
+  "msg_load_failed": "限流配置获取失败，请稍后重试",
+  "msg_save_success": "限流配置保存成功",
+  "msg_save_failed": "限流配置保存失败，请稍后重试",
+  "validator_positive_integer": "请输入大于 0 的整数",
+  "validator_reply_required": "请输入限流回复文案",
+  "five_minute": {
+    "title": "5分钟限流",
+    "desc": "限制每个用户每5分钟可发送的消息数",
+    "limit_label": "每5分钟消息上限",
+    "limit_help": "每个用户每5分钟最多可发送的消息条数"
+  },
+  "daily": {
+    "title": "天级限流",
+    "desc": "限制每个用户每天可发送的消息数",
+    "limit_label": "每天消息上限",
+    "limit_help": "每个用户每天最多可发送的消息条数"
+  }
+}

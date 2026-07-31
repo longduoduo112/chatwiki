@@ -184,6 +184,15 @@ export default {
           }
         },
         {
+          path: '/robot/config/rate-limit',
+          name: 'robotRateLimit',
+          component: () => import('@/views/robot/robot-config/rate-limit/index.vue'),
+          meta: {
+            title: 'routes.basic.rate_limit',
+            isCustomPage: true
+          }
+        },
+        {
           path: '/robot/config/invoke-logs',
           name: 'invokeLogs',
           component: () => import('@/views/robot/robot-config/invoke-logs/index.vue'),

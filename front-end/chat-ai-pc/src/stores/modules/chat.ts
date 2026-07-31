@@ -8,6 +8,7 @@ import { useIM } from '@/hooks/event/useIM'
 import { postDot, postNewMessage } from '@/event/postMessage'
 import { DEFAULT_SDK_FLOAT_AVATAR, DEFAULT_SDK_FLOAT_AVATAR2 } from '@/constants/index'
 import { getCurrentConfig } from '@/utils/getLangConfig'
+import type { ChatInitParams } from '@/types/chat'
 
 const PROCESS_EVENT_KEYS = ['FileOperation', 'ExecuteCommand']
 
@@ -101,17 +102,6 @@ type NormalizedChatEvent =
   | { type: 'process_finalize'; reason: ProcessFinalizeReason }
   | { type: 'final_snapshot'; message: any }
 
-export interface Chat {
-  isOpen: boolean
-  unreadNumber: number
-  openid: string
-  robot_key: string
-  avatar: string
-  name: string
-  nickname: string
-  dialogue_id: number
-}
-
 export interface Welcome {
   content: string
   question: any[]
@@ -164,8 +154,23 @@ export interface ExternalConfigPc {
   open_type: number
   window_width: number
   window_height: number
+  iframe_width: number
+  iframe_height: number
+  iframe_right: number
+  iframe_bottom: number
+  iframe_resize_enabled: boolean
+  iframe_drag_enabled: boolean
   new_session_btn_show: number
   avatarShow: number
+}
+
+const iframeConfigDefault = {
+  iframe_width: 418,
+  iframe_height: 680,
+  iframe_right: 50,
+  iframe_bottom: 50,
+  iframe_resize_enabled: false,
+  iframe_drag_enabled: false,
 }
 
 const SDK_STATIC_HOST = window.location.origin
@@ -255,6 +260,7 @@ export const useChatStore = defineStore('chat', () => {
     open_type: 1,
     window_width: 1200,
     window_height: 650,
+    ...iframeConfigDefault,
     new_session_btn_show: 2,
     avatarShow: 1,
   })
@@ -284,7 +290,7 @@ export const useChatStore = defineStore('chat', () => {
   // 创建对话
   const isNewChat = ref(false)
 
-  const setH5Config = async (data: Chat) => {
+  const setH5Config = async (data: ChatInitParams) => {
 
     openid.value = data.openid || getOpenid()
 
@@ -310,7 +316,7 @@ export const useChatStore = defineStore('chat', () => {
       // 设置网页标题
       if (robotInfo.external_config_pc) {
         const pcConfig = JSON.parse(robotInfo.external_config_pc)
-        Object.assign(externalConfigPC, pcConfig)
+        Object.assign(externalConfigPC, iframeConfigDefault, pcConfig)
         ensureAvatarShow(externalConfigPC, robotInfo.application_type, pcConfig)
 
         if(externalConfigPC.floatBtn.displayType == 1) {
@@ -321,6 +327,7 @@ export const useChatStore = defineStore('chat', () => {
           externalConfigPC.floatBtn.buttonIcon = SDK_STATIC_HOST + externalConfigPC.floatBtn.buttonIcon
         }
       }else{
+        Object.assign(externalConfigPC, iframeConfigDefault)
         externalConfigPC.headTitle = robotInfo.robot_name
         externalConfigPC.headImage = robotInfo.robot_avatar
         ensureAvatarShow(externalConfigPC, robotInfo.application_type)
@@ -330,7 +337,7 @@ export const useChatStore = defineStore('chat', () => {
       Promise.reject(e)
     }
   }
-  const createChat = async (data: Chat) => {
+  const createChat = async (data: ChatInitParams) => {
     if (mySSE) {
       mySSE.abort()
       mySSE = null
@@ -403,7 +410,7 @@ export const useChatStore = defineStore('chat', () => {
 
       if (robotInfo.external_config_pc) {
         const pcConfig = JSON.parse(robotInfo.external_config_pc)
-        Object.assign(externalConfigPC, pcConfig)
+        Object.assign(externalConfigPC, iframeConfigDefault, pcConfig)
         ensureAvatarShow(externalConfigPC, robotInfo.application_type, pcConfig)
 
         if(externalConfigPC.floatBtn.displayType == 1) {
@@ -414,6 +421,7 @@ export const useChatStore = defineStore('chat', () => {
           externalConfigPC.floatBtn.buttonIcon = SDK_STATIC_HOST + externalConfigPC.floatBtn.buttonIcon
         }
       }else{
+        Object.assign(externalConfigPC, iframeConfigDefault)
         externalConfigPC.headTitle = robotInfo.robot_name
         externalConfigPC.headImage = robotInfo.robot_avatar
         ensureAvatarShow(externalConfigPC, robotInfo.application_type)
@@ -1258,8 +1266,6 @@ export const useChatStore = defineStore('chat', () => {
     if(data.id == -1 || data.id == dialogue_id.value){
       dialogue_id.value = 0;
       createChat({
-        isOpen: false,
-        unreadNumber: 0,
         openid: '',
         robot_key: robot.robot_key,
         avatar: '',

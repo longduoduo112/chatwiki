@@ -304,6 +304,27 @@ func WebsocketNotifyByC(in *ChatInParam, out *ChatOutParam) pipeline.PipeResult 
 	return pipeline.PipeContinue
 }
 
+// CheckRobotRateLimit checks the five-minute and daily message limits after the customer message is saved.
+func CheckRobotRateLimit(in *ChatInParam, out *ChatOutParam) pipeline.PipeResult {
+	result, err := common.CheckRobotRateLimit(in.params.Robot[`robot_key`], in.params.Openid)
+	if err != nil {
+		logs.Error(`check robot rate limit failed,robot_key:%s,openid_md5:%s,err:%s`,
+			in.params.Robot[`robot_key`], tool.MD5(in.params.Openid), err.Error())
+		return pipeline.PipeContinue
+	}
+	if result.Status == common.RobotRateLimitStatusAllowed {
+		return pipeline.PipeContinue
+	}
+	in.exitChat = true
+	if result.ReplyType == define.RobotRateLimitReplyTypeSpecified {
+		out.content = result.ReplyContent
+		RobotInfoPush(in, out)
+		StreamContent(in, out.content)
+		processEnding(in, out)
+	}
+	return pipeline.PipeStop
+}
+
 // SetRobotAbilityPayment SetRobotAbilityPayment
 func SetRobotAbilityPayment(in *ChatInParam, out *ChatOutParam) pipeline.PipeResult {
 	robotAbilityConfig := common.GetRobotAbilityConfigByAbilityType(in.params.AdminUserId, cast.ToInt(in.params.Robot[`id`]), common.RobotAbilityPayment)

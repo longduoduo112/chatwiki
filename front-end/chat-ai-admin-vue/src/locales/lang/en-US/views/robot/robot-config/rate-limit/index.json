@@ -1,0 +1,27 @@
+{
+  "title": "Rate Limit Settings",
+  "config_title": "Rate Limit Settings",
+  "trigger_action": "Action When Rate Limited",
+  "action_no_reply": "Do Not Reply",
+  "action_reply_content": "Reply with Custom Message",
+  "reply_placeholder": "Enter a rate limit message, for example: You are sending messages too frequently. Please try again later.",
+  "save_config": "Save Settings",
+  "msg_missing_robot_key": "The robot identifier is missing, so rate limit settings cannot be loaded.",
+  "msg_load_failed": "Failed to load rate limit settings. Please try again later.",
+  "msg_save_success": "Rate limit settings saved successfully.",
+  "msg_save_failed": "Failed to save rate limit settings. Please try again later.",
+  "validator_positive_integer": "Enter an integer greater than 0.",
+  "validator_reply_required": "Enter a rate limit reply message.",
+  "five_minute": {
+    "title": "5-Minute Rate Limit",
+    "desc": "Limit the number of messages each user can send within five minutes.",
+    "limit_label": "Messages per 5 Minutes",
+    "limit_help": "The maximum number of messages each user can send within five minutes."
+  },
+  "daily": {
+    "title": "Daily Rate Limit",
+    "desc": "Limit the number of messages each user can send each day.",
+    "limit_label": "Daily Message Limit",
+    "limit_help": "The maximum number of messages each user can send each day."
+  }
+}
