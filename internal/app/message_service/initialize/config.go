@@ -5,6 +5,7 @@ package initialize
 import (
 	"chatwiki/internal/app/message_service/define"
 	"chatwiki/internal/pkg/wechat"
+	"chatwiki/internal/pkg/wechat/line"
 	"runtime"
 
 	"github.com/Unknwon/goconfig"
@@ -72,4 +73,8 @@ func initConfig() {
 	}
 	wechat.SetMessengerGraphAPIBase(define.Config.Messenger[`graph_api_base`])
 	wechat.SetTelegramApiBase(define.Config.Telegram[`api_base`])
+	if define.Config.Line, err = config.GetSection("line"); err == nil {
+		line.SetAPIBase(define.Config.Line[`api_base`])
+		line.SetDataAPIBase(define.Config.Line[`data_api_base`])
+	}
 }

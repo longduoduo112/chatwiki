@@ -91,6 +91,12 @@ const items = ref([
     title: 'Telegram'
   },
   {
+    key: 'Line',
+    id: 'Line',
+    label: 'LINE',
+    title: 'LINE'
+  },
+  {
     key: 'WhatsApp',
     id: 'WhatsApp',
     label: 'WhatsApp',

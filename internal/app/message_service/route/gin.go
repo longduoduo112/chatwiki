@@ -33,6 +33,8 @@ func init() {
 	Route[http.MethodGet][`/push_pwd/messenger/:access_key`] = business.MessengerPush
 	Route[http.MethodPost][`/push_pwd/messenger/:access_key`] = business.MessengerPush
 	Route[http.MethodPost][`/push_pwd/telegram_robot/:access_key`] = business.TelegramRobot
+	Route[http.MethodGet][`/push_pwd/line/:access_key`] = business.LinePush
+	Route[http.MethodPost][`/push_pwd/line/:access_key`] = business.LinePush
 	Route[http.MethodGet][`/push_pwd/whatsapp/:access_key`] = business.WhatsappPush
 	Route[http.MethodPost][`/push_pwd/whatsapp/:access_key`] = business.WhatsappPush
 }

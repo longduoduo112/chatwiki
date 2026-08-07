@@ -28,9 +28,21 @@
             <div class="file-size">{{ formatSize(item.size) }}</div>
           </div>
         </div>
-        <a-button danger ghost class="remove-btn" :loading="deletingMap[item.name]" @click="handleRemove(item)">
-          {{ t('btn_remove') }}
-        </a-button>
+        <div class="file-actions">
+          <a-button
+            v-if="canConvert(item)"
+            ghost
+            type="primary"
+            class="convert-btn"
+            :loading="convertingMap[item.name]"
+            @click="handleConvert(item)"
+          >
+            {{ t('btn_convert_markdown') }}
+          </a-button>
+          <a-button danger ghost class="remove-btn" :loading="deletingMap[item.name]" @click="handleRemove(item)">
+            {{ t('btn_remove') }}
+          </a-button>
+        </div>
       </div>
       <div v-if="!fileList.length && !loading" class="empty-tip">
         {{ t('empty_tip') }}
@@ -57,6 +69,14 @@
           </div>
           <template #overlay>
             <a-menu>
+              <a-menu-item
+                v-if="canConvert(item)"
+                key="convert"
+                :disabled="convertingMap[item.name]"
+                @click="handleConvert(item)"
+              >
+                <span>{{ t('action_convert_markdown') }}</span>
+              </a-menu-item>
               <a-menu-item key="delete" @click="handleRemove(item)">
                 <span class="remove-menu-text">{{ t('action_delete') }}</span>
               </a-menu-item>
@@ -84,7 +104,12 @@ import { message, Modal } from 'ant-design-vue'
 import { storeToRefs } from 'pinia'
 import { useI18n } from '@/hooks/web/useI18n'
 import { useClawbotStore } from '@/stores/modules/clawbot'
-import { uploadClawbotLocalDoc, getClawbotLocalDocList, deleteClawbotLocalDoc } from '@/api/clawbot'
+import {
+  uploadClawbotLocalDoc,
+  getClawbotLocalDocList,
+  convertClawbotLocalDoc,
+  deleteClawbotLocalDoc
+} from '@/api/clawbot'
 import dayjs from 'dayjs'
 import clawbotCardCover from '@/assets/img/clawbot/01.png'
 import LocalDocUploadModal from '@/views/clawbot/components/LocalDocUploadModal.vue'
@@ -97,6 +122,7 @@ const fileList = ref([])
 const loading = ref(false)
 const uploading = ref(false)
 const deletingMap = ref({})
+const convertingMap = ref({})
 const uploadModalOpen = ref(false)
 const LOCAL_DOCS_VIEW_MODE_KEY = 'clawbot-local-docs-view-mode'
 const viewMode = ref(getCachedViewMode())
@@ -210,6 +236,28 @@ async function handleUploadConfirm({ file, description, keywords }) {
   }
 }
 
+function canConvert(item) {
+  return ['docx', 'pdf'].includes(String(item?.ext || '').toLowerCase())
+}
+
+async function handleConvert(item) {
+  const id = currentAssistant.value?.id
+  if (!id || !canConvert(item) || convertingMap.value[item.name]) return
+
+  convertingMap.value[item.name] = true
+  try {
+    const res = await convertClawbotLocalDoc({ id, name: item.name })
+    if (res && res.res === 0) {
+      message.success(t('msg_convert_submitted'))
+    }
+  } catch (err) {
+    console.error('提交文档转换任务失败', err)
+    await fetchFileList()
+  } finally {
+    convertingMap.value[item.name] = false
+  }
+}
+
 function handleRemove(item) {
   Modal.confirm({
     title: t('title_delete_document'),
@@ -226,13 +274,11 @@ function handleRemove(item) {
         const res = await deleteClawbotLocalDoc({ id, name: item.name })
         if (res && res.res === 0) {
           message.success(t('msg_delete_success'))
-          await fetchFileList()
-        } else {
-          message.error(res?.msg || t('msg_delete_failed'))
         }
+        await fetchFileList()
       } catch (err) {
         console.error('删除失败', err)
-        message.error(t('msg_delete_failed'))
+        await fetchFileList()
       } finally {
         deletingMap.value[item.name] = false
       }
@@ -358,6 +404,10 @@ onMounted(() => {
     background: #2ecc71;
   }
 
+  &.csv {
+    background: #16a085;
+  }
+
   &.txt {
     background: #95a5a6;
   }
@@ -375,7 +425,14 @@ onMounted(() => {
   font-size: 12px;
 }
 
-.remove-btn {
+.file-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.remove-btn,
+.convert-btn {
   border-radius: 6px;
   height: 28px;
   font-size: 13px;

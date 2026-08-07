@@ -151,7 +151,7 @@ func CheckAliOcrRequest() {
 	files, err := msql.Model(`chat_ai_library_file`, define.Postgres).
 		Where(`status`, cast.ToString(define.FileStatusInitial)).
 		Where(`pdf_parse_type`, cast.ToString(define.PdfParseTypeOcrAli)).
-		Where(`create_time`, `>`, cast.ToString(time.Now().Add(-24*time.Hour).Unix())).
+		Where(`update_time`, `>`, cast.ToString(time.Now().Add(-24*time.Hour).Unix())).
 		Where(`ali_ocr_job_id`, `<>`, ``).
 		Select()
 	if err != nil {

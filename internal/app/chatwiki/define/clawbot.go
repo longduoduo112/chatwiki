@@ -14,6 +14,9 @@ const (
 	PrivateSkillsDir = `clawbot/skills_robot/<robot_key>`
 	PrivateFileDir   = `clawbot/skills_robot/<robot_key>/query-local-docs/references`
 	PrivateWorkDir   = `clawbot/working_dir/<robot_key>`
+
+	ClawbotLocalDocConvertWorkDir = `clawbot/working_dir/query-local-docs/<task_batch>`
+	ClawbotLocalDocConvertScript  = `clawbot/working_dir/query-local-docs/convert_docs.py`
 )
 
 // skill management constants
@@ -34,7 +37,7 @@ var SkillNameRegexp = regexp.MustCompile(`^[A-Za-z0-9_-]{1,50}$`)
 
 var SkillUploadKeyRegexp = regexp.MustCompile(`^skup_[0-9]{14}_[A-Za-z0-9]{16}$`)
 
-var ClawbotLocalDocAllowExt = []string{`docx`, `xlsx`, `md`, `txt`, `pdf`}
+var ClawbotLocalDocAllowExt = []string{`docx`, `md`, `txt`, `pdf`, `csv`}
 
 type ClawbotLocalDocInfo struct {
 	Name string    `json:"name"`
@@ -49,4 +52,18 @@ type ClawbotLocalDocIndexItem struct {
 	Description string   `yaml:"description"`
 	Keywords    []string `yaml:"keywords"`
 	Updated     string   `yaml:"updated"`
+}
+
+type ClawbotLocalDocConvertTask struct {
+	TaskBatch   string   `json:"task_batch"`
+	RobotKey    string   `json:"robot_key"`
+	SourceName  string   `json:"source_name"`
+	SourceHash  string   `json:"source_hash"`
+	Description string   `json:"description"`
+	Keywords    []string `json:"keywords"`
+	SourceLock  string   `json:"source_lock"`
+}
+
+type ClawbotLocalDocConvertTaskResult struct {
+	TaskBatch string `json:"task_batch"`
 }

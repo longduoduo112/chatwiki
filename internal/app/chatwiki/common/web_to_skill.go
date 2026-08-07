@@ -25,15 +25,18 @@ import (
 )
 
 type WebToSkillTaskInfo struct {
-	TaskBatch     string
-	AdminUserId   int
-	ModelConfigId int
-	UseModel      string
-	Temperature   float32
-	MaxToken      int
-	Urls          []string
-	CustomPrompt  string
-	StopKey       string
+	TaskBatch       string
+	AdminUserId     int
+	ModelConfigId   int
+	UseModel        string
+	Temperature     float32
+	MaxToken        int
+	Urls            []string
+	CustomPrompt    string
+	StopKey         string
+	OperationType   int
+	ExistingZipPath string
+	ExpectedName    string
 }
 
 type WebToSkillResult struct {
@@ -225,6 +228,21 @@ Final zip path format:
 %[1]s/generate_skill/<skill-name>.zip
 
 On success, output only the generated zip path. Do not include explanations, Markdown, or any other text.`, workDir)
+	if task.OperationType == define.WebToSkillOperationUpdate {
+		prompt += fmt.Sprintf(`
+
+This is an update of an existing generated skill.
+
+Existing skill zip:
+%s
+
+Required skill name:
+%s
+
+Follow the update workflow in $web-to-skill. Rediscover the current complete URL list first. Treat the existing zip only as a cache for current URLs: reuse a cached page only when its index record and HTML are valid and the HTML is not a Yuque error page. Do not carry pages that are absent from the newly discovered URL list into the updated skill.
+
+When authoring skill-metadata.json, set its top-level "name" field to the required skill name above exactly; copy it verbatim instead of inferring or regenerating it. Regenerate the description, title, source summary, topic groups, and aliases from the rebuilt current index.`, task.ExistingZipPath, task.ExpectedName)
+	}
 	if customPrompt := strings.TrimSpace(task.CustomPrompt); customPrompt != `` {
 		prompt += fmt.Sprintf(`
 

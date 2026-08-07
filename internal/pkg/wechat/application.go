@@ -6,6 +6,7 @@ import (
 	"chatwiki/internal/pkg/lib_define"
 	"chatwiki/internal/pkg/wechat/dingtalk_robot"
 	"chatwiki/internal/pkg/wechat/feishu_robot"
+	"chatwiki/internal/pkg/wechat/line"
 	"chatwiki/internal/pkg/wechat/messenger"
 	"chatwiki/internal/pkg/wechat/mini_program"
 	"chatwiki/internal/pkg/wechat/official_account"
@@ -96,6 +97,8 @@ func GetApplication(appInfo msql.Params) (ApplicationInterface, error) {
 		return &telegram_robot.Application{AppID: appInfo[`app_id`], Secret: appInfo[`app_secret`]}, nil
 	case lib_define.AppMessenger:
 		return &messenger.Application{AppID: appInfo[`app_id`], Secret: appInfo[`app_secret`], GraphAPIBase: MessengerGraphAPIBase}, nil
+	case lib_define.AppLine:
+		return &line.Application{ChannelID: appInfo[`app_id`], ChannelSecret: appInfo[`app_secret`]}, nil
 	case lib_define.AppWhatsapp:
 		return &whatsapp.Application{
 			AppID:       appInfo[`app_id`],

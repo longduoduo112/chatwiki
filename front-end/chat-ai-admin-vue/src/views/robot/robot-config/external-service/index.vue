@@ -45,6 +45,7 @@ import FeishuRobot from './components/feishu-robot.vue'
 import DingDingRobot from './components/dingding-robot.vue'
 import Messenget from './components/Messenget.vue'
 import TelegramRobot from './components/telegram-robot.vue'
+import Line from './components/Line.vue'
 import WhatsApp from './components/whats-app.vue'
 
 const robotStore = useRobotStore()
@@ -62,6 +63,7 @@ const tabComponents = {
   FeishuRobot,
   DingDingRobot,
   Messenget,
+  Line,
   TelegramRobot,
   WhatsApp
 }

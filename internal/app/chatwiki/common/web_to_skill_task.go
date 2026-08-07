@@ -69,7 +69,7 @@ func GetWebToSkillTaskList(lang string, adminUserId int, filter define.WebToSkil
 	}
 	m := msql.Model(define.TableWebToSkillTask, define.Postgres)
 	m.Where(`admin_user_id`, cast.ToString(adminUserId)).
-		Field(`id,task_batch,urls,custom_prompt,model_config_id,use_model,temperature,max_token,status,skill_name,skill_description,file_name,file_url,file_size,err_msg,start_time,end_time,create_time,update_time`)
+		Field(`id,task_batch,urls,custom_prompt,model_config_id,use_model,temperature,max_token,operation_type,status,skill_name,skill_description,file_name,file_url,file_size,err_msg,start_time,end_time,create_time,update_time`)
 	if filter.Status != -1 {
 		m.Where(`status`, cast.ToString(filter.Status))
 	}
@@ -120,6 +120,7 @@ func CreateWebToSkillTask(lang string, adminUserId int, params define.WebToSkill
 		`use_model`:       strings.TrimSpace(params.UseModel),
 		`temperature`:     temperature,
 		`max_token`:       maxToken,
+		`operation_type`:  define.WebToSkillOperationGenerate,
 		`status`:          define.WebToSkillTaskStatusQueued,
 		`create_time`:     now,
 		`update_time`:     now,
@@ -215,6 +216,12 @@ func RegenerateWebToSkillTask(lang string, adminUserId int, id int64) (int64, er
 		status == define.WebToSkillTaskStatusStopping {
 		return 0, errors.New(i18n.Show(lang, `task_running`))
 	}
+	if status != define.WebToSkillTaskStatusFailed && status != define.WebToSkillTaskStatusStopped {
+		return 0, errors.New(i18n.Show(lang, `param_invalid`, `id`))
+	}
+	if cast.ToInt(info[`operation_type`]) != define.WebToSkillOperationGenerate || info[`file_url`] != `` {
+		return 0, errors.New(i18n.Show(lang, `param_invalid`, `id`))
+	}
 	urls := decodeWebToSkillURLs(info[`urls`])
 	if err = checkWebToSkillCreateParams(lang, adminUserId, urls, cast.ToInt(info[`model_config_id`]), info[`use_model`],
 		cast.ToFloat32(info[`temperature`]), cast.ToInt(info[`max_token`])); err != nil {
@@ -225,9 +232,12 @@ func RegenerateWebToSkillTask(lang string, adminUserId int, id int64) (int64, er
 	m := msql.Model(define.TableWebToSkillTask, define.Postgres)
 	affected, err := m.Where(`id`, cast.ToString(id)).
 		Where(`admin_user_id`, cast.ToString(adminUserId)).
-		Where(`status`, `in`, fmt.Sprintf(`%d,%d,%d`, define.WebToSkillTaskStatusSucceed, define.WebToSkillTaskStatusFailed, define.WebToSkillTaskStatusStopped)).
+		Where(`operation_type`, cast.ToString(define.WebToSkillOperationGenerate)).
+		Where(`status`, `in`, fmt.Sprintf(`%d,%d`, define.WebToSkillTaskStatusFailed, define.WebToSkillTaskStatusStopped)).
+		Where(`file_url`, ``).
 		Update(msql.Datas{
 			`task_batch`:        uuid.NewString(),
+			`operation_type`:    define.WebToSkillOperationGenerate,
 			`status`:            define.WebToSkillTaskStatusQueued,
 			`skill_name`:        ``,
 			`skill_description`: ``,
@@ -263,6 +273,107 @@ func RegenerateWebToSkillTask(lang string, adminUserId int, id int64) (int64, er
 	return id, nil
 }
 
+func UpdateWebToSkillTask(lang string, adminUserId int, id int64) (int64, error) {
+	info, err := getWebToSkillTaskRow(adminUserId, id)
+	if err != nil {
+		return 0, errors.New(i18n.Show(lang, `sys_err`))
+	}
+	if len(info) == 0 {
+		return 0, errors.New(i18n.Show(lang, `no_data`))
+	}
+	status := cast.ToInt(info[`status`])
+	if status == define.WebToSkillTaskStatusQueued ||
+		status == define.WebToSkillTaskStatusRunning ||
+		status == define.WebToSkillTaskStatusStopping {
+		return 0, errors.New(i18n.Show(lang, `task_running`))
+	}
+	if _, err = getValidWebToSkillExistingZip(info); err != nil {
+		logs.Error(`validate existing web-to-skill zip,task:%d,err:%s`, id, err.Error())
+		return 0, errors.New(i18n.Show(lang, `no_data`))
+	}
+	urls := decodeWebToSkillURLs(info[`urls`])
+	if err = checkWebToSkillCreateParams(lang, adminUserId, urls, cast.ToInt(info[`model_config_id`]), info[`use_model`],
+		cast.ToFloat32(info[`temperature`]), cast.ToInt(info[`max_token`])); err != nil {
+		return 0, err
+	}
+	define.Redis.Del(context.Background(), GetWebToSkillTaskStopKey(id))
+	now := tool.Time2Int()
+	m := msql.Model(define.TableWebToSkillTask, define.Postgres)
+	affected, err := m.Where(`id`, cast.ToString(id)).
+		Where(`admin_user_id`, cast.ToString(adminUserId)).
+		Where(`status`, `in`, fmt.Sprintf(`%d,%d,%d`, define.WebToSkillTaskStatusSucceed, define.WebToSkillTaskStatusFailed, define.WebToSkillTaskStatusStopped)).
+		Where(`file_url`, `<>`, ``).
+		Update(msql.Datas{
+			`task_batch`:     uuid.NewString(),
+			`operation_type`: define.WebToSkillOperationUpdate,
+			`status`:         define.WebToSkillTaskStatusQueued,
+			`debug_log`:      ``,
+			`err_msg`:        ``,
+			`start_time`:     0,
+			`end_time`:       0,
+			`update_time`:    now,
+		})
+	if err != nil {
+		logs.Error(`sql:%s,err:%s`, m.GetLastSql(), err.Error())
+		return 0, errors.New(i18n.Show(lang, `sys_err`))
+	}
+	if affected == 0 {
+		return 0, errors.New(i18n.Show(lang, `task_running`))
+	}
+	if err = enqueueWebToSkillTask(id); err != nil {
+		m = msql.Model(define.TableWebToSkillTask, define.Postgres)
+		if _, updateErr := m.Where(`id`, cast.ToString(id)).Where(`admin_user_id`, cast.ToString(adminUserId)).
+			Update(msql.Datas{
+				`status`:      define.WebToSkillTaskStatusFailed,
+				`err_msg`:     err.Error(),
+				`update_time`: tool.Time2Int(),
+				`end_time`:    tool.Time2Int(),
+			}); updateErr != nil {
+			logs.Error(`sql:%s,err:%s`, m.GetLastSql(), updateErr.Error())
+		}
+		return 0, errors.New(i18n.Show(lang, `sys_err`))
+	}
+	return id, nil
+}
+
+func DeleteWebToSkillTask(lang string, adminUserId int, id int64) error {
+	info, err := getWebToSkillTaskRow(adminUserId, id)
+	if err != nil {
+		return errors.New(i18n.Show(lang, `sys_err`))
+	}
+	if len(info) == 0 {
+		return errors.New(i18n.Show(lang, `no_data`))
+	}
+	status := cast.ToInt(info[`status`])
+	switch status {
+	case define.WebToSkillTaskStatusQueued,
+		define.WebToSkillTaskStatusSucceed,
+		define.WebToSkillTaskStatusFailed,
+		define.WebToSkillTaskStatusStopped:
+	case define.WebToSkillTaskStatusRunning, define.WebToSkillTaskStatusStopping:
+		return errors.New(i18n.Show(lang, `task_running`))
+	default:
+		return errors.New(i18n.Show(lang, `param_invalid`, `id`))
+	}
+	m := msql.Model(define.TableWebToSkillTask, define.Postgres)
+	affected, err := m.Where(`id`, cast.ToString(id)).
+		Where(`admin_user_id`, cast.ToString(adminUserId)).
+		Where(`status`, `in`, fmt.Sprintf(`%d,%d,%d,%d`,
+			define.WebToSkillTaskStatusQueued,
+			define.WebToSkillTaskStatusSucceed,
+			define.WebToSkillTaskStatusFailed,
+			define.WebToSkillTaskStatusStopped)).
+		Delete()
+	if err != nil {
+		logs.Error(`sql:%s,err:%s`, m.GetLastSql(), err.Error())
+		return errors.New(i18n.Show(lang, `sys_err`))
+	}
+	if affected == 0 {
+		return errors.New(i18n.Show(lang, `task_running`))
+	}
+	return nil
+}
+
 func GetWebToSkillTaskDetail(lang string, adminUserId int, id int64) (*define.WebToSkillTaskItem, error) {
 	info, err := getWebToSkillTaskRow(adminUserId, id)
 	if err != nil {
@@ -280,7 +391,7 @@ func GetWebToSkillTaskDownloadFile(lang string, adminUserId int, id int64) (stri
 	if err != nil {
 		return ``, ``, errors.New(i18n.Show(lang, `sys_err`))
 	}
-	if len(info) == 0 || cast.ToInt(info[`status`]) != define.WebToSkillTaskStatusSucceed || len(info[`file_url`]) == 0 {
+	if len(info) == 0 || len(info[`file_url`]) == 0 {
 		return ``, ``, errors.New(i18n.Show(lang, `no_data`))
 	}
 	file := GetFileByLink(info[`file_url`])
@@ -299,8 +410,7 @@ func InstallWebToSkillTask(lang string, adminUserId int, id int64, overwrite boo
 	if err != nil {
 		return nil, errors.New(i18n.Show(lang, `sys_err`))
 	}
-	if len(info) == 0 || cast.ToInt(info[`status`]) != define.WebToSkillTaskStatusSucceed ||
-		info[`file_url`] == `` || info[`skill_name`] == `` || info[`skill_description`] == `` {
+	if len(info) == 0 || info[`file_url`] == `` || info[`skill_name`] == `` || info[`skill_description`] == `` {
 		return nil, errors.New(i18n.Show(lang, `no_data`))
 	}
 	if cast.ToInt64(info[`file_size`]) > int64(define.MaxSkillZipSize) {
@@ -395,16 +505,28 @@ func RunWebToSkillTask(id int64) (returnErr error) {
 	if IsWebToSkillTaskStopped(stopKey) {
 		return setWebToSkillTaskStopped(id, info[`task_batch`], nil)
 	}
+	existingSkillZip := ``
+	if cast.ToInt(info[`operation_type`]) == define.WebToSkillOperationUpdate {
+		existingSkillZip, err = stageWebToSkillExistingZip(info)
+		if err != nil {
+			return finishWebToSkillTask(id, define.WebToSkillTaskStatusFailed, msql.Datas{
+				`err_msg`: err.Error(),
+			})
+		}
+	}
 	result, runErr := DoWebToSkill(define.LangZhCn, WebToSkillTaskInfo{
-		TaskBatch:     info[`task_batch`],
-		AdminUserId:   cast.ToInt(info[`admin_user_id`]),
-		ModelConfigId: cast.ToInt(info[`model_config_id`]),
-		UseModel:      info[`use_model`],
-		Temperature:   cast.ToFloat32(info[`temperature`]),
-		MaxToken:      cast.ToInt(info[`max_token`]),
-		Urls:          decodeWebToSkillURLs(info[`urls`]),
-		CustomPrompt:  info[`custom_prompt`],
-		StopKey:       stopKey,
+		TaskBatch:       info[`task_batch`],
+		AdminUserId:     cast.ToInt(info[`admin_user_id`]),
+		ModelConfigId:   cast.ToInt(info[`model_config_id`]),
+		UseModel:        info[`use_model`],
+		Temperature:     cast.ToFloat32(info[`temperature`]),
+		MaxToken:        cast.ToInt(info[`max_token`]),
+		Urls:            decodeWebToSkillURLs(info[`urls`]),
+		CustomPrompt:    info[`custom_prompt`],
+		StopKey:         stopKey,
+		OperationType:   cast.ToInt(info[`operation_type`]),
+		ExistingZipPath: filepath.ToSlash(existingSkillZip),
+		ExpectedName:    info[`skill_name`],
 	})
 	if IsWebToSkillTaskStopped(stopKey) {
 		return setWebToSkillTaskStopped(id, info[`task_batch`], result.DebugLog)
@@ -426,6 +548,12 @@ func RunWebToSkillTask(id int64) (returnErr error) {
 		return finishWebToSkillTask(id, define.WebToSkillTaskStatusFailed, msql.Datas{
 			`debug_log`: tool.JsonEncodeNoError(result.DebugLog),
 			`err_msg`:   metaErr.Error(),
+		})
+	}
+	if cast.ToInt(info[`operation_type`]) == define.WebToSkillOperationUpdate && skillName != info[`skill_name`] {
+		return finishWebToSkillTask(id, define.WebToSkillTaskStatusFailed, msql.Datas{
+			`debug_log`: tool.JsonEncodeNoError(result.DebugLog),
+			`err_msg`:   fmt.Sprintf(`updated skill name mismatch: expected %s, got %s`, info[`skill_name`], skillName),
 		})
 	}
 	uploadInfo, saveErr := saveWebToSkillZipFile(cast.ToInt(info[`admin_user_id`]), result.ZipPath)
@@ -492,6 +620,7 @@ func buildWebToSkillTaskItem(row msql.Params, withLog bool) define.WebToSkillTas
 		UseModel:         row[`use_model`],
 		Temperature:      cast.ToFloat32(row[`temperature`]),
 		MaxToken:         cast.ToInt(row[`max_token`]),
+		OperationType:    cast.ToInt(row[`operation_type`]),
 		Status:           cast.ToInt(row[`status`]),
 		SkillName:        row[`skill_name`],
 		SkillDescription: row[`skill_description`],
@@ -698,4 +827,41 @@ func getWebToSkillTaskWorkDir(taskBatch string) (string, error) {
 
 func saveWebToSkillZipFile(adminUserId int, zipPath string) (*define.UploadInfo, error) {
 	return saveGeneratedSkillZipFile(adminUserId, `web_to_skill`, zipPath, define.WebToSkillTaskZipAllowExt)
+}
+
+func getValidWebToSkillExistingZip(info msql.Params) (string, error) {
+	if info[`file_url`] == `` || info[`skill_name`] == `` || info[`skill_description`] == `` {
+		return ``, errors.New(`existing skill artifact is incomplete`)
+	}
+	file := GetFileByLink(info[`file_url`])
+	if file == `` || !tool.IsFile(file) {
+		return ``, errors.New(`existing skill zip is unavailable`)
+	}
+	skillName, description, err := ReadClawbotSkillZipMeta(file)
+	if err != nil {
+		return ``, err
+	}
+	if skillName != info[`skill_name`] || description != info[`skill_description`] {
+		return ``, errors.New(`existing skill metadata does not match task record`)
+	}
+	return file, nil
+}
+
+func stageWebToSkillExistingZip(info msql.Params) (string, error) {
+	source, err := getValidWebToSkillExistingZip(info)
+	if err != nil {
+		return ``, err
+	}
+	workDir, err := getWebToSkillTaskWorkDir(info[`task_batch`])
+	if err != nil {
+		return ``, err
+	}
+	if err = tool.MkDirAll(workDir); err != nil {
+		return ``, err
+	}
+	destination := filepath.Join(workDir, `existing-skill.zip`)
+	if err = copyFile(source, destination); err != nil {
+		return ``, err
+	}
+	return destination, nil
 }

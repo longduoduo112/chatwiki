@@ -6,12 +6,13 @@ import (
 	"chatwiki/internal/app/chatwiki/define"
 	"chatwiki/internal/app/chatwiki/i18n"
 	"chatwiki/internal/pkg/lib_web"
-	"encoding/json"
 	"errors"
 	"io"
 	"mime/multipart"
 	"net/http"
+	"os"
 	"path"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -141,6 +142,32 @@ func DeleteClawbotLocalDocIndex(robotKey string, name string) error {
 	})
 }
 
+func DeleteClawbotLocalDocAssets(robotKey string, name string) error {
+	name, ok := NormalizeClawbotLocalDocName(name)
+	if !ok {
+		return errors.New(`file name is invalid`)
+	}
+	privateDir := filepath.Clean(filepath.FromSlash(strings.ReplaceAll(define.PrivateFileDir, `<robot_key>`, robotKey)))
+	assetDir, err := clawbotLocalDocAssetDir(privateDir, name)
+	if err != nil {
+		return err
+	}
+	return os.RemoveAll(assetDir)
+}
+
+func GetClawbotLocalDocIndexItem(robotKey string, name string) (define.ClawbotLocalDocIndexItem, bool, error) {
+	list, err := readClawbotLocalDocIndex(robotKey)
+	if err != nil {
+		return define.ClawbotLocalDocIndexItem{}, false, err
+	}
+	for _, item := range list {
+		if item.File == name {
+			return item, true, nil
+		}
+	}
+	return define.ClawbotLocalDocIndexItem{}, false, nil
+}
+
 func normalizeClawbotLocalDocKeywords(values ...string) []string {
 	keywords := make([]string, 0)
 	seen := make(map[string]struct{})
@@ -169,17 +196,9 @@ func NormalizeClawbotLocalDocName(name string) (string, bool) {
 
 func updateClawbotLocalDocIndex(robotKey string, modify func([]define.ClawbotLocalDocIndexItem) []define.ClawbotLocalDocIndexItem) error {
 	indexPath := strings.ReplaceAll(define.PrivateFileDir, `<robot_key>`, robotKey) + `/index.yaml`
-	list := make([]define.ClawbotLocalDocIndexItem, 0)
-	if tool.IsFile(indexPath) {
-		content, err := tool.ReadFile(indexPath)
-		if err != nil {
-			return err
-		}
-		if strings.TrimSpace(content) != `` {
-			if err = yaml.Unmarshal([]byte(content), &list); err != nil {
-				return err
-			}
-		}
+	list, err := readClawbotLocalDocIndex(robotKey)
+	if err != nil {
+		return err
 	}
 
 	list = modify(list)
@@ -200,6 +219,24 @@ func updateClawbotLocalDocIndex(robotKey string, modify func([]define.ClawbotLoc
 	return nil
 }
 
+func readClawbotLocalDocIndex(robotKey string) ([]define.ClawbotLocalDocIndexItem, error) {
+	indexPath := strings.ReplaceAll(define.PrivateFileDir, `<robot_key>`, robotKey) + `/index.yaml`
+	list := make([]define.ClawbotLocalDocIndexItem, 0)
+	if !tool.IsFile(indexPath) {
+		return list, nil
+	}
+	content, err := tool.ReadFile(indexPath)
+	if err != nil {
+		return nil, err
+	}
+	if strings.TrimSpace(content) != `` {
+		if err = yaml.Unmarshal([]byte(content), &list); err != nil {
+			return nil, err
+		}
+	}
+	return list, nil
+}
+
 func removeClawbotLocalDocIndexItem(list []define.ClawbotLocalDocIndexItem, name string) []define.ClawbotLocalDocIndexItem {
 	out := make([]define.ClawbotLocalDocIndexItem, 0, len(list))
 	for _, item := range list {
@@ -209,6 +246,30 @@ func removeClawbotLocalDocIndexItem(list []define.ClawbotLocalDocIndexItem, name
 		out = append(out, item)
 	}
 	return out
+}
+
+func clawbotLocalDocAssetDir(privateDir string, name string) (string, error) {
+	name, ok := NormalizeClawbotLocalDocName(name)
+	if !ok {
+		return ``, errors.New(`file name is invalid`)
+	}
+	assetsRoot := filepath.Join(privateDir, `assets`)
+	assetDir := filepath.Join(assetsRoot, name)
+	if err := ensureClawbotLocalDocPathWithin(assetsRoot, assetDir); err != nil {
+		return ``, err
+	}
+	return assetDir, nil
+}
+
+func ensureClawbotLocalDocPathWithin(root string, target string) error {
+	root = filepath.Clean(root)
+	target = filepath.Clean(target)
+	relative, err := filepath.Rel(root, target)
+	if err != nil || relative == `.` || relative == `..` || filepath.IsAbs(relative) ||
+		strings.HasPrefix(relative, `..`+string(filepath.Separator)) {
+		return errors.New(`path is outside expected directory`)
+	}
+	return nil
 }
 
 func clawbotLocalDocIndexType(ext string) string {
@@ -223,6 +284,8 @@ func clawbotLocalDocIndexType(ext string) string {
 		return `DOCX`
 	case `xlsx`:
 		return `XLSX`
+	case `csv`:
+		return `CSV`
 	default:
 		return strings.ToUpper(ext)
 	}
@@ -235,7 +298,7 @@ func splitClawbotLocalDocKeywordValue(value string) []string {
 	}
 	if strings.HasPrefix(value, `[`) {
 		var arr []string
-		if err := json.Unmarshal([]byte(value), &arr); err == nil {
+		if err := tool.JsonDecodeUseNumber(value, &arr); err == nil {
 			return normalizeClawbotLocalDocKeywords(arr...)
 		}
 	}

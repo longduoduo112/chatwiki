@@ -18,7 +18,7 @@ require (
 	github.com/alibabacloud-go/cams-20200606/v5 v5.1.3
 	github.com/alibabacloud-go/darabonba-openapi/v2 v2.1.14
 	github.com/alibabacloud-go/dingtalk v1.6.96
-	github.com/alibabacloud-go/docmind-api-20220711 v1.4.5
+	github.com/alibabacloud-go/docmind-api-20220711 v1.4.13
 	github.com/alibabacloud-go/tea v1.4.0
 	github.com/alibabacloud-go/tea-utils/v2 v2.0.7
 	github.com/aliyun/aliyun-oss-go-sdk v3.0.2+incompatible
@@ -51,6 +51,7 @@ require (
 	github.com/jinzhu/now v1.1.5
 	github.com/larksuite/oapi-sdk-go/v3 v3.5.2
 	github.com/lib/pq v1.12.3
+	github.com/line/line-bot-sdk-go/v8 v8.20.1
 	github.com/mark3labs/mcp-go v0.42.0
 	github.com/matiasinsaurralde/go-e2b v0.0.0-20260620004025-b87d7066e221
 	github.com/neo4j/neo4j-go-driver/v5 v5.28.0
@@ -70,7 +71,7 @@ require (
 	github.com/xuri/excelize/v2 v2.10.1
 	github.com/yuin/goldmark v1.7.12
 	github.com/zhimaAi/go_tools v0.0.0-20260612072211-1b1647da5f18
-	github.com/zhimaAi/llm_adaptor v0.0.0-20260709085157-d6cf67642546
+	github.com/zhimaAi/llm_adaptor v0.0.0-20260804025034-38ee3467cf14
 	github.com/zhimaAi/pdf v0.0.0-20260702061841-31ece7763f10
 	gitlab.com/golang-commonmark/markdown v0.0.0-20211110145824-bf3e522c626a
 	go.uber.org/zap v1.27.0
@@ -88,15 +89,8 @@ require (
 	github.com/alecthomas/chroma v0.10.0 // indirect
 	github.com/alibabacloud-go/alibabacloud-gateway-spi v0.0.5 // indirect
 	github.com/alibabacloud-go/debug v1.0.1 // indirect
-	github.com/alibabacloud-go/endpoint-util v1.1.0 // indirect
 	github.com/alibabacloud-go/gateway-dingtalk v1.0.2 // indirect
 	github.com/alibabacloud-go/openapi-util v0.1.1 // indirect
-	github.com/alibabacloud-go/openplatform-20191219/v2 v2.0.1 // indirect
-	github.com/alibabacloud-go/tea-fileform v1.1.1 // indirect
-	github.com/alibabacloud-go/tea-oss-sdk v1.1.3 // indirect
-	github.com/alibabacloud-go/tea-oss-utils v1.1.0 // indirect
-	github.com/alibabacloud-go/tea-utils v1.3.6 // indirect
-	github.com/alibabacloud-go/tea-xml v1.1.3 // indirect
 	github.com/andybalholm/cascadia v1.3.2 // indirect
 	github.com/antchfx/xpath v1.3.3 // indirect
 	github.com/araddon/dateparse v0.0.0-20210429162001-6b43995a97de // indirect

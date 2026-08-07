@@ -16,6 +16,11 @@ const (
 )
 
 const (
+	WebToSkillOperationGenerate = 0
+	WebToSkillOperationUpdate   = 1
+)
+
+const (
 	WebToSkillTaskDefaultPageSize  = 20
 	WebToSkillTaskDefaultTemp      = 1
 	WebToSkillTaskDefaultMaxToken  = 32 * 1024 // 32k
@@ -52,6 +57,7 @@ type WebToSkillTaskIDParams struct {
 type WebToSkillTaskInstallParams struct {
 	ID        int64 `form:"id" json:"id" binding:"required,gt=0"`
 	Overwrite bool  `form:"overwrite" json:"overwrite"`
+	RobotID   int64 `form:"robot_id" json:"robot_id" binding:"omitempty,gt=0"`
 }
 
 type WebToSkillTaskItem struct {
@@ -64,6 +70,7 @@ type WebToSkillTaskItem struct {
 	UseModel         string   `json:"use_model"`
 	Temperature      float32  `json:"temperature"`
 	MaxToken         int      `json:"max_token"`
+	OperationType    int      `json:"operation_type"`
 	Status           int      `json:"status"`
 	SkillName        string   `json:"skill_name"`
 	SkillDescription string   `json:"skill_description"`

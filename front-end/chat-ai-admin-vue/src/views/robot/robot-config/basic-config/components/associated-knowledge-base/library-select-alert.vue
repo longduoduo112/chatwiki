@@ -221,6 +221,7 @@
                     <span class="type-tag" v-if="item.type == 1">{{ t('tag_external_library') }}</span>
                     <span class="type-tag" v-if="item.type == 2">{{ t('tag_qa_library') }}</span>
                     <span class="type-tag" v-if="item.type == 3">{{ t('tag_wechat_library') }}</span>
+                    <LibraryExpireStatus :library="item" />
                   </div>
                   <div class="desc-info-block">{{ item.library_intro }}</div>
                 </div>
@@ -252,6 +253,7 @@ import { SearchOutlined, SyncOutlined, RightOutlined, LeftOutlined } from '@ant-
 import { getLibraryList, getLibraryListGroup } from '@/api/library/index'
 import { useRobotStore } from '@/stores/modules/robot'
 import { useI18n } from '@/hooks/web/useI18n'
+import LibraryExpireStatus from '@/components/library-expire-status/index.vue'
 
 const robotStore = useRobotStore()
 const { robotInfo } = robotStore
@@ -373,6 +375,7 @@ const handleChangeChecked = (e) => {
     state.checkedList.push(value)
   }
 }
+
 
 const isRefresh = ref(false)
 const onRefresh = async () => {

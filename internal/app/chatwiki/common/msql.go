@@ -164,7 +164,7 @@ func InsertOrUpdateCustomer(openid string, adminUserId int, upData msql.Datas) {
 type LibraryCacheBuildHandler struct{ LibraryId int }
 
 func (h *LibraryCacheBuildHandler) GetCacheKey() string {
-	return fmt.Sprintf(`chatwiki.library_info.%d`, h.LibraryId)
+	return fmt.Sprintf(`chatwiki.library_info.v2.%d`, h.LibraryId)
 }
 func (h *LibraryCacheBuildHandler) GetCacheData() (any, error) {
 	data, err := msql.Model(`chat_ai_library`, define.Postgres).Where(`id`, cast.ToString(h.LibraryId)).Find()
@@ -683,6 +683,15 @@ func GetMatchLibraryParagraphList(lang string, openid, appType, appId, question 
 	if len(libraryIds) == 0 {
 		return result, libUseTime, nil
 	}
+	availableLibraryIds, err := filterAvailableLibraryIds(libraryIds)
+	if err != nil {
+		logs.Error(err.Error())
+		return result, libUseTime, err
+	}
+	libraryIds = availableLibraryIds
+	if len(libraryIds) == 0 {
+		return result, libUseTime, nil
+	}
 	question = GetFirstQuestionByInput(question) // Multimodal input special processing
 	if len(question) == 0 {
 		return result, libUseTime, nil
@@ -789,6 +798,45 @@ func GetMatchLibraryParagraphList(lang string, openid, appType, appId, question 
 	}
 	go statDailyRequestLibraryTip(adminUserId, robot, appType, appId, cast.ToString(StatsTypeDailyAiMsgCount))
 	return result, libUseTime, nil
+}
+
+func filterAvailableLibraryIds(libraryIds string) (string, error) {
+	originalIds := strings.Split(libraryIds, `,`)
+	queryIds := make([]string, 0, len(originalIds))
+	for _, libraryId := range originalIds {
+		id := cast.ToInt(strings.TrimSpace(libraryId))
+		if id > 0 {
+			queryIds = append(queryIds, cast.ToString(id))
+		}
+	}
+	if len(queryIds) == 0 {
+		return ``, nil
+	}
+
+	list, err := msql.Model(`chat_ai_library`, define.Postgres).
+		Where(`id`, `in`, strings.Join(queryIds, `,`)).
+		Field(`id,is_permanent,expire_time`).
+		Select()
+	if err != nil {
+		return ``, err
+	}
+
+	now := time.Now().Unix()
+	availableIdMap := make(map[int]struct{}, len(list))
+	for _, library := range list {
+		if cast.ToInt(library[`is_permanent`]) == define.SwitchOn || now <= cast.ToInt64(library[`expire_time`]) {
+			availableIdMap[cast.ToInt(library[`id`])] = struct{}{}
+		}
+	}
+
+	availableIds := make([]string, 0, len(originalIds))
+	for _, libraryId := range originalIds {
+		id := cast.ToInt(strings.TrimSpace(libraryId))
+		if _, ok := availableIdMap[id]; ok {
+			availableIds = append(availableIds, cast.ToString(id))
+		}
+	}
+	return strings.Join(availableIds, `,`), nil
 }
 
 func FatherSonChunkReplace(list []msql.Params) []msql.Params {

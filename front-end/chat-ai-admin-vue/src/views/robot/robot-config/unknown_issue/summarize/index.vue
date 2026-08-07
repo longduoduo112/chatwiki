@@ -345,63 +345,6 @@ const parseJsonString = (val) => {
   }
 }
 
-const tryParseJson = (val) => {
-  if (typeof val !== 'string') {
-    return val
-  }
-  try {
-    return JSON.parse(val)
-  } catch (_e) {
-    return val
-  }
-}
-
-const extractMessageText = (node) => {
-  if (node === null || node === undefined) {
-    return []
-  }
-  if (typeof node === 'string') {
-    return [node]
-  }
-  if (Array.isArray(node)) {
-    return node.flatMap((item) => extractMessageText(item))
-  }
-  if (typeof node === 'object') {
-    const itemType = String(node?.type || node?.reply_type || '')
-    if (itemType === 'text') {
-      return [String(node?.text || node?.content || node?.description || '')]
-    }
-    if (itemType === 'image') {
-      return ['[image]']
-    }
-    if (itemType === 'voice') {
-      return ['[voice]']
-    }
-    const direct = [node?.text, node?.content, node?.description].filter((x) => typeof x === 'string')
-    if (direct.length > 0) {
-      return direct
-    }
-  }
-  return []
-}
-
-const normalizeReceivedText = (content) => {
-  if (!content || typeof content !== 'string') {
-    return content
-  }
-  let parsed = tryParseJson(content)
-  if (typeof parsed === 'string') {
-    parsed = tryParseJson(parsed)
-  }
-  if (typeof parsed === 'string') {
-    return content
-  }
-  const textList = extractMessageText(parsed)
-    .map((item) => String(item || '').trim())
-    .filter((item) => item !== '')
-  return textList.length > 0 ? textList.join('\n') : content
-}
-
 const normalizeContextMessage = (item, robot, customer) => {
   const msg = {
     ...item,
@@ -420,9 +363,6 @@ const normalizeContextMessage = (item, robot, customer) => {
   msg.menu_json = parseJsonString(msg.menu_json)
   msg.quote_file = parseJsonString(msg.quote_file)
   msg.reply_content_list = parseJsonString(msg.reply_content_list) || []
-  if (msg.is_customer == 1) {
-    msg.content = normalizeReceivedText(msg.content)
-  }
   msg.voice_content = extractVoiceInfo(msg.content)
   msg.content = removeVoiceFormat(msg.content)
   return msg

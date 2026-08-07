@@ -1598,3 +1598,10 @@ func DocToSkillTask(msg string, _ ...string) error {
 	}
 	return nil
 }
+
+func ClawbotLocalDocConvertTask(msg string, _ ...string) error {
+	if err := common.RunClawbotLocalDocConvertTask(msg); err != nil {
+		logs.Error(`ClawbotLocalDocConvertTask:%s,err:%s`, msg, err.Error())
+	}
+	return nil
+}

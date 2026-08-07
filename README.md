@@ -137,6 +137,20 @@ Feel free to contact us for help or to provide suggestions to improve ChatWiki. 
 ---
 For the complete changelog, please click 👉️👉️[UpdateLog.md](./UpdateLog.md)
 
+**2026/08/07**
+
+1.External Service: Bot supports LINE app<br/>
+2.Agent: My Skills interface interaction adjustments and logic optimization<br/>
+3.Temporarily disabled DeepSeek official API thinking mode<br/>
+4.Agent: Local document reading skill now supports docx, csv, and pdf files<br/>
+5.Fixed issue where customer messages were not displayed in unknown question session context<br/>
+6.Fixed issue where Alibaba Cloud OCR document parsing results were not using pagination query logic<br/>
+7.Alibaba Cloud OCR document parsing: Enabled FormulaEnhancement logic<br/>
+8.Fixed time field error in Alibaba Cloud OCR document parsing task status query<br/>
+9.[STD] Added Alibaba Cloud OCR document parsing open API and credit validation<br/>
+10.Agent skill generation tool: Web to Skill now supports skill updates<br/>
+11.Knowledge base: Added validity period settings (permanent, specified date, specified days)<br/>
+
 **2026/07/31**
 
 1.External Service: Embed website SDK supports initialization parameters<br/>
@@ -162,26 +176,6 @@ For the complete changelog, please click 👉️👉️[UpdateLog.md](./UpdateLo
 8.Agent bot configuration: Changed execute tool to be enabled by default<br/>
 9.Workflow editing: Optimized multi-user edit lock mechanism<br/>
 10.[STD] Added Alibaba Cloud SMS plugin - system plugin<br/>
-
-**2026/07/17**
-
-1.Agent bots now support stop operations (adapted for external services)<br/>
-2.Workflow - Run Test: test results returned by node<br/>
-3.External services: support Telegram<br/>
-4.Standard knowledge base: batch link input processing<br/>
-5.Workflow: support calling Agent bot nodes<br/>
-6.Fixed issue where user skill name changes were not synced<br/>
-7.[STD] Knowledge base segmentation capacity and indexes now distinguish between knowledge base and recycle bin<br/>
-8.Agent bots add new skill generation tool: Doc to Skill<br/>
-9.[STD] SSO login - OAuth2.0<br/>
-10.[STD] Support online version upgrade and enterprise edition renewal<br/>
-11.Fixed issue where workflow videos could not be displayed<br/>
-12.[STD] Fixed transfer-to-human status and duplicate messages in open API<br/>
-13.[STD] Agent bots new feature: skill marketplace<br/>
-14.Q&A knowledge base import record documents support deletion<br/>
-15.Agent bots add new skill generation tool: Web to Skill<br/>
-16.[STD] SSO login - DingTalk, Feishu, WeCom<br/>
-17.Clear agent nodes in workflow when exporting workflow<br/>
 
 ## License
 

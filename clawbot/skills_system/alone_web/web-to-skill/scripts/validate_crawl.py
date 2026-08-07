@@ -126,6 +126,38 @@ def load_duplicate_summary(path: Path) -> dict[str, Any]:
     }
 
 
+def load_error_page_skip_summary(path: Path) -> dict[str, Any]:
+    lines = path.read_text(encoding="utf-8-sig").splitlines()
+    starts = [
+        index
+        for index, line in enumerate(lines)
+        if "[crawl_urls]" in line and " run.start " in f" {line} "
+    ]
+    completions = [
+        index
+        for index, line in enumerate(lines)
+        if "[crawl_urls]" in line and " run.done " in f" {line} "
+    ]
+    if not starts or not completions or starts[-1] >= completions[-1]:
+        raise ValueError(f"crawl log has no complete latest crawl run: {path}")
+    examples: list[str] = []
+    count = 0
+    for line in lines[starts[-1] : completions[-1] + 1]:
+        if "[crawl_urls]" not in line or " page.skip " not in f" {line} ":
+            continue
+        fields = parse_fields(line)
+        if fields.get("reason") != "yuque_error_page":
+            continue
+        count += 1
+        if len(examples) < MAX_FAILURE_EXAMPLES:
+            examples.append(compact_text(fields.get("url", ""), 2048))
+    return {
+        "count": count,
+        "examples": examples,
+        "examples_truncated": count > len(examples),
+    }
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Validate a WebToSkill crawl without loading its full log into model context."
@@ -160,6 +192,11 @@ def main() -> int:
         raise ValueError(
             "crawl duplicate summary mismatch: page.duplicate count must equal duplicate_final_urls"
         )
+    error_page_skips = load_error_page_skip_summary(crawl_dir / "crawl.log")
+    if error_page_skips["count"] != int(coverage["skipped_error_pages"]):
+        raise ValueError(
+            "crawl error-page summary mismatch: Yuque page.skip count must equal skipped_error_pages"
+        )
 
     print(json.dumps({
         "status": "complete",
@@ -169,6 +206,7 @@ def main() -> int:
         "run_done": coverage,
         "failure_summary": failures,
         "duplicate_summary": duplicates,
+        "error_page_skip_summary": error_page_skips,
     }, ensure_ascii=False, separators=(",", ":")))
     return 0
 

@@ -150,6 +150,13 @@ func InstallDocToSkill(c *gin.Context) {
 		common.FmtError(c, `param_err`, middlewares.GetValidateErr(params, err, common.GetLang(c)).Error())
 		return
 	}
+	robotKey := ``
+	if params.RobotID > 0 {
+		var ok bool
+		if robotKey, ok = common.GetClawbotRobotKey(c, adminUserId, params.RobotID); !ok {
+			return
+		}
+	}
 	lockKey := define.LockPreKey + `ClawbotUserSkill.` + cast.ToString(adminUserId)
 	if !lib_redis.AddLock(define.Redis, lockKey, time.Minute*5) {
 		common.FmtError(c, `op_lock`)
@@ -161,5 +168,5 @@ func InstallDocToSkill(c *gin.Context) {
 		c.String(http.StatusOK, lib_web.FmtJson(nil, err))
 		return
 	}
-	common.FmtOk(c, data)
+	common.FmtOk(c, buildGeneratedSkillInstallResult(c, adminUserId, `doc`, params.ID, params.RobotID, robotKey, data))
 }

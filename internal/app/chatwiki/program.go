@@ -84,6 +84,7 @@ func StartConsumer() {
 	common.RunTask(define.OfficialAccountCommentSyncTopic, define.OfficialAccountCommentSyncChannel, cast.ToUint(define.Config.ConsumerNum[`OfficialAccountCommentSync`]), business.OfficialAccountCommentSync)
 	common.RunTask(define.OfficialAccountCommentAiCheckTopic, define.OfficialAccountCommentAiCheckChannel, cast.ToUint(define.Config.ConsumerNum[`OfficialAccountCommentAiCheck`]), business.OfficialAccountCommentAiCheck)
 	common.RunTask(define.DocToSkillTaskTopic, define.DocToSkillTaskChannel, cast.ToUint(define.Config.ConsumerNum[`DocToSkillTask`]), business.DocToSkillTask)
+	common.RunTask(define.ClawbotLocalDocConvertTaskTopic, define.ClawbotLocalDocConvertTaskChannel, cast.ToUint(define.Config.ConsumerNum[`ClawbotLocalDocConvertTask`]), business.ClawbotLocalDocConvertTask)
 }
 
 func StartCronTasks() {

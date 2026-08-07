@@ -99,6 +99,7 @@ func buildFileOperationPrompt(robot msql.Params, e2B bool) string {
 		_, _ = fmt.Fprintf(&prompt, "  - Local document reference directory (read-only): `%s`\n", privateFileDir)
 	}
 	_, _ = fmt.Fprintf(&prompt, "  - Workspace directory (%s): `%s`\n", strings.Join(workDirPermissions, ", "), privateWorkDir)
+	prompt.WriteString("- For relative image links in Markdown, resolve and normalize each link against the Markdown file's directory within its injected skill directory, then prepend `/` to the resolved `clawbot/...` path. Leave absolute URLs, data URLs, and absolute Web paths unchanged.\n")
 	if executeEnabled && e2B {
 		prompt.WriteString("- File tool path arguments must be relative paths that start with one of the allowed directory prefixes above. For `execute`, use paths that exist inside the E2B sandbox, or create/download the needed files there first.\n")
 	} else {

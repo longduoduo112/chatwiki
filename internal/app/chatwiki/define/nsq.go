@@ -49,5 +49,8 @@ const OfficialAccountHisArticleSyncChannel = `chatwiki_official_account_his_arti
 const DocToSkillTaskTopic = `chatwiki_doc_to_skill_task_topic`
 const DocToSkillTaskChannel = `chatwiki_doc_to_skill_task_channel`
 
+const ClawbotLocalDocConvertTaskTopic = `chatwiki_clawbot_local_doc_convert_task_topic`
+const ClawbotLocalDocConvertTaskChannel = `chatwiki_clawbot_local_doc_convert_task_channel`
+
 var ConsumerHandle *mq.ConsumerHandle
 var ProducerHandle *mq.ProducerHandle
