@@ -9,12 +9,14 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"sort"
 
 	openClient "github.com/alibabacloud-go/darabonba-openapi/v2/client"
 	"github.com/alibabacloud-go/darabonba-openapi/v2/models"
 	"github.com/alibabacloud-go/docmind-api-20220711/client"
 	"github.com/alibabacloud-go/tea-utils/v2/service"
+	"github.com/alibabacloud-go/tea/tea"
 	"github.com/aliyun/credentials-go/credentials"
 	"github.com/spf13/cast"
 	"github.com/yuin/goldmark"
@@ -55,7 +57,7 @@ func CheckAliOcr(key, secret string) error {
 	return nil
 }
 
-func SubmitOdcParserJob(lang string, userId int, fileUrl string) (string, error) {
+func SubmitOdcParserJob(lang string, userId int, fileUrl string, outputFormat ...*string) (string, error) {
 	company, err := msql.Model(`company`, define.Postgres).Where(`parent_id`, cast.ToString(userId)).Find()
 	if err != nil {
 		return "", err
@@ -80,10 +82,13 @@ func SubmitOdcParserJob(lang string, userId int, fileUrl string) (string, error)
 	if err != nil {
 		return "", err
 	}
+	defer func() { _ = f.Close() }()
 
 	request := client.SubmitDocParserJobAdvanceRequest{
-		FileName:      &url,
-		FileUrlObject: f,
+		FileName:           tea.String(filepath.Base(url)),
+		FileUrlObject:      f,
+		FormulaEnhancement: tea.Bool(true),
+		OutputFormat:       outputFormat,
 	}
 
 	response, err := cli.SubmitDocParserJobAdvance(&request, &service.RuntimeOptions{})
@@ -94,7 +99,7 @@ func SubmitOdcParserJob(lang string, userId int, fileUrl string) (string, error)
 	return *response.Body.Data.Id, nil
 }
 
-func QueryAliOcrResult(aliOcrKey, aliOcrSecret, aliOcrJobId string) (*client.GetDocParserResultResponse, error) {
+func QueryAliOcrResult(aliOcrKey, aliOcrSecret, aliOcrJobId string) ([]map[string]any, error) {
 	config, err := GetOcrConfig(aliOcrKey, aliOcrSecret)
 	if err != nil {
 		return nil, err
@@ -106,13 +111,26 @@ func QueryAliOcrResult(aliOcrKey, aliOcrSecret, aliOcrJobId string) (*client.Get
 	}
 
 	var layoutStepSize int32 = 3000
-	var layoutNum int32 = 0
-	request := client.GetDocParserResultRequest{Id: &aliOcrJobId, LayoutNum: &layoutNum, LayoutStepSize: &layoutStepSize}
-	response, err := cli.GetDocParserResult(&request)
-	if err != nil {
-		return nil, err
+	allLayouts := make([]map[string]any, 0)
+	for i := 0; ; i++ {
+		request := client.GetDocParserResultRequest{
+			Id: &aliOcrJobId, LayoutStepSize: &layoutStepSize,
+			LayoutNum: tea.Int32(layoutStepSize * int32(i)),
+		}
+		resp, err := cli.GetDocParserResult(&request)
+		if err != nil {
+			return nil, err
+		}
+		if resp == nil || resp.StatusCode == nil || *resp.StatusCode != 200 || resp.Body == nil || resp.Body.Data == nil {
+			return nil, errors.New(`invalid response`)
+		}
+		layouts := extractLayouts(resp.Body.Data)
+		allLayouts = append(allLayouts, layouts...)
+		if len(layouts) < int(layoutStepSize) {
+			break
+		}
 	}
-	return response, nil
+	return allLayouts, nil
 }
 
 func QueryAliOcrProgress(aliOcrKey, aliOcrSecret, aliOcrJobId string) (*client.QueryDocParserStatusResponse, error) {
@@ -152,11 +170,11 @@ func QueryAndParseAliOcrRequest(file msql.Params, aliOcrKey, aliOcrSecret string
 		return nil
 	}
 
-	response, err := QueryAliOcrResult(aliOcrKey, aliOcrSecret, file[`ali_ocr_job_id`])
+	layouts, err := QueryAliOcrResult(aliOcrKey, aliOcrSecret, file[`ali_ocr_job_id`])
 	if err != nil {
 		return err
 	}
-	htmlContent := generateOcrHtmlContent(response.Body.Data)
+	htmlContent := generateOcrHtmlContent(layouts)
 	htmlContent, err = ReplaceRemoteImg(htmlContent, cast.ToInt(file[`admin_user_id`]))
 	if err != nil {
 		return err
@@ -190,12 +208,9 @@ func QueryAndParseAliOcrRequest(file msql.Params, aliOcrKey, aliOcrSecret string
 }
 
 // generateOcrHtmlContent generates HTML content from OCR recognition result
-func generateOcrHtmlContent(data map[string]interface{}) string {
+func generateOcrHtmlContent(layouts []map[string]any) string {
 	// Build HTML header
 	htmlContent := `<html><head><meta charset="utf-8"></head><body>`
-
-	// Process layouts data
-	layouts := extractLayouts(data)
 
 	// Group layouts by page number
 	pageLayouts := groupLayoutsByPage(layouts)

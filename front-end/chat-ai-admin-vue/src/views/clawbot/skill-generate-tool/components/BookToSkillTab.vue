@@ -68,9 +68,10 @@ import {
   LoadingOutlined,
   PlusOutlined
 } from '@ant-design/icons-vue'
-import { message } from 'ant-design-vue'
+import { message, Modal } from 'ant-design-vue'
 import { useI18n } from '@/hooks/web/useI18n'
 import { useUserStore } from '@/stores/modules/user'
+import { setShowReqError } from '@/utils/http/axios/config'
 import {
   getDocToSkillTaskList,
   installDocToSkill,
@@ -84,6 +85,10 @@ const props = defineProps({
   active: {
     type: Boolean,
     default: false
+  },
+  robotId: {
+    type: [String, Number],
+    default: ''
   }
 })
 
@@ -269,20 +274,61 @@ const handleStopTask = async (record) => {
   }
 }
 
-const handleInstallSkill = async (record) => {
+const isSkillNameExistsError = (error) => {
+  const errorMessage = error?.msg || error?.message || ''
+  return errorMessage === t('msg_skill_name_exists')
+}
+
+const confirmOverwriteInstall = (record) => {
+  Modal.confirm({
+    title: t('msg_skill_exists_confirm_title'),
+    content: t('msg_skill_exists_confirm_content'),
+    okText: t('btn_overwrite_install'),
+    cancelText: t('btn_cancel'),
+    onOk: () => handleInstallSkill(record, true)
+  })
+}
+
+const handleInstallSkill = async (record, overwrite = false) => {
   if (Number(record.status) !== 2) {
     message.warning(t('msg_task_cannot_install'))
     return
   }
+
+  const robotId = Number(props.robotId)
+  if (!Number.isInteger(robotId) || robotId <= 0) {
+    message.warning('缺少当前 Agent，请重新从 Agent 页面进入')
+    return
+  }
+
+  setShowReqError(false)
   try {
-    const res = await installDocToSkill({ id: record.id })
+    const res = await installDocToSkill({
+      id: record.id,
+      robot_id: robotId,
+      overwrite
+    })
     if (isRequestSuccess(res)) {
-      message.success(t('msg_install_success'))
+      const bindStatus = res?.data?.bind_status ?? res?.bind_status
+      const bindMessage = res?.data?.bind_message ?? res?.bind_message
+      if (bindStatus === 'failed') {
+        const warning = '技能已安装到技能库，但绑定当前 Agent 失败，请稍后在 Agent 技能页重新绑定'
+        message.warning(bindMessage ? warning + '：' + bindMessage : warning)
+      } else {
+        message.success(t('msg_install_success'))
+      }
     } else {
       message.error(res?.msg || t('msg_install_failed'))
     }
   } catch (error) {
+    if (!overwrite && isSkillNameExistsError(error)) {
+      confirmOverwriteInstall(record)
+      return
+    }
     console.error('安装Book转Skill失败', error)
+    message.error(error?.msg || error?.message || t('msg_install_failed'))
+  } finally {
+    setShowReqError(true)
   }
 }
 

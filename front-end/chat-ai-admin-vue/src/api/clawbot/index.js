@@ -132,6 +132,22 @@ export const regenerateWebToSkillTask = (data = {}) => {
   })
 }
 
+export const updateWebToSkillTask = (data = {}) => {
+  return request.post({
+    headers: { 'Content-Type': 'application/json' },
+    url: '/manage/updateWebToSkillTask',
+    data
+  })
+}
+
+export const deleteWebToSkillTask = (data = {}) => {
+  return request.post({
+    headers: { 'Content-Type': 'application/json' },
+    url: '/manage/deleteWebToSkillTask',
+    data
+  })
+}
+
 export const getWebToSkillTaskInfo = (params = {}) => {
   return request.get({
     url: '/manage/getWebToSkillTaskInfo',
@@ -174,6 +190,14 @@ export const getClawbotLocalDocList = (params = {}) => {
   return request.get({
     url: '/manage/getClawbotLocalDocList',
     params
+  })
+}
+
+export const convertClawbotLocalDoc = (data = {}) => {
+  return request.post({
+    headers: { 'Content-Type': 'multipart/form-data' },
+    url: '/manage/convertClawbotLocalDoc',
+    data
   })
 }
 

@@ -15,4 +15,5 @@ const (
 	RedisPrefixPassiveSubscribe    = `chatwiki.passive_subscribe.v20251107`
 	RedisPrefixMediaUpload         = `chatwiki.media_upload.v20251107.%s.%s`
 	RedisPrefixDingtalkAccessToken = `chatwiki.dingtalk.access_token.v20251106.%s.%s`
+	RedisPrefixLineAccessToken     = `chatwiki.line.access_token.v20260625.%s`
 )

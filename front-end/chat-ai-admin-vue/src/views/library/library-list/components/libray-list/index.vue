@@ -149,6 +149,7 @@
     margin-top: 14px;
     color: #7a8699;
   }
+
   .library-size {
     display: flex;
     line-height: 20px;
@@ -198,20 +199,38 @@
   }
 }
 
-// 大于1920px
-@media screen and (min-width: 1920px) {
+// 1680px 以下显示三列，兼顾高分辨率屏幕的系统缩放场景
+@media screen and (max-width: 1680px) {
   .list-box {
     .list-item-wrapper {
-      width: 20%;
+      width: 33.3%;
     }
   }
 }
 
-// 大于1920px
-@media screen and (max-width: 1500px) {
+// 分组栏仍展示时，1280px 以下显示两列
+@media screen and (max-width: 1280px) {
+  .list-box {
+    .list-item-wrapper {
+      width: 50%;
+    }
+  }
+}
+
+// 窄屏下分组栏会隐藏，列表恢复三列以充分利用可用空间
+@media screen and (max-width: 1024px) {
   .list-box {
     .list-item-wrapper {
       width: 33.3%;
+    }
+  }
+}
+
+// 移动端单列展示，保证卡片内容可读
+@media screen and (max-width: 768px) {
+  .list-box {
+    .list-item-wrapper {
+      width: 100%;
     }
   }
 }
@@ -276,6 +295,7 @@
                 {{ item.robot_nums || 0 }}
               </span>
             </a-tooltip>
+            <LibraryExpireStatus :library="item" />
           </div>
 
           <div class="action-box" @click.stop>
@@ -298,8 +318,6 @@
             </a-dropdown>
           </div>
         </div>
-
-
       </div>
     </div>
     <EmptyBox v-else style="margin-top: 80px;"/>
@@ -310,6 +328,7 @@
 import { computed } from 'vue'
 import { setDescRef, getTooltipTitle } from '@/utils/index'
 import { useI18n } from '@/hooks/web/useI18n'
+import LibraryExpireStatus from '@/components/library-expire-status/index.vue'
 const emit = defineEmits(['add', 'edit', 'delete', 'openEditGroupModal'])
 
 import { useCompanyStore } from '@/stores/modules/company'

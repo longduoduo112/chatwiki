@@ -8,10 +8,14 @@ import hashlib
 import json
 import os
 import re
+import shutil
+import stat
 import sys
 import time
+import zipfile
+import zlib
 from collections import Counter
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any, TextIO
 from urllib.parse import urlparse
 
@@ -23,10 +27,13 @@ from fetch_rendered_html import (
     URLSafetyGuard,
     USER_AGENT,
     ensure_nonempty_rendered_body,
+    is_ad_only_page,
+    is_yuque_error_page,
     read_body_text,
     read_page_metadata,
     rendered_html_snapshot,
     rule_for_url,
+    sanitize_saved_html_advertisements,
     wait_for_rendered_body,
 )
 
@@ -45,6 +52,7 @@ MAX_KEYWORD_DOCUMENT_FREQUENCY = 0.30
 MIN_PAGES_FOR_KEYWORD_FREQUENCY_FILTER = 4
 ASCII_KEYWORD_RE = re.compile(r"^[a-z0-9][a-z0-9._+-]*$", re.IGNORECASE)
 SKIPPED_RESOURCE_TYPES = {"font", "image", "media"}
+SKILL_NAME_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 
 
 class DuplicateFinalURL(Exception):
@@ -55,10 +63,20 @@ class DuplicateFinalURL(Exception):
         self.first_requested_url = first_requested_url
 
 
+class YuqueErrorPage(Exception):
+    pass
+
+
+class AdOnlyPage(Exception):
+    pass
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Sequentially crawl every URL in a URL-list file into HTML snapshots and a JSONL index.")
     parser.add_argument("--url-list", required=True, help="UTF-8 text file with one URL per line.")
     parser.add_argument("--out-dir", required=True, help="Output directory for index.jsonl, html/, and crawl.log.")
+    parser.add_argument("--existing-skill", help="Optional existing generated skill zip used as a current-URL cache.")
+    parser.add_argument("--expected-name", help="Required unchanged skill name when --existing-skill is used.")
     parser.add_argument("--debug", action="store_true", help="Crawl only the first five URLs.")
     return parser.parse_args()
 
@@ -142,6 +160,8 @@ def filter_common_keywords(records: list[dict[str, Any]]) -> None:
 
 
 def retryable_error(exc: Exception) -> bool:
+    if isinstance(exc, (AdOnlyPage, YuqueErrorPage)):
+        return True
     if isinstance(exc, URLSafetyError):
         return False
     message = str(exc).casefold()
@@ -194,6 +214,191 @@ def update_snapshot_keywords(snapshot: str, keywords: list[str]) -> str:
             head.append(node)
         node["content"] = ", ".join(keywords)
     return soup.prettify(formatter="minimal") + "\n"
+
+
+def safe_zip_member_path(name: str) -> PurePosixPath:
+    path = PurePosixPath(name)
+    if path.is_absolute() or not path.parts or any(part in ("", ".", "..") for part in path.parts):
+        raise ValueError(f"unsafe zip member path: {name}")
+    return path
+
+
+def existing_skill_name(content: str) -> str:
+    match = re.match(r"\A---\s*\n(.*?)\n---\s*(?:\n|\Z)", content, flags=re.DOTALL)
+    if not match:
+        raise ValueError("existing SKILL.md has invalid frontmatter")
+    for raw_line in match.group(1).splitlines():
+        key, separator, value = raw_line.partition(":")
+        if separator and key.strip() == "name":
+            name = value.strip().strip("'\"")
+            if not SKILL_NAME_RE.fullmatch(name):
+                raise ValueError("existing skill name is invalid")
+            return name
+    raise ValueError("existing SKILL.md is missing name")
+
+
+def stage_existing_skill(source: Path, out_dir: Path, expected_name: str) -> tuple[Path, str]:
+    source = source.resolve()
+    if not source.is_file() or source.stat().st_size <= 0:
+        raise ValueError("existing skill zip is missing or empty")
+    cache_dir = (out_dir.parent / "existing").resolve()
+    temporary_dir = cache_dir.with_name(cache_dir.name + ".tmp")
+    if temporary_dir.exists():
+        shutil.rmtree(temporary_dir)
+    try:
+        with zipfile.ZipFile(source) as archive:
+            members: dict[str, zipfile.ZipInfo] = {}
+            roots: set[str] = set()
+            for info in archive.infolist():
+                path = safe_zip_member_path(info.filename)
+                roots.add(path.parts[0])
+                mode = (info.external_attr >> 16) & 0o170000
+                if mode == stat.S_IFLNK:
+                    raise ValueError(f"symbolic links are not allowed in skill zip: {info.filename}")
+                member_name = path.as_posix()
+                if member_name in members:
+                    raise ValueError(f"duplicate zip member is not allowed: {member_name}")
+                members[member_name] = info
+            if len(roots) != 1:
+                raise ValueError("existing skill zip must contain exactly one skill root directory")
+            root = next(iter(roots))
+            skill_member = members.get(f"{root}/SKILL.md")
+            index_member = members.get(f"{root}/references/web-index.jsonl")
+            if skill_member is None or index_member is None:
+                raise ValueError("existing skill zip is missing SKILL.md or references/web-index.jsonl")
+            skill_name = existing_skill_name(archive.read(skill_member).decode("utf-8-sig"))
+            if expected_name and skill_name != expected_name:
+                raise ValueError(f"existing skill name mismatch: expected {expected_name}, got {skill_name}")
+            index_content = archive.read(index_member).decode("utf-8-sig")
+            raw_records: list[dict[str, Any]] = []
+            seen_urls: set[str] = set()
+            for line_number, raw_line in enumerate(index_content.splitlines(), start=1):
+                if not raw_line.strip():
+                    continue
+                try:
+                    record = json.loads(raw_line)
+                except json.JSONDecodeError as exc:
+                    raise ValueError(f"invalid existing index JSONL at line {line_number}: {exc}") from exc
+                if not isinstance(record, dict):
+                    raise ValueError(f"existing index line {line_number} must be an object")
+                for field in ("url", "title", "description", "keywords", "html_path"):
+                    if field not in record:
+                        raise ValueError(f"existing index line {line_number} is missing {field}")
+                url = str(record["url"]).strip()
+                if not url or url in seen_urls:
+                    raise ValueError(f"existing index contains an empty or duplicate URL at line {line_number}")
+                if not isinstance(record["keywords"], list):
+                    raise ValueError(f"existing index keywords must be an array at line {line_number}")
+                stored_path = PurePosixPath(str(record["html_path"]))
+                if stored_path.is_absolute() or ".." in stored_path.parts:
+                    raise ValueError(f"existing index HTML path is unsafe at line {line_number}")
+                seen_urls.add(url)
+                raw_records.append(record)
+            if not raw_records:
+                raise ValueError("existing index has no page records")
+            html_dir = temporary_dir / "html"
+            html_dir.mkdir(parents=True, exist_ok=True)
+            staged_records: list[dict[str, Any]] = []
+            for record in raw_records:
+                stored_path = PurePosixPath(str(record["html_path"]))
+                info = members.get((PurePosixPath(root) / stored_path).as_posix())
+                name = f"{page_id(str(record['url']))}.html"
+                if info is not None and not info.is_dir():
+                    try:
+                        html_content = archive.read(info)
+                    except (
+                        zipfile.BadZipFile,
+                        zlib.error,
+                        RuntimeError,
+                        NotImplementedError,
+                        OSError,
+                        EOFError,
+                    ):
+                        html_content = None
+                    if html_content is not None:
+                        (html_dir / name).write_bytes(html_content)
+                staged_records.append({
+                    "url": str(record["url"]),
+                    "title": str(record["title"]),
+                    "description": str(record["description"]),
+                    "keywords": record["keywords"],
+                    "html_path": f"html/{name}",
+                })
+            (temporary_dir / "web-index.jsonl").write_text(
+                "\n".join(json.dumps(record, ensure_ascii=False, separators=(",", ":")) for record in staged_records) + "\n",
+                encoding="utf-8",
+            )
+        if cache_dir.exists():
+            shutil.rmtree(cache_dir)
+        temporary_dir.replace(cache_dir)
+        return cache_dir / "web-index.jsonl", skill_name
+    finally:
+        if temporary_dir.exists():
+            shutil.rmtree(temporary_dir)
+
+
+def load_reusable_pages(index_path: Path | None, logger: "CrawlLogger") -> dict[str, dict[str, Any]]:
+    if index_path is None:
+        return {}
+    index_path = index_path.resolve()
+    if not index_path.is_file():
+        raise ValueError(f"existing index not found: {index_path}")
+    index_dir = index_path.parent
+    reusable: dict[str, dict[str, Any]] = {}
+    for line_number, raw_line in enumerate(index_path.read_text(encoding="utf-8-sig").splitlines(), start=1):
+        if not raw_line.strip():
+            continue
+        try:
+            record = json.loads(raw_line)
+        except json.JSONDecodeError as exc:
+            raise ValueError(f"invalid existing index JSONL at {index_path}:{line_number}: {exc}") from exc
+        if not isinstance(record, dict):
+            raise ValueError(f"existing index record at line {line_number} must be an object")
+        for field in ("url", "title", "description", "keywords", "html_path"):
+            if field not in record:
+                raise ValueError(f"existing index record at line {line_number} is missing {field}")
+        url = str(record["url"]).strip()
+        if not url or url in reusable:
+            raise ValueError(f"existing index has an empty or duplicate URL at line {line_number}")
+        if not isinstance(record["keywords"], list):
+            raise ValueError(f"existing index keywords must be an array at line {line_number}")
+        stored_path = Path(str(record["html_path"]))
+        if stored_path.is_absolute():
+            raise ValueError(f"existing HTML path must be relative at line {line_number}")
+        candidate = (index_dir / stored_path).resolve()
+        try:
+            candidate.relative_to(index_dir)
+        except ValueError as exc:
+            raise ValueError(f"existing HTML path escapes its cache directory at line {line_number}") from exc
+        if not candidate.is_file():
+            logger.emit("page.reuse.rejected", url=url, reason="html_missing")
+            continue
+        try:
+            html_text = candidate.read_text(encoding="utf-8-sig")
+        except (OSError, UnicodeError):
+            logger.emit("page.reuse.rejected", url=url, reason="html_unreadable")
+            continue
+        if not html_text.strip():
+            logger.emit("page.reuse.rejected", url=url, reason="html_empty")
+            continue
+        if is_yuque_error_page(url, html_text):
+            logger.emit("page.reuse.rejected", url=url, reason="yuque_error_page")
+            continue
+        if is_ad_only_page(html_text):
+            logger.emit("page.reuse.rejected", url=url, reason="ad_only_page")
+            continue
+        sanitized_html = sanitize_saved_html_advertisements(html_text)
+        if sanitized_html != html_text:
+            try:
+                candidate.write_text(sanitized_html, encoding="utf-8")
+            except OSError:
+                logger.emit("page.reuse.rejected", url=url, reason="html_unwritable")
+                continue
+        reusable[url] = {
+            "record": record,
+            "source": candidate,
+        }
+    return reusable
 
 
 class CrawlLogger:
@@ -343,6 +548,10 @@ async def crawl_one(
         ensure_nonempty_rendered_body(browser_body_text)
         title, description, original_keywords = await read_page_metadata(page)
         html_text = await page.content()
+        if is_yuque_error_page(final_url, html_text):
+            raise YuqueErrorPage(f"Yuque rendered an error page: {final_url}")
+        if is_ad_only_page(html_text):
+            raise AdOnlyPage(f"rendered page contains advertisements but #main is empty: {final_url}")
 
         logger.emit("page.snapshot.start", progress=f"{index}/{total}-step4/5", final_url=final_url)
         snapshot = rendered_html_snapshot(
@@ -392,10 +601,15 @@ async def run(args: argparse.Namespace) -> tuple[int, int]:
     html_dir = out_dir / "html"
     index_path = out_dir / "index.jsonl"
     logger = CrawlLogger(out_dir / "crawl.log")
-    successes = 0
-    records: list[dict[str, Any]] = []
+    existing_index: Path | None = None
+    reusable_pages: dict[str, dict[str, Any]] = {}
+    records_by_position: dict[int, dict[str, Any]] = {}
     captured_final_urls: dict[str, str] = {}
+    pending: list[tuple[int, str]] = []
+    reused = 0
+    successes = 0
     duplicate_final_urls = 0
+    skipped_error_pages = 0
     consecutive_timeouts = 0
     max_consecutive_timeouts = 0
     stopped_by_consecutive_timeouts = False
@@ -405,26 +619,61 @@ async def run(args: argparse.Namespace) -> tuple[int, int]:
         logger.emit(
             "run.start",
             urls=len(urls),
+            update=bool(args.existing_skill),
             debug=args.debug,
             timeout_ms=TIMEOUT_MS,
             consecutive_timeout_limit=CONSECUTIVE_TIMEOUT_LIMIT,
             index_path=str(index_path),
         )
-        from playwright.async_api import async_playwright
-
-        guard = URLSafetyGuard()
-        async with async_playwright() as playwright:
-            browser = await playwright.chromium.launch(headless=True, args=launch_args())
-            context = await browser.new_context(
-                ignore_https_errors=True,
-                locale="zh-CN",
-                user_agent=USER_AGENT,
-                viewport={"width": 1440, "height": 1000},
+        if args.existing_skill:
+            existing_index, staged_name = stage_existing_skill(
+                Path(args.existing_skill),
+                out_dir,
+                str(args.expected_name or "").strip(),
             )
-            try:
-                with index_path.open("w", encoding="utf-8", buffering=1) as index_file:
-                    for position, url in enumerate(urls, start=1):
-                        attempted = position
+            logger.emit("existing_skill.staged", name=staged_name, index_path=str(existing_index))
+        elif args.expected_name:
+            raise ValueError("--expected-name requires --existing-skill")
+        reusable_pages = load_reusable_pages(existing_index, logger)
+        html_dir.mkdir(parents=True, exist_ok=True)
+        for position, url in enumerate(urls, start=1):
+            reusable = reusable_pages.get(url)
+            if reusable is None:
+                pending.append((position, url))
+                continue
+            record = dict(reusable["record"])
+            destination = html_dir / f"{page_id(str(record['url']))}.html"
+            shutil.copyfile(reusable["source"], destination)
+            record["html_path"] = destination.relative_to(out_dir).as_posix()
+            records_by_position[position] = record
+            captured_final_urls[str(record["url"])] = url
+            reused += 1
+            logger.emit(
+                "page.reused",
+                progress=f"{position}/{len(urls)}-step5/5",
+                url=url,
+                html_path=str(destination),
+            )
+        logger.emit(
+            "run.plan",
+            reused=reused,
+            fetch_pending=len(pending),
+        )
+        if pending:
+            from playwright.async_api import async_playwright
+
+            guard = URLSafetyGuard()
+            async with async_playwright() as playwright:
+                browser = await playwright.chromium.launch(headless=True, args=launch_args())
+                context = await browser.new_context(
+                    ignore_https_errors=True,
+                    locale="zh-CN",
+                    user_agent=USER_AGENT,
+                    viewport={"width": 1440, "height": 1000},
+                )
+                try:
+                    for pending_index, (position, url) in enumerate(pending, start=1):
+                        attempted += 1
                         record: dict[str, Any] | None = None
                         final_error: Exception | None = None
                         for attempt in range(2):
@@ -458,8 +707,7 @@ async def run(args: argparse.Namespace) -> tuple[int, int]:
                             finally:
                                 await page.close()
                         if record is not None:
-                            index_file.write(json.dumps(record, ensure_ascii=False, separators=(",", ":")) + "\n")
-                            records.append(record)
+                            records_by_position[position] = record
                             captured_final_urls[str(record["url"])] = url
                             successes += 1
                             logger.emit("page.done", progress=f"{position}/{len(urls)}-step5/5", url=record["url"])
@@ -488,6 +736,22 @@ async def run(args: argparse.Namespace) -> tuple[int, int]:
                                     url=final_error.requested_url,
                                 )
                             consecutive_timeouts = 0
+                        elif isinstance(final_error, YuqueErrorPage):
+                            skipped_error_pages += 1
+                            logger.emit(
+                                "page.skip",
+                                progress=f"{position}/{len(urls)}-step5/5",
+                                url=url,
+                                reason="yuque_error_page",
+                            )
+                            if consecutive_timeouts:
+                                logger.emit(
+                                    "crawl.timeout_streak.reset",
+                                    previous=consecutive_timeouts,
+                                    outcome="skip",
+                                    url=url,
+                                )
+                            consecutive_timeouts = 0
                         elif final_error is not None:
                             logger.emit(
                                 "page.error",
@@ -507,7 +771,7 @@ async def run(args: argparse.Namespace) -> tuple[int, int]:
                                 )
                                 if consecutive_timeouts >= CONSECUTIVE_TIMEOUT_LIMIT:
                                     stopped_by_consecutive_timeouts = True
-                                    skipped_pages_after_timeout_stop = len(urls) - position
+                                    skipped_pages_after_timeout_stop = len(pending) - pending_index
                                     logger.emit(
                                         "crawl.timeout_limit.reached",
                                         url=url,
@@ -526,9 +790,10 @@ async def run(args: argparse.Namespace) -> tuple[int, int]:
                                         url=url,
                                     )
                                 consecutive_timeouts = 0
-            finally:
-                await context.close()
-                await browser.close()
+                finally:
+                    await context.close()
+                    await browser.close()
+        records = [records_by_position[position] for position in sorted(records_by_position)]
         filter_common_keywords(records)
         index_path.write_text(
             "\n".join(json.dumps(record, ensure_ascii=False, separators=(",", ":")) for record in records) + "\n",
@@ -539,15 +804,17 @@ async def run(args: argparse.Namespace) -> tuple[int, int]:
             requested=len(urls),
             attempted=attempted,
             succeeded=successes,
-            failed=attempted - successes - duplicate_final_urls,
+            reused=reused,
+            failed=attempted - successes - duplicate_final_urls - skipped_error_pages,
             duplicate_final_urls=duplicate_final_urls,
+            skipped_error_pages=skipped_error_pages,
             max_consecutive_timeouts=max_consecutive_timeouts,
             stopped_by_consecutive_timeouts=stopped_by_consecutive_timeouts,
             skipped_pages_after_timeout_stop=skipped_pages_after_timeout_stop,
         )
     finally:
         logger.close()
-    return successes, len(urls)
+    return reused + successes, len(urls)
 
 
 def main() -> int:

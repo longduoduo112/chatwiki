@@ -707,9 +707,10 @@ const handleDragEnd = async () => {
   margin-right: 16px;
 }
 
-// 大于1920px
-@media screen and (min-width: 1920px) {
-  .library-page {
+// 窄屏下隐藏固定宽度的分组栏，避免挤压知识库卡片。
+@media screen and (max-width: 1024px) {
+  .group-list-box {
+    display: none;
   }
 }
 </style>

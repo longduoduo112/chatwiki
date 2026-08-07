@@ -77,7 +77,7 @@ import { useI18n } from '@/hooks/web/useI18n'
 
 const { t } = useI18n('views.clawbot.components.LocalDocUploadModal')
 
-const ALLOWED_EXTS = ['docx', 'doc', 'xlsx', 'xls', 'md', 'txt', 'pdf', 'csv']
+const ALLOWED_EXTS = ['docx', 'md', 'txt', 'pdf', 'csv']
 const MAX_SIZE = 100 * 1024 * 1024
 
 const props = defineProps({

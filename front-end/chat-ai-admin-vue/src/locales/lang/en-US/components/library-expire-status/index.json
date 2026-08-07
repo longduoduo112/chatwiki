@@ -1,0 +1,15 @@
+{
+  "validity_period": "Validity period",
+  "days": "days",
+  "permanent": "Permanent",
+  "custom_expire_date": "Specific date",
+  "select_expire_date": "Please select an expiration date",
+  "expire_at": "Expires on {date}",
+  "expired": "Expired",
+  "validity_days": "Validity: {days} days",
+  "unavailable_after_expire": "It will be unavailable for reference after expiration.",
+  "expired_tip": "This knowledge base has expired and cannot be referenced.",
+  "expired_action_prefix": "You can",
+  "go_settings": "go to settings",
+  "expired_action_suffix": "to update the validity period."
+}

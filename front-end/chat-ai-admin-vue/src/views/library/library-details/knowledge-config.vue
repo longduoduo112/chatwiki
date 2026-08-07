@@ -3,7 +3,7 @@
   padding: 24px;
 
   .form-box {
-    width: 630px;
+    width: 640px;
     margin: 0 auto;
   }
 }
@@ -14,6 +14,13 @@
 
 .form-item-tip {
   color: #999;
+}
+
+.expire-date-setting {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  vertical-align: middle;
 }
 
 .form-alert-tip {
@@ -213,6 +220,27 @@
               v-model:value="formState.library_intro"
               :placeholder="t('ph_library_intro')"
             />
+          </a-form-item>
+
+          <a-form-item v-if="isExpireConfigurable" :label="expireT('validity_period')">
+            <a-radio-group v-model:value="formState.is_permanent" @change="handleExpireTypeChange">
+              <a-radio :value="1">{{ expireT('permanent') }}</a-radio>
+              <a-radio :value="0">{{ expireT('custom_expire_date') }}</a-radio>
+            </a-radio-group>
+            <span v-if="formState.is_permanent === 0" class="expire-date-setting">
+              <a-input-number
+                v-model:value="formState.expire_days"
+                :min="0"
+                :precision="0"
+                @change="handleExpireDaysChange"
+              />
+              <span>{{ expireT('days') }}</span>
+              <a-date-picker
+                v-model:value="formState.expire_time"
+                :disabled-date="disablePastDates"
+                @change="handleExpireDateChange"
+              />
+            </span>
           </a-form-item>
 
           <a-form-item ref="name" :label="t('label_library_avatar')" v-bind="validateInfos.avatar">
@@ -641,6 +669,7 @@
 
 <script setup>
 import { reactive, ref, h, nextTick, computed } from 'vue'
+import dayjs from 'dayjs'
 import { useRoute, useRouter } from 'vue-router'
 import { Form, message, Modal } from 'ant-design-vue'
 import { QuestionCircleOutlined, CheckCircleFilled } from '@ant-design/icons-vue'
@@ -654,6 +683,7 @@ import { formatSeparatorsNo } from '@/utils/index'
 import { useI18n } from '@/hooks/web/useI18n'
 
 const { t } = useI18n('views.library.library-details.knowledge-config')
+const { t: expireT } = useI18n('components.library-expire-status.index')
 const companyStore = useCompanyStore()
 const neo4j_status = computed(() => {
   return companyStore.companyInfo?.neo4j_status == 'true'
@@ -698,11 +728,21 @@ const formState = reactive({
 
   sync_official_history_type: 2,
   enable_cron_sync_official_content: true,
-  app_id_list: ''
+  app_id_list: '',
+  is_permanent: 1,
+  expire_time: null,
+  expire_days: 30
 })
+
+const disablePastDates = (current) => current && current <= dayjs().endOf('day')
+const getExpireDaysFromDate = (expireTime) => {
+  if (!expireTime) return 0
+  return Math.max(0, dayjs(expireTime).startOf('day').diff(dayjs().startOf('day'), 'day'))
+}
 const isActive = ref(0)
 
 const libraryInfo = ref({})
+const isExpireConfigurable = computed(() => [0, 2].includes(Number(libraryInfo.value.type)))
 
 // 处理选择事件
 const handleModelChange = (item) => {
@@ -771,6 +811,9 @@ const getInfo = () => {
     formState.enable_cron_sync_official_content =
       res.data.enable_cron_sync_official_content === 'true'
     formState.app_id_list = res.data.official_app_id || ''
+    formState.is_permanent = Number(res.data.is_permanent) === 0 ? 0 : 1
+    formState.expire_time = Number(res.data.expire_time) > 0 ? dayjs.unix(Number(res.data.expire_time)) : null
+    formState.expire_days = getExpireDaysFromDate(formState.expire_time)
 
     isWxLibrary.value = res.data.type == 3
     isQaLibrary.value = res.data.type == 2
@@ -951,12 +994,44 @@ const handleEdit = (callback = null) => {
     enable_cron_sync_official_content: Number(formState.enable_cron_sync_official_content),
     id: rotue.query.id
   }
+  if (isExpireConfigurable.value) {
+    if (formState.is_permanent === 0 && !formState.expire_time) {
+      return message.error(expireT('select_expire_date'))
+    }
+    data.is_permanent = formState.is_permanent
+    data.expire_time = formState.is_permanent === 1 ? 0 : formState.expire_time.unix()
+  }
   if (formState.avatar_file) {
     data.avatar = formState.avatar_file
   }
   editLibrary(data).then((res) => {
     typeof callback === 'function' ? callback() : message.success(t('msg_edit_success'))
   })
+}
+
+const handleExpireDaysChange = (value) => {
+  const days = Number(value)
+  if (!Number.isInteger(days) || days < 1) {
+    formState.expire_days = getExpireDaysFromDate(formState.expire_time)
+    return
+  }
+  formState.expire_days = days
+  formState.expire_time = dayjs().add(days, 'day')
+  handleEdit()
+}
+
+const handleExpireDateChange = (value) => {
+  formState.expire_days = getExpireDaysFromDate(value)
+  handleEdit()
+}
+
+const handleExpireTypeChange = () => {
+  if (formState.is_permanent === 0) {
+    handleExpireDaysChange(formState.expire_days > 0 ? formState.expire_days : 30)
+  } else {
+    formState.expire_time = null
+    handleEdit()
+  }
 }
 
 const handleChangeQaIndexType = (type) => {

@@ -26,6 +26,7 @@
     .library-item {
       display: flex;
       align-items: center;
+      gap: 4px;
       line-height: 16px;
       padding: 3px 4px;
       border-radius: 4px;
@@ -101,7 +102,10 @@
         <div class="field-item">
           <div class="field-item-label">{{ t('label_knowledge_base') }}</div>
           <div class="field-item-content">
-            <div class="library-item" v-for="item in selectedLibraryRows" :key="item.id">{{ item.library_name }}</div>
+            <div class="library-item" v-for="item in selectedLibraryRows" :key="item.id">
+              {{ item.library_name }}
+              <LibraryExpireStatus :library="item" />
+            </div>
           </div>
         </div>
       </div>
@@ -116,6 +120,7 @@ import UserQuestionText from '../user-question-text.vue'
 import { getLibraryList } from '@/api/library/index'
 import { useRobotStore } from '@/stores/modules/robot'
 import { useI18n } from '@/hooks/web/useI18n'
+import LibraryExpireStatus from '@/components/library-expire-status/index.vue'
 
 const { t } = useI18n('views.workflow.components.nodes.knowledge-base-node.index')
 const robotStore = useRobotStore()
@@ -248,6 +253,7 @@ const getList = async () => {
     })
   }
 }
+
 
 const getVlaueVariableList = () => {
   let list = getNode().getAllParentVariable()

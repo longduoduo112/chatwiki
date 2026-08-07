@@ -33,10 +33,57 @@ DEFAULT_DNS_TIMEOUT_MS = 1000
 DEFAULT_DNS_CACHE_TTL_MS = 60000
 DEFAULT_TIMEOUT_MS = 30000
 DEFAULT_WAIT_MS = 1000
+YUQUE_ERROR_PREFIXES = ("抱歉", "页面出错了", "页面不存在", "内容不存在", "暂无权限")
+YUQUE_ERROR_CUES = ("刷新", "重试", "页面出现问题", "访问失败", "无法访问", "没有权限")
+YUQUE_MAIN_CONTENT_SELECTORS = (
+    "section[data-rendered-html='true']",
+    "main[data-rendered-snapshot='true']",
+    "main",
+    "[role='main']",
+    "body",
+)
+YUQUE_PAGE_CHROME_SELECTOR = (
+    "script, style, noscript, template, header, nav, aside, footer, "
+    "[hidden], [aria-hidden='true'], [role='banner'], [role='navigation'], [role='complementary']"
+)
+ADVERTISEMENT_SELECTOR = '#wwads, .wwads-cn, [rel="sponsored"]'
 
 
 class URLSafetyError(RuntimeError):
     pass
+
+
+def _yuque_main_content_parts(soup: Any) -> list[str]:
+    main = None
+    for selector in YUQUE_MAIN_CONTENT_SELECTORS:
+        main = soup.select_one(selector)
+        if main is not None:
+            break
+    if main is None:
+        return []
+    cleaned = BeautifulSoup(str(main), "html.parser")
+    for node in cleaned.select(YUQUE_PAGE_CHROME_SELECTOR):
+        node.decompose()
+    return [part for part in (" ".join(value.split()) for value in cleaned.stripped_strings) if part]
+
+
+def is_yuque_error_page(url: str, html_text: str) -> bool:
+    if (urlparse(url).hostname or "").lower() != "www.yuque.com" or not html_text.strip():
+        return False
+    if BeautifulSoup is None:
+        return False
+    soup = BeautifulSoup(html_text, "html.parser")
+    if soup.select_one(".module-error .error-tip") is not None:
+        return True
+    if soup.select_one('[data-testid="error-boundary-message"]') is not None:
+        return True
+    if soup.select_one("article.article-content") is not None:
+        return False
+    parts = _yuque_main_content_parts(soup)
+    if not parts or not parts[0].startswith(YUQUE_ERROR_PREFIXES):
+        return False
+    leading_text = " ".join(parts[:12])
+    return any(cue in leading_text for cue in YUQUE_ERROR_CUES)
 
 
 def _blocked_address(address: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
@@ -282,6 +329,64 @@ def clean_body_text(value: str) -> str:
     return "\n".join(line for line in lines if line)
 
 
+def remove_advertisement_text_nodes(soup: Any, advertisement_texts: set[str]) -> None:
+    if not advertisement_texts:
+        return
+    for section in soup.select("section[data-rendered-text='true']"):
+        for node in list(section.find_all(["p", "li"])):
+            if collapse_space(node.get_text(" ", strip=True)) in advertisement_texts:
+                node.decompose()
+
+
+def remove_advertisement_soup_nodes(soup: Any) -> set[str]:
+    nodes = list(soup.select(ADVERTISEMENT_SELECTOR))
+    advertisement_texts: set[str] = set()
+    for node in nodes:
+        combined = collapse_space(node.get_text(" ", strip=True))
+        if combined:
+            advertisement_texts.add(combined)
+        advertisement_texts.update(
+            text for text in (collapse_space(str(value)) for value in node.stripped_strings) if text
+        )
+    for node in reversed(nodes):
+        node.decompose()
+    remove_advertisement_text_nodes(soup, advertisement_texts)
+    return advertisement_texts
+
+
+def is_ad_only_page(html_text: str) -> bool:
+    if BeautifulSoup is None or not html_text.strip():
+        return False
+    soup = BeautifulSoup(html_text, "html.parser")
+    main = soup.select_one("#main")
+    if main is None:
+        return False
+    main_copy = BeautifulSoup(str(main), "html.parser")
+    for node in main_copy.select("script, style, noscript, template"):
+        node.decompose()
+    if clean_body_text(main_copy.get_text("\n", strip=True)):
+        return False
+    if main_copy.select_one("img, picture, video, audio, canvas, svg, iframe, table") is not None:
+        return False
+    if soup.select_one(ADVERTISEMENT_SELECTOR) is None:
+        return False
+
+    body = BeautifulSoup(str(soup.body or soup), "html.parser")
+    remove_advertisement_soup_nodes(body)
+    for node in body.select(YUQUE_PAGE_CHROME_SELECTOR):
+        node.decompose()
+    return not clean_body_text(body.get_text("\n", strip=True))
+
+
+def sanitize_saved_html_advertisements(html_text: str) -> str:
+    if BeautifulSoup is None or not html_text.strip():
+        return html_text
+    soup = BeautifulSoup(html_text, "html.parser")
+    if not remove_advertisement_soup_nodes(soup):
+        return html_text
+    return soup.prettify(formatter="minimal") + "\n"
+
+
 def ensure_nonempty_rendered_body(body_text: str) -> None:
     if not clean_body_text(body_text):
         raise RuntimeError(
@@ -336,7 +441,8 @@ def append_text_section(snapshot: Any, parent: Any, body_text: str) -> None:
         parent.append(section)
 
 
-def remove_unwanted_soup_nodes(soup: Any) -> None:
+def remove_unwanted_soup_nodes(soup: Any) -> bool:
+    removed_advertisements = bool(remove_advertisement_soup_nodes(soup))
     for node in soup.select("script, style, noscript, template, link[rel='stylesheet']"):
         node.decompose()
     for node in soup.find_all(True):
@@ -347,6 +453,7 @@ def remove_unwanted_soup_nodes(soup: Any) -> None:
                 continue
             attrs[key] = value
         node.attrs = attrs
+    return removed_advertisements
 
 
 def meta_content_soup(soup: Any, attr_name: str, attr_value: str) -> str:
@@ -456,7 +563,7 @@ def rendered_html_snapshot(
         return build_snapshot_from_text(final_url, fallback_title, fallback_description, fallback_keywords, rendered_text)
 
     soup = BeautifulSoup(html_text, "html.parser")
-    remove_unwanted_soup_nodes(soup)
+    removed_advertisements = remove_unwanted_soup_nodes(soup)
     head = soup.head or soup
 
     title = first_nonempty(
@@ -479,7 +586,7 @@ def rendered_html_snapshot(
     if not body_nodes:
         body_nodes = [soup.body or soup]
     body_text = clean_body_text("\n\n".join(node.get_text("\n", strip=True) for node in body_nodes))
-    if len(rendered_text) > len(body_text) and (not matched_rule_body or not body_text):
+    if not removed_advertisements and len(rendered_text) > len(body_text) and (not matched_rule_body or not body_text):
         body_text = rendered_text
     return build_snapshot_from_soup(final_url, title, description, keywords, body_nodes, body_text)
 

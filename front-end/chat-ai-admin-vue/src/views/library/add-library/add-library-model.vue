@@ -8,6 +8,13 @@
   color: #999;
 }
 
+.expire-date-setting {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  vertical-align: middle;
+}
+
 .form-alert-tip {
   color: #8c8c8c;
   font-size: 12px;
@@ -180,6 +187,30 @@
               v-model:value="formState.library_intro"
               :placeholder="t('library_intro_placeholder')"
             />
+          </a-form-item>
+
+          <a-form-item
+            v-if="[0, 2].includes(Number(formState.type))"
+            :label="expireT('validity_period')"
+          >
+            <a-radio-group v-model:value="formState.is_permanent" @change="handleExpireTypeChange">
+              <a-radio :value="1">{{ expireT('permanent') }}</a-radio>
+              <a-radio :value="0">{{ expireT('custom_expire_date') }}</a-radio>
+            </a-radio-group>
+            <span v-if="formState.is_permanent === 0" class="expire-date-setting">
+              <a-input-number
+                v-model:value="formState.expire_days"
+                :min="0"
+                :precision="0"
+                @change="handleExpireDaysChange"
+              />
+              <span>{{ expireT('days') }}</span>
+              <a-date-picker
+                v-model:value="formState.expire_time"
+                :disabled-date="disablePastDates"
+                @change="handleExpireDateChange"
+              />
+            </span>
           </a-form-item>
 
           <a-form-item ref="name" :label="t('library_cover')">
@@ -581,6 +612,7 @@
 
 <script setup>
 import { reactive, ref, onMounted, computed, nextTick } from 'vue'
+import dayjs from 'dayjs'
 import { Form, message } from 'ant-design-vue'
 import { useRouter } from 'vue-router'
 import {createLibrary, createOfficialLibrary, getSeparatorsList} from '@/api/library/index'
@@ -599,6 +631,7 @@ import { useI18n } from '@/hooks/web/useI18n'
 import { useCompanyStore } from '@/stores/modules/company'
 
 const { t } = useI18n('views.library.add-library.add-library-model')
+const { t: expireT } = useI18n('components.library-expire-status.index')
 const companyStore = useCompanyStore()
 const neo4j_status = computed(() => {
   return companyStore.companyInfo?.neo4j_status == 'true'
@@ -659,7 +692,39 @@ const formState = reactive({
   sync_official_history_type: 2,
   enable_cron_sync_official_content: true,
   app_id_list: '',
+  is_permanent: 1,
+  expire_time: null,
+  expire_days: 30
 })
+
+const disablePastDates = (current) => current && current <= dayjs().endOf('day')
+
+const getExpireDaysFromDate = (expireTime) => {
+  if (!expireTime) return 0
+  return Math.max(0, dayjs(expireTime).startOf('day').diff(dayjs().startOf('day'), 'day'))
+}
+
+const handleExpireDaysChange = (value) => {
+  const days = Number(value)
+  if (!Number.isInteger(days) || days < 1) {
+    formState.expire_days = getExpireDaysFromDate(formState.expire_time)
+    return
+  }
+  formState.expire_days = days
+  formState.expire_time = dayjs().add(days, 'day')
+}
+
+const handleExpireDateChange = (value) => {
+  formState.expire_days = getExpireDaysFromDate(value)
+}
+
+const handleExpireTypeChange = (event) => {
+  if (event.target.value === 0) {
+    handleExpireDaysChange(formState.expire_days)
+  } else {
+    formState.expire_time = null
+  }
+}
 
 const onAvatarChange = (data) => {
   formState.avatar = data.imageUrl
@@ -766,6 +831,9 @@ const handleCancel = () => {
 }
 
 const handleOk = () => {
+  if (formState.is_permanent === 0 && !formState.expire_time) {
+    return message.error(expireT('select_expire_date'))
+  }
   formRef.value.validate()
     .then(() => {
       saveForm()
@@ -841,6 +909,9 @@ const saveForm = () => {
     formData.append('app_id_list', formState.app_id_list)
     formData.append('sync_official_history_type', formState.sync_official_history_type)
     formData.append('enable_cron_sync_official_content', Number(formState.enable_cron_sync_official_content))
+  } else if ([0, 2].includes(Number(formState.type))) {
+    formData.append('is_permanent', formState.is_permanent)
+    formData.append('expire_time', formState.is_permanent === 1 ? 0 : formState.expire_time.unix())
   }
   saveLoading.value = true
   request(formData)
@@ -910,6 +981,9 @@ const show = ({ type, group_id, wx_app_ids }) => {
   formState.ai_chunk_model_config_id = ''
   formState.ai_chunk_prumpt = default_ai_chunk_prumpt
   formState.group_id = group_id || 0
+  formState.is_permanent = 1
+  formState.expire_time = null
+  formState.expire_days = 30
   visible.value = true
 }
 

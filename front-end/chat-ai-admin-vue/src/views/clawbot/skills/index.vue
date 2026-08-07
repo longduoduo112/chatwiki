@@ -2,9 +2,9 @@
   <div class="skills-page">
     <div class="page-header">
       <div class="page-title">
-        <a-segmented :value="route.path" :options="titleOptios" @change="handleTitleChange" />
+        <a-segmented :value="activeSkillPage" :options="titleOptios" @change="handleTitleChange" />
       </div>
-      <a-dropdown placement="bottomRight">
+      <a-dropdown v-if="isAgentPage" placement="bottomRight">
         <a-button type="primary" class="add-btn">
           <template #icon>
             <PlusOutlined />
@@ -20,188 +20,275 @@
           </a-menu>
         </template>
       </a-dropdown>
+      <a-button v-else type="primary" class="add-btn" @click="handleOpenUploadSkillModal">
+        <template #icon>
+          <PlusOutlined />
+        </template>
+        上传技能
+      </a-button>
     </div>
 
-    <div class="type-list-box">
-      <button
-        v-for="item in skillSourceTabs"
-        :key="item.value"
-        type="button"
-        class="type-tab"
-        :class="{ active: activeSkillSource === item.value }"
-        @click="handleSourceChange(item.value)"
-      >
-        {{ item.label }}
-      </button>
-    </div>
-    <div class="skill-list">
+    <a-row v-if="isAgentPage" :gutter="[16, 16]" class="skill-list agent-skill-list">
       <!-- 固定技能：查询知识库 -->
-      <div class="skill-card" v-if="activeSkillSource == 'all'">
-        <div class="skill-main">
-          <div class="skill-title-row">
-            <div class="skill-title">{{ t('title_query_knowledge_base') }}</div>
-            <div class="skill-tag tool">{{ t('tag_tool') }}</div>
-          </div>
-          <div class="skill-desc">{{ t('desc_query_knowledge_base') }}</div>
-        </div>
-        <div class="skill-actions">
-          <a-switch
-            class="skill-switch"
-            :checked="knowledgeEnabled"
-            :checked-children="t('switch_on')"
-            :un-checked-children="t('switch_off')"
-            @change="toggleKnowledge"
-          />
-        </div>
-      </div>
-
-      <!-- 固定技能：查询本地文档 -->
-      <div class="skill-card" v-if="activeSkillSource == 'all'">
-        <div class="skill-main">
-          <div class="skill-title-row">
-            <div class="skill-title">{{ t('title_query_local_docs') }}</div>
-            <div class="skill-tag skill">{{ t('tag_skill') }}</div>
-          </div>
-          <div class="skill-desc">{{ t('desc_query_local_docs') }}</div>
-        </div>
-        <div class="skill-actions">
-          <a-switch
-            class="skill-switch"
-            :checked="localDocsEnabled"
-            :checked-children="t('switch_on')"
-            :un-checked-children="t('switch_off')"
-            @change="toggleLocalDocs"
-          />
-        </div>
-      </div>
-
-      <!-- 固定技能：写文件 -->
-      <div class="skill-card" v-if="activeSkillSource == 'all'">
-        <div class="skill-main">
-          <div class="skill-title-row">
-            <div class="skill-title">{{ t('title_agent_write_file') }}</div>
-            <div class="skill-tag tool">{{ t('tag_tool') }}</div>
-          </div>
-          <div class="skill-desc">{{ t('desc_agent_write_file') }}</div>
-        </div>
-        <div class="skill-actions">
-          <a-switch
-            class="skill-switch"
-            :checked="writeFileEnabled"
-            :checked-children="t('switch_on')"
-            :un-checked-children="t('switch_off')"
-            @change="toggleWriteFile"
-          />
-        </div>
-      </div>
-
-      <!-- 固定技能：编辑文件 -->
-      <div class="skill-card" v-if="activeSkillSource == 'all'">
-        <div class="skill-main">
-          <div class="skill-title-row">
-            <div class="skill-title">{{ t('title_agent_edit_file') }}</div>
-            <div class="skill-tag tool">{{ t('tag_tool') }}</div>
-          </div>
-          <div class="skill-desc">{{ t('desc_agent_edit_file') }}</div>
-        </div>
-        <div class="skill-actions">
-          <a-switch
-            class="skill-switch"
-            :checked="editFileEnabled"
-            :checked-children="t('switch_on')"
-            :un-checked-children="t('switch_off')"
-            @change="toggleEditFile"
-          />
-        </div>
-      </div>
-
-      <!-- 固定技能：执行命令 -->
-      <div class="skill-card" v-if="activeSkillSource == 'all'">
-        <div class="skill-main">
-          <div class="skill-title-row">
-            <div class="skill-title">{{ t('title_agent_execute') }}</div>
-            <div class="skill-tag tool">{{ t('tag_tool') }}</div>
-          </div>
-          <div class="skill-desc">{{ t('desc_agent_execute') }}</div>
-        </div>
-        <div class="skill-actions">
-          <a-switch
-            class="skill-switch"
-            :checked="executeEnabled"
-            :checked-children="t('switch_on')"
-            :un-checked-children="t('switch_off')"
-            @change="toggleExecute"
-          />
-        </div>
-      </div>
-
-      <!-- 固定技能：从商品库推荐商品 -->
-      <div class="skill-card" v-if="activeSkillSource == 'all'">
-        <div class="skill-main">
-          <div class="skill-title-row">
-            <div class="skill-title">{{ t('title_goods_recommend') }}</div>
-            <div class="skill-tag tool">{{ t('tag_tool') }}</div>
-          </div>
-          <div class="skill-desc">{{ t('desc_goods_recommend') }}</div>
-        </div>
-        <div class="skill-actions">
-          <span class="recommend-scope-btn" @click="handleOpenScopeModal">{{ t('btn_recommend_scope') }}</span>
-          <a-switch
-            class="skill-switch"
-            :checked="goodsRecommendEnabled"
-            :checked-children="t('switch_on')"
-            :un-checked-children="t('switch_off')"
-            @change="toggleGoodsRecommend"
-          />
-        </div>
-      </div>
-
-      <div v-if="skillListLoading" class="skill-loading">
-        <a-spin />
-      </div>
-      <template v-else>
-        <!-- 动态技能列表 -->
-        <div v-for="item in skills" :key="item.id" class="skill-card">
+      <a-col class="skill-col" :xs="24" :md="12" :xl="8" :xxl="6">
+        <div class="skill-card">
           <div class="skill-main">
             <div class="skill-title-row">
-              <div class="skill-title">{{ item.title }}</div>
-              <div v-if="item.sourceLabel" class="skill-source-tag" :class="item.sourceClass">
-                {{ item.sourceLabel }}
-              </div>
-              <div class="skill-tag skill">{{ t('tag_skill') }}</div>
+              <div class="skill-title">{{ t('title_query_knowledge_base') }}</div>
+              <div class="skill-tag tool">{{ t('tag_tool') }}</div>
             </div>
-            <div class="skill-desc">{{ item.desc }}</div>
+            <OverflowTooltip :tooltip-width="320" :title="t('desc_query_knowledge_base')">
+              <div class="skill-desc">{{ t('desc_query_knowledge_base') }}</div>
+            </OverflowTooltip>
           </div>
           <div class="skill-actions">
-            <div v-if="item.editable" class="icon-action" @click="handleEditSkill(item)">
-              <EditOutlined />
-            </div>
-            <div v-if="item.removable" class="icon-action delete-action" @click="handleRemoveSkill(item)">
-              <DeleteOutlined />
-            </div>
+            <a-switch
+              class="skill-switch"
+              size="small"
+              :checked="knowledgeEnabled"
+              :aria-label="t('title_query_knowledge_base')"
+              @change="toggleKnowledge"
+            />
           </div>
         </div>
+      </a-col>
+
+      <!-- 固定技能：查询本地文档 -->
+      <a-col class="skill-col" :xs="24" :md="12" :xl="8" :xxl="6">
+        <div class="skill-card">
+          <div class="skill-main">
+            <div class="skill-title-row">
+              <div class="skill-title">{{ t('title_query_local_docs') }}</div>
+              <div class="skill-tag skill">{{ t('tag_skill') }}</div>
+            </div>
+            <OverflowTooltip :tooltip-width="320" :title="t('desc_query_local_docs')">
+              <div class="skill-desc">{{ t('desc_query_local_docs') }}</div>
+            </OverflowTooltip>
+          </div>
+          <div class="skill-actions">
+            <a-switch
+              class="skill-switch"
+              size="small"
+              :checked="localDocsEnabled"
+              :aria-label="t('title_query_local_docs')"
+              @change="toggleLocalDocs"
+            />
+          </div>
+        </div>
+      </a-col>
+
+      <!-- 固定技能：写文件 -->
+      <a-col class="skill-col" :xs="24" :md="12" :xl="8" :xxl="6">
+        <div class="skill-card">
+          <div class="skill-main">
+            <div class="skill-title-row">
+              <div class="skill-title">{{ t('title_agent_write_file') }}</div>
+              <div class="skill-tag tool">{{ t('tag_tool') }}</div>
+            </div>
+            <OverflowTooltip :tooltip-width="320" :title="t('desc_agent_write_file')">
+              <div class="skill-desc">{{ t('desc_agent_write_file') }}</div>
+            </OverflowTooltip>
+          </div>
+          <div class="skill-actions">
+            <a-switch
+              class="skill-switch"
+              size="small"
+              :checked="writeFileEnabled"
+              :aria-label="t('title_agent_write_file')"
+              @change="toggleWriteFile"
+            />
+          </div>
+        </div>
+      </a-col>
+
+      <!-- 固定技能：编辑文件 -->
+      <a-col class="skill-col" :xs="24" :md="12" :xl="8" :xxl="6">
+        <div class="skill-card">
+          <div class="skill-main">
+            <div class="skill-title-row">
+              <div class="skill-title">{{ t('title_agent_edit_file') }}</div>
+              <div class="skill-tag tool">{{ t('tag_tool') }}</div>
+            </div>
+            <OverflowTooltip :tooltip-width="320" :title="t('desc_agent_edit_file')">
+              <div class="skill-desc">{{ t('desc_agent_edit_file') }}</div>
+            </OverflowTooltip>
+          </div>
+          <div class="skill-actions">
+            <a-switch
+              class="skill-switch"
+              size="small"
+              :checked="editFileEnabled"
+              :aria-label="t('title_agent_edit_file')"
+              @change="toggleEditFile"
+            />
+          </div>
+        </div>
+      </a-col>
+
+      <!-- 固定技能：执行命令 -->
+      <a-col class="skill-col" :xs="24" :md="12" :xl="8" :xxl="6">
+        <div class="skill-card">
+          <div class="skill-main">
+            <div class="skill-title-row">
+              <div class="skill-title">{{ t('title_agent_execute') }}</div>
+              <div class="skill-tag tool">{{ t('tag_tool') }}</div>
+            </div>
+            <OverflowTooltip :tooltip-width="320" :title="t('desc_agent_execute')">
+              <div class="skill-desc">{{ t('desc_agent_execute') }}</div>
+            </OverflowTooltip>
+          </div>
+          <div class="skill-actions">
+            <a-switch
+              class="skill-switch"
+              size="small"
+              :checked="executeEnabled"
+              :aria-label="t('title_agent_execute')"
+              @change="toggleExecute"
+            />
+          </div>
+        </div>
+      </a-col>
+
+      <!-- 固定技能：从商品库推荐商品 -->
+      <a-col class="skill-col" :xs="24" :md="12" :xl="8" :xxl="6">
+        <div class="skill-card">
+          <div class="skill-main">
+            <div class="skill-title-row">
+              <div class="skill-title">{{ t('title_goods_recommend') }}</div>
+              <div class="skill-tag tool">{{ t('tag_tool') }}</div>
+            </div>
+            <OverflowTooltip :tooltip-width="320" :title="t('desc_goods_recommend')">
+              <div class="skill-desc">{{ t('desc_goods_recommend') }}</div>
+            </OverflowTooltip>
+          </div>
+          <div class="skill-actions">
+            <span class="recommend-scope-btn" @click="handleOpenScopeModal">{{ t('btn_recommend_scope') }}</span>
+            <a-switch
+              class="skill-switch"
+              size="small"
+              :checked="goodsRecommendEnabled"
+              :aria-label="t('title_goods_recommend')"
+              @change="toggleGoodsRecommend"
+            />
+          </div>
+        </div>
+      </a-col>
+
+      <a-col v-if="skillListLoading" :span="24">
+        <div class="skill-loading">
+          <a-spin />
+        </div>
+      </a-col>
+      <template v-else>
+        <!-- 当前 Agent 已绑定的用户技能 -->
+        <a-col v-for="item in agentSkills" :key="item.id" class="skill-col" :xs="24" :md="12" :xl="8" :xxl="6">
+          <div class="skill-card">
+            <div class="skill-main">
+              <div class="skill-title-row">
+                <div class="skill-title">{{ item.title }}</div>
+                <div v-if="item.sourceLabel" class="skill-source-tag" :class="item.sourceClass">
+                  {{ item.sourceLabel }}
+                </div>
+                <div class="skill-tag skill">{{ t('tag_skill') }}</div>
+              </div>
+              <OverflowTooltip :tooltip-width="320" :title="item.desc">
+                <div class="skill-desc">{{ item.desc }}</div>
+              </OverflowTooltip>
+            </div>
+            <div class="skill-actions">
+              <a-tooltip :title="t('btn_remove')">
+                <button
+                  type="button"
+                  class="delete-action"
+                  :aria-label="t('btn_remove')"
+                  @click="handleUnbindSkill(item)"
+                >
+                  <DeleteOutlined />
+                </button>
+              </a-tooltip>
+            </div>
+          </div>
+        </a-col>
       </template>
 
       <!-- 已关联的 WorkFlow 工具列表 -->
-      <template v-if="activeSkillSource == 'all'">
-        <div v-for="item in workFlowSkills" :key="item.id" class="skill-card">
-          <div class="skill-main">
-            <div class="skill-title-row">
-              <div class="skill-title">{{ item.name }}</div>
-              <div class="skill-tag tool">{{ t('tag_tool') }}</div>
+      <template v-if="workFlowSkills.length">
+        <a-col v-for="item in workFlowSkills" :key="item.id" class="skill-col" :xs="24" :md="12" :xl="8" :xxl="6">
+          <div class="skill-card">
+            <div class="skill-main">
+              <div class="skill-title-row">
+                <div class="skill-title">{{ item.name }}</div>
+                <div class="skill-tag tool">{{ t('tag_tool') }}</div>
+              </div>
+              <OverflowTooltip :tooltip-width="320" :title="item.desc || '—'">
+                <div class="skill-desc">{{ item.desc || '—' }}</div>
+              </OverflowTooltip>
             </div>
-            <div class="skill-desc">{{ item.desc || '—' }}</div>
-          </div>
-          <div class="skill-actions">
-            <div class="delete-action" @click="handleRemoveWorkFlow(item.id)">
-              <DeleteOutlined />
+            <div class="skill-actions">
+              <a-tooltip :title="t('btn_remove')">
+                <button
+                  type="button"
+                  class="delete-action"
+                  :aria-label="t('btn_remove')"
+                  @click="handleRemoveWorkFlow(item.id)"
+                >
+                  <DeleteOutlined />
+                </button>
+              </a-tooltip>
             </div>
           </div>
-        </div>
+        </a-col>
       </template>
 
-    </div>
+    </a-row>
+    <a-row v-else :gutter="[16, 16]" class="skill-list">
+      <a-col v-if="skillListLoading" :span="24">
+        <div class="skill-loading">
+          <a-spin />
+        </div>
+      </a-col>
+      <a-col v-else-if="librarySkills.length === 0" :span="24">
+        <div class="skill-empty">
+          <a-empty :description="t('empty_skill')" />
+        </div>
+      </a-col>
+      <template v-else>
+        <a-col v-for="item in librarySkills" :key="item.id" class="skill-col" :xs="24" :md="12" :xl="8" :xxl="6">
+          <div class="skill-card">
+            <div class="skill-main">
+              <div class="skill-title-row">
+                <div class="skill-title">{{ item.title }}</div>
+              </div>
+              <OverflowTooltip :tooltip-width="320" :title="item.desc">
+                <div class="skill-desc">{{ item.desc }}</div>
+              </OverflowTooltip>
+            </div>
+            <div class="skill-actions">
+              <a-tooltip :title="t('btn_edit')">
+                <button
+                  type="button"
+                  class="icon-action"
+                  :aria-label="t('btn_edit')"
+                  @click="handleEditSkill(item)"
+                >
+                  <EditOutlined />
+                </button>
+              </a-tooltip>
+              <a-tooltip :title="t('btn_delete')">
+                <button
+                  type="button"
+                  class="delete-action"
+                  :aria-label="t('btn_delete')"
+                  @click="handleDeleteSkill(item)"
+                >
+                  <DeleteOutlined />
+                </button>
+              </a-tooltip>
+            </div>
+          </div>
+        </a-col>
+      </template>
+    </a-row>
     <SelectSkillModal
       v-model:visible="selectSkillModalVisible"
       :robotId="currentAssistant?.id"
@@ -234,7 +321,7 @@
 </template>
 
 <script setup>
-import { computed, ref, watch, createVNode } from 'vue'
+import { computed, createVNode, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { DeleteOutlined, DownOutlined, EditOutlined, ExclamationCircleOutlined, PlusOutlined } from '@ant-design/icons-vue'
 import { message, Modal } from 'ant-design-vue'
@@ -242,7 +329,7 @@ import { useI18n } from '@/hooks/web/useI18n'
 import { useClawbotStore } from '@/stores/modules/clawbot'
 import { storeToRefs } from 'pinia'
 import { getRobotList, relationWorkFlow } from '@/api/robot/index'
-import { deleteClawbotSkill, getClawbotSkillList } from '@/api/clawbot'
+import { deleteClawbotSkill, getClawbotSkillList, saveClawbotRobotSkills } from '@/api/clawbot'
 import AddSkillModal from './components/AddSkillModal.vue'
 import AddToolModal from './components/AddToolModal.vue'
 import GoodsRecommendScopeModal from './components/GoodsRecommendScopeModal.vue'
@@ -256,33 +343,40 @@ const clawbotStore = useClawbotStore()
 const { robotInfo, currentAssistant } = storeToRefs(clawbotStore)
 const { updateClawbotConf, fetchRobotInfo } = clawbotStore
 
-const titleOptios = ref([
-  // {
-  //   label: 'skill市场',
-  //   value: 1
-  // },
+const titleOptios = [
   {
-    label: '我的skill',
-    value: '/clawbot/skills'
+    label: 'Agent技能',
+    value: 'agent'
   },
   {
-    label: 'skill生成工具',
-    value: '/clawbot/skill-generate-tool'
+    label: '技能库',
+    value: 'library'
+  },
+  {
+    label: '技能生成工具',
+    value: 'generator'
   }
-])
+]
 
-const handleTitleChange = (path) => {
-  if (path === route.path) {
+const activeSkillPage = computed(() => route.query.tab === 'library' ? 'library' : 'agent')
+const isAgentPage = computed(() => activeSkillPage.value === 'agent')
+
+const handleTitleChange = (key) => {
+  if (key === 'generator') {
+    const query = { ...route.query }
+    delete query.tab
+    router.push({ path: '/clawbot/skill-generate-tool', query })
     return
   }
-  router.push(path)
-}
 
-const skillSourceTabs = [
-  { label: t('tab_all'), value: 'all' },
-  // { label: t('tab_market'), value: 'market' },
-  { label: t('tab_mine'), value: 'mine' }
-]
+  router.push({
+    path: '/clawbot/skills',
+    query: {
+      ...route.query,
+      tab: key === 'library' ? 'library' : 'agent'
+    }
+  })
+}
 
 // 查询知识库开关：search_knowledge_close=0 表示开启，=1 表示关闭
 const knowledgeEnabled = computed(() => !Number(robotInfo.value?.search_knowledge_close || 0))
@@ -358,9 +452,8 @@ const handleScopeConfirm = () => {
 }
 
 const workFlowSkills = ref([])
-const activeSkillSource = ref('all')
 const skillListLoading = ref(false)
-const uploadedSkills = ref([])
+const allUserSkills = ref([])
 const selectSkillModalVisible = ref(false)
 const selectSkillRefreshKey = ref(0)
 let skillListRequestSeq = 0
@@ -400,7 +493,7 @@ watch(
 )
 
 watch(
-  [() => currentAssistant.value?.id, activeSkillSource],
+  () => currentAssistant.value?.id,
   () => {
     loadSkillList()
   },
@@ -446,13 +539,6 @@ const handleUploadSkillConfirm = async () => {
   }
 }
 
-const handleSourceChange = (source) => {
-  if (activeSkillSource.value === source) {
-    return
-  }
-  activeSkillSource.value = source
-}
-
 // 移除已关联的 WorkFlow 工具
 const handleRemoveWorkFlow = (id) => {
   Modal.confirm({
@@ -487,43 +573,34 @@ const handleRemoveWorkFlow = (id) => {
 
 async function loadSkillList() {
   if (!currentAssistant.value?.id) {
-    uploadedSkills.value = []
+    allUserSkills.value = []
+    skillListLoading.value = false
     return
   }
 
   const assistantId = currentAssistant.value.id
-  const source = activeSkillSource.value
   const requestSeq = ++skillListRequestSeq
   skillListLoading.value = true
-  uploadedSkills.value = []
+  allUserSkills.value = []
   try {
-    const res = await getClawbotSkillList({
-      id: assistantId,
-      source
-    })
-    if (requestSeq !== skillListRequestSeq || currentAssistant.value?.id !== assistantId || activeSkillSource.value !== source) {
+    const res = await getClawbotSkillList({ id: assistantId })
+    if (requestSeq !== skillListRequestSeq || currentAssistant.value?.id !== assistantId) {
       return
     }
     if (res && res.res === 0) {
-      uploadedSkills.value = (res.data || []).filter((item) => Number(item.is_selected) === 1).map((item, index) => {
-        const isMine = Number(item.source_type) === 1 || Number(item.is_mine) === 1
-        return {
-          id: `${item.source_type || item.source || 'skill'}-${item.skill_id || 0}-${item.skill_name || index}`,
-          skillId: item.skill_id,
-          title: item.remark_name || item.skill_name || '—',
-          desc: item.intro || item.description || '—',
-          sourceLabel: isMine ? t('tab_mine') : t('tag_market_skill'),
-          sourceClass: isMine ? 'mine' : 'market',
-          editable: isMine && Number(item.skill_id) > 0,
-          removable: isMine && Number(item.skill_id) > 0,
-          raw: item
-        }
-      })
+      allUserSkills.value = (res.data || []).map((item, index) => ({
+        id: `${item.source_type || item.source || 'skill'}-${item.skill_id || 0}-${item.skill_name || index}`,
+        skillId: item.skill_id,
+        title: item.remark_name || item.skill_name || '—',
+        desc: item.intro || item.description || '—',
+        selected: Number(item.is_selected) === 1,
+        raw: item
+      }))
     } else {
       message.error(res?.msg || t('msg_fetch_skill_failed'))
     }
   } catch (err) {
-    if (requestSeq !== skillListRequestSeq || currentAssistant.value?.id !== assistantId || activeSkillSource.value !== source) {
+    if (requestSeq !== skillListRequestSeq || currentAssistant.value?.id !== assistantId) {
       return
     }
     console.error('获取 Skill 列表失败', err)
@@ -540,6 +617,10 @@ const handleOpenSelectSkillModal = () => {
 }
 
 const handleOpenUploadSkillModal = () => {
+  if (!currentAssistant.value?.id) {
+    message.error('缺少当前 Agent，请重新从 Agent 页面进入')
+    return
+  }
   editingSkillId.value = 0
   uploadSkillZipVisible.value = true
 }
@@ -553,45 +634,98 @@ const handleEditSkill = (item) => {
   uploadSkillZipVisible.value = true
 }
 
-const handleRemoveSkill = (item) => {
+const handleUnbindSkill = (item) => {
+  const targetAssistantId = currentAssistant.value?.id
+  if (!targetAssistantId) {
+    message.error('缺少当前 Agent，请重新从 Agent 页面进入')
+    return
+  }
+
   Modal.confirm({
     title: t('title_remove_skill'),
     icon: createVNode(ExclamationCircleOutlined),
-    content: t('msg_confirm_remove_skill'),
+    content: '确认从当前 Agent 移除该技能吗？技能仍会保留在技能库中。',
     okText: t('btn_confirm'),
     cancelText: t('btn_cancel'),
     okType: 'danger',
     onOk: async () => {
+      if (String(currentAssistant.value?.id || '') !== String(targetAssistantId)) {
+        message.warning('当前 Agent 已切换，请重新执行移除操作')
+        return
+      }
+
       try {
-        const res = await deleteClawbotSkill({
-          id: currentAssistant.value?.id,
-          skill_id: item.skillId
+        const latestListRes = await getClawbotSkillList({ id: targetAssistantId })
+        if (!latestListRes || latestListRes.res !== 0) {
+          message.error(latestListRes?.msg || t('msg_fetch_skill_failed'))
+          return
+        }
+        if (String(currentAssistant.value?.id || '') !== String(targetAssistantId)) {
+          message.warning('当前 Agent 已切换，请重新执行移除操作')
+          return
+        }
+
+        const remainingSkillIds = (latestListRes.data || [])
+          .filter((skill) => Number(skill.is_selected) === 1 && String(skill.skill_id) !== String(item.skillId))
+          .map((skill) => skill.skill_id)
+
+        const res = await saveClawbotRobotSkills({
+          id: targetAssistantId,
+          skill_ids: remainingSkillIds.join(',')
         })
         if (res && res.res === 0) {
           message.success(t('msg_remove_success'))
-          loadSkillList()
+          if (String(currentAssistant.value?.id || '') === String(targetAssistantId)) {
+            await loadSkillList()
+          }
         } else {
           message.error(res?.msg || t('msg_remove_failed'))
         }
       } catch (err) {
-        console.error('删除 Skill 失败', err)
+        console.error('解除 Agent Skill 绑定失败', err)
         message.error(err?.msg || t('msg_remove_failed'))
       }
     }
   })
 }
 
-const skills = computed(() => uploadedSkills.value)
+const handleDeleteSkill = (item) => {
+  Modal.confirm({
+    title: '删除技能',
+    icon: createVNode(ExclamationCircleOutlined),
+    content: '删除后将从技能库移除，并清理该技能在全部 Agent 上的绑定，是否继续？',
+    okText: t('btn_confirm'),
+    cancelText: t('btn_cancel'),
+    okType: 'danger',
+    onOk: async () => {
+      try {
+        const res = await deleteClawbotSkill({ skill_id: item.skillId })
+        if (res && res.res === 0) {
+          message.success('删除成功')
+          await loadSkillList()
+        } else {
+          message.error(res?.msg || '删除失败')
+        }
+      } catch (err) {
+        console.error('删除用户 Skill 失败', err)
+        message.error(err?.msg || '删除失败')
+      }
+    }
+  })
+}
+
+const agentSkills = computed(() => allUserSkills.value.filter((item) => item.selected))
+const librarySkills = computed(() => allUserSkills.value)
 </script>
 
 <style lang="less" scoped>
 .skills-page {
   --skills-primary: #2475fc;
-  --skills-border: #d9d9d9;
+  --skills-border: #f0f0f0;
   --skills-title: #262626;
   --skills-text: #595959;
   --skills-text-light: #8c8c8c;
-  --skills-card-shadow: 0 4px 4px rgba(0, 0, 0, 0.08);
+  --skills-card-shadow: 0 2px 3px rgba(0, 0, 0, 0.04);
 
   position: relative;
   min-height: 100vh;
@@ -661,42 +795,15 @@ const skills = computed(() => uploadedSkills.value)
 .skill-list {
   position: relative;
   z-index: 1;
+  align-items: start;
+}
+
+.skill-col {
   display: flex;
-  flex-direction: column;
-  gap: 16px;
 }
 
-.type-list-box {
-  position: relative;
-  z-index: 1;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 16px;
-}
-
-.type-tab {
-  height: 32px;
-  padding: 0 16px;
-  border: none;
-  border-radius: 6px;
-  background: transparent;
-  color: var(--skills-text);
-  font-size: 14px;
-  line-height: 22px;
-  cursor: pointer;
-
-  &:hover {
-    color: var(--skills-primary);
-  }
-
-  &.active {
-    color: var(--skills-primary);
-    background: #dce9ff;
-  }
-}
-
-.skill-loading {
+.skill-loading,
+.skill-empty {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -704,34 +811,50 @@ const skills = computed(() => uploadedSkills.value)
 }
 
 .skill-card {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  min-height: 82px;
-  padding: 16px 20px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-rows: 24px 44px;
+  column-gap: 8px;
+  row-gap: 12px;
+  min-width: 0;
+  width: 100%;
+  height: 120px;
+  padding: 20px 24px;
   border-radius: 8px;
   border: 1px solid var(--skills-border);
   background: #fff;
   box-shadow: var(--skills-card-shadow);
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+
+  &:hover {
+    border-color: #659dfc;
+    box-shadow: 0 6px 8px rgba(37, 63, 105, 0.16);
+  }
 }
 
 .skill-main {
-  flex: 1;
-  min-width: 0;
+  display: contents;
 }
 
 .skill-title-row {
+  grid-column: 1;
+  grid-row: 1;
   display: flex;
   align-items: center;
-  gap: 6px;
+  min-width: 0;
+  gap: 4px;
 }
 
 .skill-title {
+  overflow: hidden;
   color: var(--skills-title);
   font-size: 16px;
   font-weight: 600;
   line-height: 24px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .skill-tag {
@@ -779,17 +902,31 @@ const skills = computed(() => uploadedSkills.value)
 }
 
 .skill-desc {
-  margin-top: 4px;
-  color: var(--skills-text-light);
+  grid-column: 1 / -1;
+  grid-row: 2;
+  display: -webkit-box;
+  overflow: hidden;
+  height: 44px;
+  color: var(--skills-text);
   font-size: 14px;
   line-height: 22px;
+  text-overflow: ellipsis;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.agent-skill-list .skill-desc {
+  white-space: normal;
 }
 
 .skill-actions {
+  grid-column: 2;
+  grid-row: 1;
   display: flex;
   align-items: center;
+  align-self: center;
   flex-shrink: 0;
-  gap: 10px;
+  gap: 8px;
 }
 
 .delete-action {
@@ -798,16 +935,20 @@ const skills = computed(() => uploadedSkills.value)
   justify-content: center;
   width: 24px;
   height: 24px;
-  border-radius: 8px;
+  padding: 0;
+  border-radius: 6px;
+  border: 0;
+  background: transparent;
   color: var(--skills-text);
+  font: inherit;
   cursor: pointer;
   transition:
     background-color 0.2s ease,
     color 0.2s ease;
 
   &:hover {
-    background: #f5f5f5;
-    color: #ff4d4f;
+    background: #e4e6eb;
+    color: var(--skills-text);
   }
 
   :deep(svg) {
@@ -822,19 +963,25 @@ const skills = computed(() => uploadedSkills.value)
   justify-content: center;
   width: 24px;
   height: 24px;
-  border-radius: 8px;
+  padding: 0;
+  border-radius: 6px;
+  border: 0;
+  background: transparent;
   color: var(--skills-text);
+  font: inherit;
   cursor: pointer;
   transition: background-color 0.2s ease, color 0.2s ease;
 
   &:hover {
-    background: #f5f5f5;
+    background: #e4e6eb;
     color: var(--skills-primary);
   }
 
-  &.delete-action:hover {
-    color: #ff4d4f;
-  }
+}
+
+.skill-text-action {
+  height: auto;
+  padding: 0;
 }
 
 @media (max-width: 768px) {
@@ -851,15 +998,6 @@ const skills = computed(() => uploadedSkills.value)
     justify-content: center;
   }
 
-  .skill-card {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-
-  .skill-actions {
-    width: 100%;
-    justify-content: flex-end;
-  }
 }
 
 .recommend-scope-btn {

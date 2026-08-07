@@ -6,6 +6,7 @@ import (
 	"chatwiki/internal/app/chatwiki/define"
 	"chatwiki/internal/pkg/lib_web"
 	"chatwiki/internal/pkg/wechat"
+	"chatwiki/internal/pkg/wechat/line"
 	"fmt"
 	"os"
 	"runtime"
@@ -133,4 +134,12 @@ func initConfig() {
 	}
 	wechat.SetMessengerGraphAPIBase(define.Config.Messenger[`graph_api_base`])
 	wechat.SetTelegramApiBase(define.Config.Telegram[`api_base`])
+	if define.Config.Line, err = config.GetSection("line"); err == nil {
+		line.SetAPIBase(define.Config.Line[`api_base`])
+		line.SetDataAPIBase(define.Config.Line[`data_api_base`])
+		line.SetImageUploadDomain(define.Config.Line[`public_media_base`])
+	}
+	if line.ImageUploadDomain == `` {
+		line.SetImageUploadDomain(define.Config.WebService[`image_domain`])
+	}
 }

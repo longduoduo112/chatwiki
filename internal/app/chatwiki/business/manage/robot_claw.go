@@ -108,7 +108,36 @@ func UploadClawbotLocalDoc(c *gin.Context) {
 		c.String(http.StatusOK, lib_web.FmtJson(nil, err))
 		return
 	}
+	// enqueue document conversion task
+	if docInfo.Ext == `docx` || docInfo.Ext == `pdf` {
+		_, enqueueErr := common.EnqueueClawbotLocalDocConvert(robotKey, docInfo.Name)
+		if enqueueErr != nil {
+			logs.Error(`enqueue local document conversion,robot:%s,file:%s,err:%s`, robotKey, docInfo.Name, enqueueErr.Error())
+		}
+	}
 	c.String(http.StatusOK, lib_web.FmtJson(*docInfo, nil))
+}
+
+func ConvertClawbotLocalDoc(c *gin.Context) {
+	var adminUserId int
+	if adminUserId = GetAdminUserId(c); adminUserId == 0 {
+		return
+	}
+	id := cast.ToInt64(c.PostForm(`id`))
+	name, nameOk := common.NormalizeClawbotLocalDocName(c.PostForm(`name`))
+	if !nameOk {
+		c.String(http.StatusOK, lib_web.FmtJson(nil, errors.New(i18n.Show(common.GetLang(c), `param_invalid`, `name`))))
+		return
+	}
+	robotKey, ok := common.GetClawbotRobotKey(c, adminUserId, id)
+	if !ok {
+		return
+	}
+	result, err := common.EnqueueClawbotLocalDocConvert(robotKey, name)
+	if os.IsNotExist(err) {
+		err = errors.New(i18n.Show(common.GetLang(c), `no_data`))
+	}
+	c.String(http.StatusOK, lib_web.FmtJson(result, err))
 }
 
 func GetClawbotLocalDocList(c *gin.Context) {
@@ -162,11 +191,6 @@ func DeleteClawbotLocalDoc(c *gin.Context) {
 		c.String(http.StatusOK, lib_web.FmtJson(nil, errors.New(i18n.Show(common.GetLang(c), `param_invalid`, `name`))))
 		return
 	}
-	ext := strings.ToLower(strings.TrimLeft(path.Ext(name), `.`))
-	if !tool.InArrayString(ext, define.ClawbotLocalDocAllowExt) {
-		c.String(http.StatusOK, lib_web.FmtJson(nil, errors.New(ext+` not allow`)))
-		return
-	}
 	// check required
 	robotKey, ok := common.GetClawbotRobotKey(c, adminUserId, id)
 	if !ok {
@@ -179,6 +203,11 @@ func DeleteClawbotLocalDoc(c *gin.Context) {
 		return
 	}
 	defer lib_redis.UnLock(define.Redis, lockKey)
+	// delete assets
+	if err := common.DeleteClawbotLocalDocAssets(robotKey, name); err != nil {
+		c.String(http.StatusOK, lib_web.FmtJson(nil, err))
+		return
+	}
 	// delete index
 	if err := common.DeleteClawbotLocalDocIndex(robotKey, name); err != nil {
 		c.String(http.StatusOK, lib_web.FmtJson(nil, err))
@@ -186,9 +215,9 @@ func DeleteClawbotLocalDoc(c *gin.Context) {
 	}
 	// delete file
 	filePath := strings.ReplaceAll(define.PrivateFileDir, `<robot_key>`, robotKey) + `/` + name
-	if err := os.Remove(filePath); err != nil {
-		c.String(http.StatusOK, lib_web.FmtJson(nil, err))
-		return
+	err := os.Remove(filePath)
+	if os.IsNotExist(err) {
+		err = errors.New(i18n.Show(common.GetLang(c), `no_data`))
 	}
-	c.String(http.StatusOK, lib_web.FmtJson(nil, nil))
+	c.String(http.StatusOK, lib_web.FmtJson(nil, err))
 }

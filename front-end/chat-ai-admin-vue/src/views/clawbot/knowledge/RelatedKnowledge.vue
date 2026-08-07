@@ -46,6 +46,7 @@
               <span>{{ t('label_docs') }}：{{ item.file_total }}</span>
               <span>{{ t('label_size') }}：{{ item.file_size_str }}</span>
               <span>{{ t('label_related_apps') }}：{{ item.robot_nums || 0 }}</span>
+              <LibraryExpireStatus :library="item" />
             </div>
             <div class="action-box" v-if="!isDefaultLibrary(item)" @click.stop>
               <a-dropdown>
@@ -121,6 +122,7 @@ import { relationLibrary } from '@/api/robot/index'
 import { getSpecifyAbilityConfig } from '@/api/explore/index.js'
 import { LIBRARY_NORMAL_AVATAR, LIBRARY_QA_AVATAR } from '@/constants/index'
 import { formatFileSize } from '@/utils/index'
+import LibraryExpireStatus from '@/components/library-expire-status/index.vue'
 // import { getModelNameText } from '@/components/model-select/index.js'
 import LibrarySelectAlert from '@/views/robot/robot-config/basic-config/components/associated-knowledge-base/library-select-alert.vue'
 import RecallSettingsAlert from '@/views/robot/robot-config/basic-config/components/associated-knowledge-base/recall-settings-alert.vue'
@@ -571,9 +573,21 @@ onMounted(() => {
   font-size: 14px;
 }
 
-@media screen and (min-width: 1920px) {
+@media screen and (max-width: 1680px) {
   .list-item-wrapper {
-    width: 20%;
+    width: 33.3%;
+  }
+}
+
+@media screen and (max-width: 1024px) {
+  .list-item-wrapper {
+    width: 50%;
+  }
+}
+
+@media screen and (max-width: 768px) {
+  .list-item-wrapper {
+    width: 100%;
   }
 }
 </style>

@@ -13,4 +13,5 @@ type ConfigParam struct {
 	Nsqd       map[string]string
 	Messenger  map[string]string
 	Telegram   map[string]string
+	Line       map[string]string
 }

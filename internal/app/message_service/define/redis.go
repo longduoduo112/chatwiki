@@ -17,3 +17,7 @@ const WechatappWxkfMessageCursor = `chatwiki.wxkf.message.cursor.`
 // (more so under multi-IP/slow responses); SetNX ensures each MsgId is processed only once
 // to avoid duplicate replies.
 const WhatsappInboundDedup = `chatwiki.whatsapp.inbound.dedup.`
+
+// LineInboundDedup webhookEventId dedup: LINE redelivers the same webhook event when our 200
+// response is slow or lost; SetNX on the ULID webhookEventId ensures it is processed only once.
+const LineInboundDedup = `chatwiki.line.inbound.dedup.`

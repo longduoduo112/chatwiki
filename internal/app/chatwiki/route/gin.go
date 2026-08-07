@@ -93,6 +93,7 @@ func init() {
 	Route[http.MethodPost][`/manage/saveClawbotConf`] = manage.SaveClawbotConf
 	Route[http.MethodPost][`/manage/uploadClawbotLocalDoc`] = manage.UploadClawbotLocalDoc
 	Route[http.MethodGet][`/manage/getClawbotLocalDocList`] = manage.GetClawbotLocalDocList
+	Route[http.MethodPost][`/manage/convertClawbotLocalDoc`] = manage.ConvertClawbotLocalDoc
 	Route[http.MethodPost][`/manage/deleteClawbotLocalDoc`] = manage.DeleteClawbotLocalDoc
 	Route[http.MethodGet][`/manage/getClawbotSkillList`] = manage.GetClawbotSkillList
 	Route[http.MethodGet][`/manage/getClawbotSkillInfo`] = manage.GetClawbotSkillInfo
@@ -100,6 +101,7 @@ func init() {
 	Route[http.MethodPost][`/manage/saveClawbotSkill`] = manage.SaveClawbotSkill
 	Route[http.MethodPost][`/manage/deleteClawbotSkill`] = manage.DeleteClawbotSkill
 	Route[http.MethodPost][`/manage/saveClawbotRobotSkills`] = manage.SaveClawbotRobotSkills
+	noAuthFuns(Route[http.MethodGet], `/clawbot/skills_robot/*asset_path`, manage.GetClawbotSkillAsset)
 
 	/* E2B Conf */
 	Route[http.MethodGet][`/manage/getE2bConf`] = manage.GetE2bConf
@@ -114,6 +116,8 @@ func init() {
 	Route[http.MethodPost][`/manage/createWebToSkillTask`] = manage.CreateWebToSkillTask
 	Route[http.MethodPost][`/manage/stopWebToSkillTask`] = manage.StopWebToSkillTask
 	Route[http.MethodPost][`/manage/regenerateWebToSkillTask`] = manage.RegenerateWebToSkillTask
+	Route[http.MethodPost][`/manage/updateWebToSkillTask`] = manage.UpdateWebToSkillTask
+	Route[http.MethodPost][`/manage/deleteWebToSkillTask`] = manage.DeleteWebToSkillTask
 	Route[http.MethodGet][`/manage/getWebToSkillTaskInfo`] = manage.GetWebToSkillTaskInfo
 	Route[http.MethodGet][`/manage/downloadWebToSkillFile`] = manage.DownloadWebToSkillFile
 	Route[http.MethodPost][`/manage/installWebToSkill`] = manage.InstallWebToSkill

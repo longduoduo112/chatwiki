@@ -519,6 +519,15 @@ func SendReplyMessageHandle(push *lib_define.PushMessage, message msql.Params, a
 		return
 	}
 	text, images, voices, videos, miniCards := common.GetMessageInMessage(content, true)
+	// voice duration (#duration=) is dropped when getLocalPath is true, parse a meta-keeping copy for LINE
+	var lineVoiceDurations []int64
+	if params.AppType == lib_define.AppLine {
+		_, metaVoices := common.GetVoiceInMessage(content, false)
+		lineVoiceDurations = make([]int64, len(metaVoices))
+		for i, v := range metaVoices {
+			_, lineVoiceDurations[i] = parseLineVoiceMeta(v)
+		}
+	}
 	if len(text) > 0 {
 		errcode, err := app.SendText(push.Openid, text, push)
 		if err != nil {
@@ -527,7 +536,7 @@ func SendReplyMessageHandle(push *lib_define.PushMessage, message msql.Params, a
 	}
 	if len(images) > 0 {
 		for _, image := range images {
-			if params.AppType == lib_define.AppWhatsapp {
+			if tool.InArray(params.AppType, []string{lib_define.AppLine, lib_define.AppWhatsapp}) {
 				image = common.GetCDNLinkByFile(image)
 			}
 			errcode, err := app.SendImage(push.Openid, image, push)
@@ -538,7 +547,7 @@ func SendReplyMessageHandle(push *lib_define.PushMessage, message msql.Params, a
 	}
 	if len(videos) > 0 {
 		for _, video := range videos {
-			if params.AppType == lib_define.AppWhatsapp {
+			if tool.InArray(params.AppType, []string{lib_define.AppLine, lib_define.AppWhatsapp}) {
 				video = common.GetCDNLinkByFile(video)
 			}
 			errcode, err := app.SendVideo(push.Openid, video, push)
@@ -547,15 +556,19 @@ func SendReplyMessageHandle(push *lib_define.PushMessage, message msql.Params, a
 			}
 		}
 	}
-	if len(voices) > 0 && tool.InArray(params.AppType, []string{lib_define.AppWechatKefu, lib_define.AppOfficeAccount, lib_define.AppMessenger, lib_define.AppWhatsapp}) {
-		for _, voice := range voices {
+	if len(voices) > 0 && tool.InArray(params.AppType, []string{lib_define.AppWechatKefu, lib_define.AppOfficeAccount, lib_define.AppMessenger, lib_define.AppLine, lib_define.AppWhatsapp}) {
+		for i, voice := range voices {
 			ext := strings.ToLower(filepath.Ext(voice))
-			if params.AppType == lib_define.AppWhatsapp {
+			if tool.InArray(params.AppType, []string{lib_define.AppLine, lib_define.AppWhatsapp}) {
 				voice = common.GetCDNLinkByFile(voice)
 			}
 			if params.AppType == lib_define.AppMessenger || params.AppType == lib_define.AppWhatsapp {
 				if !tool.InArray(ext, []string{`.mp3`, `.amr`, `.mp4`}) {
 					logs.Warning(`voice is not mp3 or amr or mp4 ,%s`, voice)
+				}
+			} else if params.AppType == lib_define.AppLine {
+				if ext != `.m4a` {
+					logs.Warning(`line voice should be m4a,%s`, voice)
 				}
 			} else {
 				if !tool.InArray(ext, []string{`.mp3`, `.amr`}) {
@@ -564,6 +577,15 @@ func SendReplyMessageHandle(push *lib_define.PushMessage, message msql.Params, a
 			}
 			if params.AppType == lib_define.AppWechatKefu && ext == `.mp3` {
 				voice = common.Mp3ToAmr(params.AdminUserId, voice)
+			}
+			if params.AppType == lib_define.AppLine {
+				var duration int64
+				if i < len(lineVoiceDurations) {
+					duration = lineVoiceDurations[i]
+				}
+				if duration > 0 {
+					voice = fmt.Sprintf(`%s#duration=%d`, voice, duration)
+				}
 			}
 			errcode, err := app.SendVoice(push.Openid, voice, push)
 			if err != nil {
@@ -578,6 +600,14 @@ func SendReplyMessageHandle(push *lib_define.PushMessage, message msql.Params, a
 	}
 
 	return
+}
+
+func parseLineVoiceMeta(voice string) (string, int64) {
+	parts := strings.SplitN(voice, `#duration=`, 2)
+	if len(parts) != 2 {
+		return voice, 0
+	}
+	return parts[0], cast.ToInt64(parts[1])
 }
 
 // ReplyContentListHandle reply handling
@@ -808,6 +838,10 @@ func ImageMediaIdToOssUrl(push *lib_define.PushMessage, receivedMessageType stri
 		return
 	}
 	if push.AppInfo[`app_type`] == lib_define.AppMessenger && push.Message[`oss_url`] != nil {
+		params.MediaIdToOssUrl = cast.ToString(push.Message[`oss_url`])
+		return
+	}
+	if push.AppInfo[`app_type`] == lib_define.AppLine && push.Message[`oss_url`] != nil {
 		params.MediaIdToOssUrl = cast.ToString(push.Message[`oss_url`])
 		return
 	}

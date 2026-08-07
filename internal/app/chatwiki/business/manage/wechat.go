@@ -10,6 +10,7 @@ import (
 	"chatwiki/internal/pkg/lib_redis"
 	"chatwiki/internal/pkg/lib_web"
 	"chatwiki/internal/pkg/wechat"
+	"chatwiki/internal/pkg/wechat/line"
 	"chatwiki/internal/pkg/wechat/messenger"
 	"chatwiki/internal/pkg/wechat/telegram_robot"
 	"errors"
@@ -432,7 +433,13 @@ func SaveWechatApp(c *gin.Context) {
 		c.String(http.StatusOK, lib_web.FmtJson(nil, err))
 		return
 	}
-	if _, _, err := app.GetToken(false); err != nil {
+	if appType == lib_define.AppLine {
+		// LINE credential connectivity check (GetToken is not-supported for LINE)
+		if _, _, err := line.IssueChannelToken(appId, appSecret); err != nil {
+			c.String(http.StatusOK, lib_web.FmtJson(nil, errors.New(i18n.Show(common.GetLang(c), `line_secret_error`))))
+			return
+		}
+	} else if _, _, err := app.GetToken(false); err != nil {
 		if appType == lib_define.AppMessenger {
 			if errors.Is(err, messenger.ErrSecretInvalid) {
 				err = errors.New(i18n.Show(common.GetLang(c), `messenger_secret_error`))
@@ -501,7 +508,7 @@ func SaveWechatApp(c *gin.Context) {
 		data[`encrypt_key`] = strings.TrimSpace(c.PostForm(`encrypt_key`))
 		data[`verification_token`] = strings.TrimSpace(c.PostForm(`verification_token`))
 	}
-	if id > 0 && (appType == lib_define.AppWecomRobot || appType == lib_define.AppMessenger) && appId != oldAppId {
+	if id > 0 && (appType == lib_define.AppWecomRobot || appType == lib_define.AppMessenger || appType == lib_define.AppLine) && appId != oldAppId {
 		if appInfo, err := common.GetWechatAppInfo(`app_id`, appId); err != nil {
 			c.String(http.StatusOK, lib_web.FmtJson(nil, errors.New(i18n.Show(common.GetLang(c), `sys_err`))))
 			return
@@ -578,12 +585,18 @@ func SaveWechatApp(c *gin.Context) {
 				err = webhookErr
 			}
 		}
+		//auto-register LINE webhook endpoint (failure only warns, does not block)
+		if appInfo[`app_type`] == lib_define.AppLine {
+			if e := line.SetWebhookEndpoint(appInfo[`app_id`], appInfo[`app_secret`], appInfo[`push_url`]); e != nil {
+				logs.Error(`LINE webhook auto-register failed: %s`, e.Error())
+			}
+		}
 	}
 	c.String(http.StatusOK, lib_web.FmtJson(appInfo, err))
 }
 
 func resolveWechatAppSaveAppID(appType, oldAppId, requestAppId string) string {
-	if appType == lib_define.AppWecomRobot || appType == lib_define.AppMessenger || appType == lib_define.AppWhatsapp {
+	if appType == lib_define.AppWecomRobot || appType == lib_define.AppMessenger || appType == lib_define.AppLine || appType == lib_define.AppWhatsapp {
 		return requestAppId
 	}
 	return oldAppId

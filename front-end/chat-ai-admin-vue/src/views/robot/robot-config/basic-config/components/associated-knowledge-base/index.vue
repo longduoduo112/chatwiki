@@ -128,6 +128,7 @@
         <div class="info-content-box">
           <div class="library-title-block">
             <div class="title-text">{{ item.library_name }}</div>
+            <LibraryExpireStatus :library="item" />
             <!-- <a-tooltip v-if="neo4j_status">
               <template #title>{{ item.graph_switch == 0 ? '未' : '已' }}开启知识图谱生成</template>
               <div class="graph-tag" :class="{ active: item.graph_switch == 1 }">Graph</div>
@@ -185,6 +186,7 @@ import RecallSettingsAlert from './recall-settings-alert.vue'
 import NoOpenGraphModal from './no-open-graph-modal.vue'
 import { getModelNameText } from '@/components/model-select/index.js'
 import { useI18n } from '@/hooks/web/useI18n'
+import LibraryExpireStatus from '@/components/library-expire-status/index.vue'
 
 const { t } = useI18n('views.robot.robot-config.basic-config.components.associated-knowledge-base.index')
 

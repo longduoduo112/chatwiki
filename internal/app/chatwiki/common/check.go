@@ -561,6 +561,10 @@ func GetVoiceInMessage(message string, getLocalPath bool) (string, []string) {
 			if !IsUrl(out[i]) {
 				out[i] = define.Config.WebService["api_domain"] + out[i]
 			}
+			meta := strings.TrimSpace(voices[i][1])
+			if strings.HasPrefix(meta, `duration:`) {
+				out[i] += `#duration=` + strings.TrimPrefix(meta, `duration:`)
+			}
 		}
 	}
 	message = voiceRE.ReplaceAllString(message, "")

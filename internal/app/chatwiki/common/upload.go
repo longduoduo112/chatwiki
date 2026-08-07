@@ -35,6 +35,9 @@ func SaveUploadedFile(fileHeader *multipart.FileHeader, limitSize int, identity 
 	if fileHeader == nil {
 		return nil, errors.New(`file header is nil`)
 	}
+	if fileHeader.Size <= 0 {
+		return nil, errors.New(`file size is zero`)
+	}
 	ext := strings.ToLower(strings.TrimLeft(filepath.Ext(fileHeader.Filename), `.`))
 	if !tool.InArrayString(ext, allowExt) {
 		return nil, errors.New(ext + ` not allow`)

@@ -1,0 +1,15 @@
+{
+  "validity_period": "有效期",
+  "days": "天",
+  "permanent": "永久有效",
+  "custom_expire_date": "指定日期",
+  "select_expire_date": "请选择到期日期",
+  "expire_at": "有效至 {date}",
+  "expired": "已过期",
+  "validity_days": "有效期：{days}天",
+  "unavailable_after_expire": "过期后将无法被引用",
+  "expired_tip": "当前知识库已过期，无法被引用",
+  "expired_action_prefix": "可",
+  "go_settings": "前往设置",
+  "expired_action_suffix": "修改有效期"
+}

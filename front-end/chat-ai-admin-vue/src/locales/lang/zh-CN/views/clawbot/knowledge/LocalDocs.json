@@ -1,7 +1,9 @@
 {
-  "section_desc": "查询当前机器人工作空间内的知识文档",
+  "section_desc": "查询当前机器人工作空间内的知识文档，为了方便agent读取文件，docx和pdf文档将会自动转换成markdown文档。",
   "btn_upload_file": "上传文件",
   "btn_remove": "移除",
+  "btn_convert_markdown": "转换为 Markdown",
+  "action_convert_markdown": "转换为 Markdown",
   "action_delete": "删除",
   "empty_tip": "暂无文档，点击上方“上传文件”按钮添加",
   "msg_fetch_failed": "获取文档列表失败",
@@ -11,10 +13,10 @@
   "msg_no_agent_selected": "未选择机器人",
   "msg_upload_success": "上传成功",
   "msg_upload_failed": "上传失败",
+  "msg_convert_submitted": "转换任务已提交",
   "title_delete_document": "删除文档",
   "msg_confirm_delete_document": "确定要删除 \"{name}\" 吗？",
   "btn_confirm": "确定",
   "btn_cancel": "取消",
-  "msg_delete_success": "删除成功",
-  "msg_delete_failed": "删除失败"
+  "msg_delete_success": "删除成功"
 }

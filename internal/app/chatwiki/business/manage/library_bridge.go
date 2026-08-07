@@ -12,6 +12,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/spf13/cast"
@@ -97,7 +98,7 @@ func BridgeGetLibraryList(adminUserId, userId int, lang string, req *BridgeLibra
 		}
 	}
 	list, err := m.
-		Field(`id,type,access_rights,avatar,library_name,library_intro,avatar,graph_switch,graph_model_config_id,model_config_id,use_model,graph_use_model,create_time,group_id,official_app_id,sync_official_history_type,enable_cron_sync_official_content,sync_official_content_status,sync_official_content_last_err_msg,show_meta_source,show_meta_update_time,show_meta_create_time,show_meta_group,chat_claw_switch_status`).
+		Field(`id,type,access_rights,avatar,library_name,library_intro,avatar,graph_switch,graph_model_config_id,model_config_id,use_model,graph_use_model,create_time,group_id,official_app_id,sync_official_history_type,enable_cron_sync_official_content,sync_official_content_status,sync_official_content_last_err_msg,show_meta_source,show_meta_update_time,show_meta_create_time,show_meta_group,chat_claw_switch_status,is_permanent,expire_time`).
 		Order(`id desc`).
 		Select()
 	if err != nil {
@@ -283,6 +284,8 @@ type BridgeCreateLibraryReq struct {
 	SonChunkSeparatorsNo             string `form:"son_chunk_separators_no"`
 	SonChunkChunkSize                string `form:"son_chunk_chunk_size"`
 	IsDefault                        string `form:"is_default"`
+	IsPermanent                      string `form:"is_permanent"`
+	ExpireTime                       string `form:"expire_time"`
 }
 
 func BridgeCreateLibrary(adminUserId, loginUserId int, lang string, req *BridgeCreateLibraryReq) (map[string]any, int, error) {
@@ -322,6 +325,21 @@ func BridgeCreateLibrary(adminUserId, loginUserId int, lang string, req *BridgeC
 	isDefault := cast.ToInt(req.IsDefault)
 	if !tool.InArrayInt(isDefault, []int{define.IsDefault, define.NotDefault}) {
 		isDefault = define.IsDefault
+	}
+	isPermanent := define.SwitchOn
+	if strings.TrimSpace(req.IsPermanent) != `` {
+		isPermanent = cast.ToInt(req.IsPermanent)
+	}
+	if !tool.InArrayInt(isPermanent, []int{define.SwitchOff, define.SwitchOn}) {
+		return nil, -1, errors.New(i18n.Show(lang, `param_invalid`, `is_permanent`))
+	}
+	expireTime := cast.ToInt64(req.ExpireTime)
+	if isPermanent == define.SwitchOn {
+		expireTime = 0
+	} else if expireTime <= 0 {
+		return nil, -1, errors.New(i18n.Show(lang, `param_invalid`, `expire_time`))
+	} else {
+		expireTime = normalizeLibraryExpireTime(expireTime)
 	}
 	if len(libraryName) == 0 || !tool.InArrayInt(typ, define.LibraryTypes[:]) {
 		return nil, -1, errors.New(i18n.Show(lang, `param_lack`))
@@ -414,6 +432,8 @@ func BridgeCreateLibrary(adminUserId, loginUserId int, lang string, req *BridgeC
 		`son_chunk_separators_no`:              sonChunkSeparatorsNo,
 		`son_chunk_chunk_size`:                 sonChunkChunkSize,
 		`is_default`:                           isDefault,
+		`is_permanent`:                         isPermanent,
+		`expire_time`:                          expireTime,
 	}
 	if len(avatar) > 0 {
 		data[`avatar`] = avatar
@@ -490,6 +510,8 @@ type BridgeEditLibraryReq struct {
 	IconTemplateConfigId             string `form:"icon_template_config_id"`
 	SyncOfficialHistoryType          string `form:"sync_official_history_type"`
 	EnableCronSyncOfficialContent    string `form:"enable_cron_sync_official_content"`
+	IsPermanent                      string `form:"is_permanent"`
+	ExpireTime                       string `form:"expire_time"`
 }
 
 func BridgeEditLibrary(c *gin.Context, adminUserId, loginUserId int, lang string, req *BridgeEditLibraryReq) (map[string]any, int, error) {
@@ -588,6 +610,28 @@ func BridgeEditLibrary(c *gin.Context, adminUserId, loginUserId int, lang string
 	if len(info) == 0 {
 		return nil, -1, errors.New(i18n.Show(lang, `no_data`))
 	}
+	isPermanent := cast.ToInt(info[`is_permanent`])
+	expireTime := cast.ToInt64(info[`expire_time`])
+	isPermanentParam := strings.TrimSpace(req.IsPermanent)
+	expireTimeParam := strings.TrimSpace(req.ExpireTime)
+	if isPermanentParam != `` || expireTimeParam != `` {
+		if isPermanentParam != `` {
+			isPermanent = cast.ToInt(isPermanentParam)
+		}
+		if expireTimeParam != `` {
+			expireTime = cast.ToInt64(expireTimeParam)
+		}
+		if !tool.InArrayInt(isPermanent, []int{define.SwitchOff, define.SwitchOn}) {
+			return nil, -1, errors.New(i18n.Show(lang, `param_invalid`, `is_permanent`))
+		}
+		if isPermanent == define.SwitchOn {
+			expireTime = 0
+		} else if expireTime <= 0 {
+			return nil, -1, errors.New(i18n.Show(lang, `param_invalid`, `expire_time`))
+		} else {
+			expireTime = normalizeLibraryExpireTime(expireTime)
+		}
+	}
 	if chunkType == define.ChunkTypeFatherSon && cast.ToInt(info[`type`]) != define.GeneralLibraryType { //parent/child chunking is supported only for general libraries
 		return nil, -1, errors.New(i18n.Show(lang, `param_invalid`, `chunk_type`))
 	}
@@ -635,6 +679,8 @@ func BridgeEditLibrary(c *gin.Context, adminUserId, loginUserId int, lang string
 		`son_chunk_chunk_size`:                 sonChunkChunkSize,
 		`sync_official_history_type`:           syncOfficialHistoryType,
 		`enable_cron_sync_official_content`:    enableCronSyncOfficialContent,
+		`is_permanent`:                         isPermanent,
+		`expire_time`:                          expireTime,
 	}
 	if len(avatar) > 0 {
 		data[`avatar`] = avatar
@@ -753,6 +799,12 @@ func ValidateChunkParam(adminUserId int, chunkParam *define.ChunkParam, typ stri
 		}
 	}
 	return nil
+}
+
+func normalizeLibraryExpireTime(expireTime int64) int64 {
+	shanghaiLocation := time.FixedZone(`Asia/Shanghai`, 8*60*60)
+	expireDate := time.Unix(expireTime, 0).In(shanghaiLocation)
+	return time.Date(expireDate.Year(), expireDate.Month(), expireDate.Day(), 23, 59, 59, 0, shanghaiLocation).Unix()
 }
 
 type BridgeDeleteLibraryReq struct {

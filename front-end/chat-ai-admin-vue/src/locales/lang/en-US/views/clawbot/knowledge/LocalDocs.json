@@ -1,7 +1,9 @@
 {
-  "section_desc": "Query knowledge documents in the current robot workspace.",
+  "section_desc": "Query knowledge documents in the current robot workspace. To make them easier for the agent to read, DOCX and PDF documents are automatically converted to Markdown.",
   "btn_upload_file": "Upload File",
   "btn_remove": "Remove",
+  "btn_convert_markdown": "Convert to Markdown",
+  "action_convert_markdown": "Convert to Markdown",
   "action_delete": "Delete",
   "empty_tip": "No documents yet. Click \"Upload File\" above to add one.",
   "msg_fetch_failed": "Failed to fetch document list",
@@ -11,10 +13,10 @@
   "msg_no_agent_selected": "No robot selected",
   "msg_upload_success": "Uploaded successfully",
   "msg_upload_failed": "Upload failed",
+  "msg_convert_submitted": "Conversion task submitted",
   "title_delete_document": "Delete Document",
   "msg_confirm_delete_document": "Are you sure you want to delete \"{name}\"?",
   "btn_confirm": "Confirm",
   "btn_cancel": "Cancel",
-  "msg_delete_success": "Deleted successfully",
-  "msg_delete_failed": "Delete failed"
+  "msg_delete_success": "Deleted successfully"
 }

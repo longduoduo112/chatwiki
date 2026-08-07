@@ -5,6 +5,7 @@ package common
 import (
 	"archive/zip"
 	"chatwiki/internal/app/chatwiki/define"
+	"chatwiki/internal/pkg/lib_redis"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -34,6 +35,26 @@ type ClawbotUserSkillItem struct {
 	IsMine         int    `json:"is_mine"`
 	CreateTime     int    `json:"create_time"`
 	UpdateTime     int    `json:"update_time"`
+}
+
+const (
+	ClawbotSkillBindStatusBound   = `bound`
+	ClawbotSkillBindStatusFailed  = `failed`
+	ClawbotSkillBindStatusSkipped = `skipped`
+)
+
+type ClawbotSkillInstallResult struct {
+	ClawbotUserSkillItem
+	BindStatus  string `json:"bind_status"`
+	BindMessage string `json:"bind_message"`
+}
+
+func NewClawbotSkillInstallResult(item *ClawbotUserSkillItem, bindStatus, bindMessage string) *ClawbotSkillInstallResult {
+	result := &ClawbotSkillInstallResult{BindStatus: bindStatus, BindMessage: bindMessage}
+	if item != nil {
+		result.ClawbotUserSkillItem = *item
+	}
+	return result
 }
 
 type ClawbotSkillUploadMeta struct {
@@ -909,6 +930,56 @@ func SyncClawbotRobotSkills(adminUserId int, robotKey string, selectedSkillIds [
 		}
 	}
 	return ``, nil
+}
+
+func BindClawbotUserSkillToRobot(adminUserId int, robotKey string, skillId int64) (_ int64, errKey string, err error) {
+	if adminUserId <= 0 || robotKey == `` || skillId <= 0 {
+		return 0, `param_invalid`, nil
+	}
+	lockKey := define.LockPreKey + `ClawbotSkill.` + robotKey
+	if !lib_redis.AddLock(define.Redis, lockKey, time.Minute*5) {
+		return 0, `op_lock`, nil
+	}
+	defer lib_redis.UnLock(define.Redis, lockKey)
+
+	userRow, err := msql.Model(define.TableChatAiClawbotUserSkill, define.Postgres).
+		Where(`id`, cast.ToString(skillId)).
+		Where(`admin_user_id`, cast.ToString(adminUserId)).
+		Find()
+	if err != nil {
+		return 0, ``, err
+	}
+	if len(userRow) == 0 {
+		return 0, `no_data`, nil
+	}
+	existing, err := msql.Model(define.TableChatAiClawbotSkill, define.Postgres).
+		Where(`admin_user_id`, cast.ToString(adminUserId)).
+		Where(`robot_key`, robotKey).
+		Where(`source_type`, cast.ToString(define.SkillSourceTypeUpload)).
+		Where(`user_skill_id`, cast.ToString(skillId)).
+		Find()
+	if err != nil {
+		return 0, ``, err
+	}
+	if len(existing) > 0 {
+		return cast.ToInt64(existing[`id`]), ``, nil
+	}
+	if errKey, err = syncOneRobotSkill(adminUserId, robotKey, userRow, nil); err != nil || errKey != `` {
+		return 0, errKey, err
+	}
+	bound, err := msql.Model(define.TableChatAiClawbotSkill, define.Postgres).
+		Where(`admin_user_id`, cast.ToString(adminUserId)).
+		Where(`robot_key`, robotKey).
+		Where(`source_type`, cast.ToString(define.SkillSourceTypeUpload)).
+		Where(`user_skill_id`, cast.ToString(skillId)).
+		Find()
+	if err != nil {
+		return 0, ``, err
+	}
+	if len(bound) == 0 {
+		return 0, `no_data`, nil
+	}
+	return cast.ToInt64(bound[`id`]), ``, nil
 }
 
 func syncOneRobotSkill(adminUserId int, robotKey string, userRow msql.Params, oldRow msql.Params) (errKey string, err error) {

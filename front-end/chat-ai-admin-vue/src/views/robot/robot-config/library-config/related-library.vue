@@ -41,6 +41,7 @@
               <span class="text-item">{{ t('label_docs') }}：{{ item.file_total }}</span>
               <span class="text-item">{{ t('label_size') }}：{{ item.file_size_str }}</span>
               <span class="text-item">{{ t('label_related_apps') }}：{{ item.robot_nums || 0 }}</span>
+              <LibraryExpireStatus :library="item" />
             </div>
 
             <div class="action-box" @click.stop v-if="item.id != robotInfo.default_library_id">
@@ -84,6 +85,7 @@ import { useCompanyStore } from '@/stores/modules/company'
 const companyStore = useCompanyStore()
 import { LIBRARY_NORMAL_AVATAR, LIBRARY_QA_AVATAR } from '@/constants/index'
 import { formatFileSize } from '@/utils/index'
+import LibraryExpireStatus from '@/components/library-expire-status/index.vue'
 import { useRobotStore } from '@/stores/modules/robot'
 import { message } from 'ant-design-vue'
 import {getSpecifyAbilityConfig} from "@/api/explore/index.js";
@@ -374,11 +376,26 @@ onMounted(() => {
   }
 }
 
-// 大于1920px
-@media screen and (min-width: 1920px) {
+@media screen and (max-width: 1680px) {
   .list-box {
     .list-item-wrapper {
-      width: 20%;
+      width: 33.3%;
+    }
+  }
+}
+
+@media screen and (max-width: 1024px) {
+  .list-box {
+    .list-item-wrapper {
+      width: 50%;
+    }
+  }
+}
+
+@media screen and (max-width: 768px) {
+  .list-box {
+    .list-item-wrapper {
+      width: 100%;
     }
   }
 }

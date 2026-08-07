@@ -418,11 +418,11 @@ import { getRobotList, relationWorkFlow } from '@/api/robot'
 import { getLibraryList } from '@/api/library'
 import { getSpecifyAbilityConfig } from '@/api/explore/index.js'
 import {
-  deleteClawbotSkill,
   uploadClawbotLocalDoc,
   getClawbotLocalDocList,
   deleteClawbotLocalDoc,
-  getClawbotSkillList
+  getClawbotSkillList,
+  saveClawbotRobotSkills
 } from '@/api/clawbot'
 import AddToolModal from '@/views/clawbot/skills/components/AddToolModal.vue'
 import SelectSkillModal from '@/views/clawbot/skills/components/SelectSkillModal.vue'
@@ -853,27 +853,54 @@ const loadSkillList = async () => {
 }
 
 const handleRemoveSkill = (item) => {
+  const targetAssistantId = currentAssistant.value?.id
+  if (!targetAssistantId) {
+    message.error('缺少当前 Agent，请重新从 Agent 页面进入')
+    return
+  }
+
   Modal.confirm({
     title: t('title_remove_skill'),
     icon: createVNode(ExclamationCircleOutlined),
-    content: t('msg_confirm_remove_skill'),
+    content: '确认从当前 Agent 移除该技能吗？技能仍会保留在技能库中。',
     okText: t('btn_confirm'),
     cancelText: t('btn_cancel'),
     okType: 'danger',
     onOk: async () => {
+      if (String(currentAssistant.value?.id || '') !== String(targetAssistantId)) {
+        message.warning('当前 Agent 已切换，请重新执行移除操作')
+        return
+      }
+
       try {
-        const res = await deleteClawbotSkill({
-          id: currentAssistant.value?.id,
-          skill_id: item.skillId
+        const latestListRes = await getClawbotSkillList({ id: targetAssistantId })
+        if (!latestListRes || latestListRes.res !== 0) {
+          message.error(latestListRes?.msg || t('msg_fetch_skill_failed'))
+          return
+        }
+        if (String(currentAssistant.value?.id || '') !== String(targetAssistantId)) {
+          message.warning('当前 Agent 已切换，请重新执行移除操作')
+          return
+        }
+
+        const remainingSkillIds = (latestListRes.data || [])
+          .filter((skill) => Number(skill.is_selected) === 1 && String(skill.skill_id) !== String(item.skillId))
+          .map((skill) => skill.skill_id)
+
+        const res = await saveClawbotRobotSkills({
+          id: targetAssistantId,
+          skill_ids: remainingSkillIds.join(',')
         })
         if (res?.res === 0) {
           message.success(t('msg_remove_success'))
-          await loadSkillList()
+          if (String(currentAssistant.value?.id || '') === String(targetAssistantId)) {
+            await loadSkillList()
+          }
         } else {
           message.error(res?.msg || t('msg_remove_failed'))
         }
       } catch (err) {
-        console.error('鍒犻櫎 Skill 澶辫触', err)
+        console.error('解除 Agent Skill 绑定失败', err)
         message.error(err?.msg || t('msg_remove_failed'))
       }
     }

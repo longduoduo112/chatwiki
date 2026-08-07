@@ -4,7 +4,7 @@
       <div class="left-panel">
         <div class="page-header">
           <div class="page-title">
-            <a-segmented :value="route.path" :options="titleOptios" @change="handleTitleChange" />
+            <a-segmented value="generator" :options="titleOptios" @change="handleTitleChange" />
           </div>
         </div>
 
@@ -33,8 +33,16 @@
         </div>
       </div>
 
-      <BookToSkillTab v-show="activeTemplate === 'book'" :active="activeTemplate === 'book'" />
-      <WebToSkillTab v-show="activeTemplate === 'web'" :active="activeTemplate === 'web'" />
+      <BookToSkillTab
+        v-show="activeTemplate === 'book'"
+        :active="activeTemplate === 'book'"
+        :robot-id="robotId"
+      />
+      <WebToSkillTab
+        v-show="activeTemplate === 'web'"
+        :active="activeTemplate === 'web'"
+        :robot-id="robotId"
+      />
     </div>
   </div>
 </template>
@@ -53,19 +61,36 @@ const { t } = useI18n('views.clawbot.skill-generate-tool.index')
 
 const titleOptios = computed(() => [
   {
-    label: t('nav_my_skill'),
-    value: '/clawbot/skills'
+    label: 'Agent技能',
+    value: 'agent'
   },
   {
-    label: t('nav_skill_generator'),
-    value: '/clawbot/skill-generate-tool'
+    label: '技能库',
+    value: 'library'
+  },
+  {
+    label: '技能生成工具',
+    value: 'generator'
   }
 ])
 
-const handleTitleChange = (path) => {
-  if (path !== route.path) {
-    router.push(path)
+const robotId = computed(() => {
+  const id = Array.isArray(route.query.id) ? route.query.id[0] : route.query.id
+  return id || ''
+})
+
+const handleTitleChange = (key) => {
+  if (key === 'generator') {
+    return
   }
+
+  router.push({
+    path: '/clawbot/skills',
+    query: {
+      ...route.query,
+      tab: key === 'library' ? 'library' : 'agent'
+    }
+  })
 }
 
 const templateList = computed(() => [

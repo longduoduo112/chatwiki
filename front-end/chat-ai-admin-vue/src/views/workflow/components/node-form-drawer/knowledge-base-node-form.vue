@@ -21,7 +21,10 @@
                   <img :src="item.avatar" alt="" />
                 </div>
                 <div class="content-box">
-                  <div class="list-name">{{ item.library_name }}</div>
+                  <div class="list-name">
+                    {{ item.library_name }}
+                    <LibraryExpireStatus :library="item" />
+                  </div>
                   <div class="list-intro">{{ item.library_intro }}</div>
                 </div>
                 <div class="btn-hover-wrap" @click="handleDelKonwledge(item)">
@@ -104,6 +107,7 @@ import RecallSettingsAlert from '../nodes/knowledge-base-node//recall-settings-a
 import { getSpecifyAbilityConfig } from '@/api/explore/index.js'
 import { useRobotStore } from '@/stores/modules/robot'
 import { useI18n } from '@/hooks/web/useI18n'
+import LibraryExpireStatus from '@/components/library-expire-status/index.vue'
 
 const { t } = useI18n('views.workflow.components.node-form-drawer.knowledge-base-node-form')
 const robotStore = useRobotStore()
@@ -280,6 +284,7 @@ const handleDelKonwledge = (item) => {
   let index = formState.library_ids.indexOf(item.id)
   formState.library_ids.splice(index, 1)
 }
+
 
 const onChangeLibrarySelected = (checkedList) => {
   getList()

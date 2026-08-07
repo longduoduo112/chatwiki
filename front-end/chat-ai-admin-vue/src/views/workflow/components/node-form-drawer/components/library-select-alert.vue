@@ -225,6 +225,7 @@
                     <span class="type-tag" v-if="item.type == 3">{{ t('label_mp_library') }}</span>
                   </div>
                   <div class="desc-info-block">{{ item.library_intro }}</div>
+                  <LibraryExpireStatus :library="item" />
                 </div>
                 <div class="check-block">
                   <a-checkbox :checked="state.checkedList.includes(item.id)"></a-checkbox>
@@ -251,6 +252,7 @@ import { SearchOutlined, SyncOutlined } from '@ant-design/icons-vue'
 import { getLibraryList, getLibraryListGroup } from '@/api/library/index'
 import { useRobotStore } from '@/stores/modules/robot'
 import { useI18n } from '@/hooks/web/useI18n'
+import LibraryExpireStatus from '@/components/library-expire-status/index.vue'
 
 const robotStore = useRobotStore()
 const { robotInfo } = robotStore
@@ -302,6 +304,7 @@ const handleChangeGroup = (item) => {
   group_id.value = item.id
   getList()
 }
+
 
 const show = ref(false)
 

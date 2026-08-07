@@ -59,6 +59,7 @@ type DocToSkillTaskIDParams struct {
 type DocToSkillTaskInstallParams struct {
 	ID        int64 `form:"id" json:"id" binding:"required,gt=0"`
 	Overwrite bool  `form:"overwrite" json:"overwrite"`
+	RobotID   int64 `form:"robot_id" json:"robot_id" binding:"omitempty,gt=0"`
 }
 
 type DocToSkillTaskItem struct {

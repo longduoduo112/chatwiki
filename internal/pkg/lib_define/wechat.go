@@ -30,6 +30,7 @@ const DingTalkRobot = `dingtalk_robot`
 const AppWecomRobot = `wecom_robot`
 const TelegramRobot = `telegram_robot`
 const AppMessenger = `messenger`
+const AppLine = `line`
 const AppWhatsapp = `whatsapp`
 
 const AppYunH5 = `yun_h5`
@@ -46,6 +47,7 @@ var AppTypeList = []string{
 	AppWecomRobot,
 	TelegramRobot,
 	AppMessenger,
+	AppLine,
 	AppWhatsapp,
 }
 
