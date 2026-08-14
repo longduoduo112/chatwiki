@@ -33,6 +33,18 @@
             @loaded="onVectorModelLoaded"
           />
         </a-form-item>
+        <a-form-item v-if="showChunkEnableThinking" :label="thinkingT('label_deep_thinking')">
+          <a-flex align="center" :gap="8">
+            <a-switch
+              v-model:checked="formState.chunk_enable_thinking"
+              :checkedValue="1"
+              :unCheckedValue="0"
+            />
+            <a-tooltip :title="thinkingT('tooltip_deep_thinking')">
+              <QuestionCircleOutlined />
+            </a-tooltip>
+          </a-flex>
+        </a-form-item>
         <a-form-item :label="t('chunk_type_label')">
           <a-radio-group v-model:value="formState.chunk_type">
             <a-radio :value="1">{{ t('chunk_type_by_length') }}</a-radio>
@@ -85,15 +97,17 @@
 
 <script setup>
 import { useI18n } from '@/hooks/web/useI18n'
-import { ref, reactive, nextTick, onMounted } from 'vue'
+import { ref, reactive, nextTick, computed } from 'vue'
 import {addFAQFile, getFAQConfig } from '@/api/library/index'
 import UploadFilesInput from './upload-input.vue'
 import ModelSelect from '@/components/model-select/model-select.vue'
 import { formatSeparatorsNo } from '@/utils/index'
 import { message } from 'ant-design-vue'
+import { QuestionCircleOutlined } from '@ant-design/icons-vue'
 
 
 const { t } = useI18n('views.ai-extract-faq.list.components.upload-document')
+const { t: thinkingT } = useI18n('views.robot.robot-config.basic-config.components.model-settings')
 
 const emit = defineEmits(['ok'])
 
@@ -112,6 +126,7 @@ const formState = reactive({
   faq_files: [],
   chunk_model: '',
   chunk_model_config_id: '',
+  chunk_enable_thinking: 0,
   chunk_type: 1,
   chunk_size: 8000,
   chunk_prompt: defaultPromt,
@@ -140,6 +155,7 @@ const show = () => {
       faq_files: [],
       chunk_model: '',
       chunk_model_config_id: '',
+      chunk_enable_thinking: 0,
       chunk_type: 1,
       chunk_size: 8000,
       chunk_prompt: defaultPromt,
@@ -148,6 +164,7 @@ const show = () => {
     formState.faq_files = []
     formState.chunk_model = data.chunk_model
     formState.chunk_model_config_id = data.chunk_model_config_id
+    formState.chunk_enable_thinking = +data.chunk_enable_thinking || 0
     formState.chunk_type = 1
     formState.chunk_size = data.chunk_size || 8000
     formState.chunk_prompt = data.chunk_prompt || defaultPromt
@@ -185,6 +202,7 @@ const saveForm = () => {
   formData.append('chunk_size', formState.chunk_size)
   formData.append('chunk_model', formState.chunk_model)
   formData.append('chunk_model_config_id', formState.chunk_model_config_id)
+  formData.append('chunk_enable_thinking', formState.chunk_enable_thinking)
   formData.append('chunk_prompt', formState.chunk_prompt)
   formData.append('separators_no', JSON.stringify(formState.separators_no))
   confirmLoading.value = true
@@ -205,12 +223,18 @@ const onFilesChange = (files) => {
   formRef.value.validate(['faq_files'])
 }
 const vectorModelList = ref([])
-const onVectorModelLoaded = (list) => {
+const choosableThinking = ref({})
+const onVectorModelLoaded = (list, thinkingMap) => {
   vectorModelList.value = list
+  choosableThinking.value = thinkingMap || {}
 
   nextTick(() => {})
   // handleEdit()
 }
+const showChunkEnableThinking = computed(() => {
+  const key = formState.chunk_model_config_id + '#' + formState.chunk_model
+  return !!choosableThinking.value[key]
+})
 
 
 

@@ -382,9 +382,24 @@ const setAtInputRef = (el, name, index) => {
 
 const atinputRef = ref(null)
 
+const systemVariables = [
+  {
+    id: 'system_current_time',
+    label: '当前时间-系统变量',
+    value: '【system_var:current_time】',
+    typ: '系统变量'
+  },
+  {
+    id: 'system_current_date',
+    label: '当前日期-系统变量',
+    value: '【system_var:current_date】',
+    typ: '系统变量'
+  }
+]
+
 const chatVariables = computed(() => {
   let list = robotStore.chatVariables
-  return list.map((item) => {
+  const customVariables = list.map((item) => {
     let label = item.variable_key + '（' + item.variable_name + '）'
     let value = `【chat_variable:${item.variable_key}】`
     return {
@@ -393,6 +408,7 @@ const chatVariables = computed(() => {
       value
     }
   })
+  return [...systemVariables, ...customVariables]
 })
 
 // 小程序卡片选项，映射为 AtInput 可用的 options 格式

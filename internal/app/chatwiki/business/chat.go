@@ -521,6 +521,7 @@ func ChatQuestionGuide(c *gin.Context) {
 			nil,
 			cast.ToFloat32(chatBaseParam.Robot[`temperature`]),
 			200,
+			common.ThinkingDisabled,
 		)
 		if err != nil {
 			logs.Error(err.Error())

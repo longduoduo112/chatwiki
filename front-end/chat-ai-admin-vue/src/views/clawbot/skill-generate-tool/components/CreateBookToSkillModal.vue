@@ -2,8 +2,8 @@
   <a-modal
     class="create-book-skill-modal"
     :open="visible"
-    :title="t('modal_upload_document')"
-    :width="472"
+    :title="isUpdate ? t('modal_update_document') : t('modal_upload_document')"
+    :width="640"
     :maskClosable="false"
     :destroyOnClose="false"
     @cancel="handleCancel"
@@ -87,6 +87,37 @@
       </div>
     </div>
 
+    <div v-if="hasPdfFiles" class="online-ocr-section">
+      <div class="online-ocr-label">{{ t('label_online_ocr') }}</div>
+      <div class="online-ocr-switch-row">
+        <a-switch v-model:checked="formState.online_ocr" :disabled="submitLoading" />
+        <span>{{ formState.online_ocr ? t('online_ocr_enabled') : t('online_ocr_disabled') }}</span>
+      </div>
+      <div class="online-ocr-tip">
+        <InfoCircleOutlined />
+        <span>{{ t('online_ocr_format_tip') }}</span>
+      </div>
+      <div class="online-ocr-tip">
+        <InfoCircleOutlined />
+        <span>
+          {{ t('online_ocr_points_tip') }}
+          <span class="points-balance">{{ t('online_ocr_points_balance') }}</span>
+          <a
+            class="points-link"
+            href="https://cloud.chatwiki.com/#/user/model"
+            target="_blank"
+            rel="noopener noreferrer"
+          >{{ t('online_ocr_points_view') }}</a>
+          <a
+            class="purchase-link"
+            href="https://cloud.chatwiki.com/#/user/model?open_points=1"
+            target="_blank"
+            rel="noopener noreferrer"
+          >{{ t('online_ocr_purchase') }}</a>
+        </span>
+      </div>
+    </div>
+
     <template #footer>
       <a-button :disabled="submitLoading" @click="handleCancel">{{ t('btn_cancel') }}</a-button>
       <a-button type="primary" :loading="submitLoading" @click="handleConfirm">{{ t('btn_confirm') }}</a-button>
@@ -95,17 +126,18 @@
 </template>
 
 <script setup>
-import { reactive, ref, watch } from 'vue'
+import { computed, reactive, ref, watch } from 'vue'
 import {
   DeleteOutlined,
   FileTextOutlined,
   InboxOutlined,
+  InfoCircleOutlined,
   LoadingOutlined
 } from '@ant-design/icons-vue'
 import { message } from 'ant-design-vue'
 import { useI18n } from '@/hooks/web/useI18n'
 import ModelSelect from '@/components/model-select/model-select.vue'
-import { createDocToSkillTask } from '@/api/clawbot'
+import { createDocToSkillTask, updateDocToSkillTask } from '@/api/clawbot'
 
 const MAX_FILE_COUNT = 20
 const MAX_FILE_SIZE = 100 * 1024 * 1024
@@ -116,6 +148,10 @@ const props = defineProps({
   visible: {
     type: Boolean,
     default: false
+  },
+  task: {
+    type: Object,
+    default: null
   }
 })
 
@@ -123,12 +159,15 @@ const emit = defineEmits(['update:visible', 'confirm'])
 
 const fileList = ref([])
 const submitLoading = ref(false)
+const isUpdate = computed(() => Number(props.task?.id) > 0)
+const hasPdfFiles = computed(() => fileList.value.some((file) => getFileExt(file?.name) === 'pdf'))
 const formState = reactive({
   custom_prompt: '',
   model_config_id: '',
   use_model: '',
   temperature: 1,
-  max_token: 32768
+  max_token: 32768,
+  online_ocr: false
 })
 
 watch(
@@ -141,11 +180,13 @@ watch(
 )
 
 const resetForm = () => {
-  formState.custom_prompt = ''
-  formState.model_config_id = ''
-  formState.use_model = ''
-  formState.temperature = 1
-  formState.max_token = 32768
+  const task = isUpdate.value ? props.task || {} : {}
+  formState.custom_prompt = task.custom_prompt || ''
+  formState.model_config_id = task.model_config_id || ''
+  formState.use_model = task.use_model || ''
+  formState.temperature = task.temperature ?? 1
+  formState.max_token = task.max_token ?? 32768
+  formState.online_ocr = false
   fileList.value = []
   submitLoading.value = false
 }
@@ -229,20 +270,26 @@ const handleConfirm = async () => {
     formData.append('use_model', formState.use_model)
     formData.append('temperature', String(formState.temperature))
     formData.append('max_token', String(formState.max_token))
+    formData.append('online_ocr', String(hasPdfFiles.value && formState.online_ocr))
+    if (isUpdate.value) {
+      formData.append('id', String(props.task.id))
+    }
     fileList.value.forEach((file) => {
       formData.append('files', file)
     })
 
-    const res = await createDocToSkillTask(formData)
+    const res = isUpdate.value
+      ? await updateDocToSkillTask(formData)
+      : await createDocToSkillTask(formData)
     if (res && (res.res === 0 || res.code === 0)) {
-      message.success(t('msg_task_created'))
+      message.success(t(isUpdate.value ? 'msg_doc_update_created' : 'msg_task_created'))
       emit('confirm', res.data)
       emit('update:visible', false)
     } else {
-      message.error(res?.msg || t('msg_task_create_failed'))
+      message.error(res?.msg || t(isUpdate.value ? 'msg_doc_update_create_failed' : 'msg_task_create_failed'))
     }
   } catch (err) {
-    console.error('创建Book转Skill任务失败', err)
+    console.error(isUpdate.value ? '更新Book转Skill任务失败' : '创建Book转Skill任务失败', err)
   } finally {
     submitLoading.value = false
   }
@@ -321,6 +368,55 @@ const handleCancel = () => {
   flex-direction: column;
   gap: 8px;
   margin-top: 8px;
+}
+
+.online-ocr-section {
+  margin-top: 18px;
+}
+
+.online-ocr-label {
+  color: #262626;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 22px;
+}
+
+.online-ocr-switch-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 8px;
+  color: #8c8c8c;
+  font-size: 14px;
+}
+
+.online-ocr-tip {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 8px 12px;
+  border: 1px solid #ffd666;
+  border-radius: 6px;
+  background: #fffbe6;
+  color: #fa8c16;
+  font-size: 13px;
+  line-height: 20px;
+
+  > :first-child {
+    margin-top: 3px;
+    flex-shrink: 0;
+  }
+}
+
+.points-balance,
+.purchase-link {
+  margin-left: 4px;
+}
+
+.points-link,
+.purchase-link {
+  color: #1677ff;
 }
 
 .file-row {

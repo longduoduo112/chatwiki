@@ -715,6 +715,7 @@ func SaveLibFileSplit(userId, fileId, wordTotal, qaIndexType int, splitParams de
 		`semantic_chunk_model_config_id`: splitParams.SemanticChunkModelConfigId,
 		`ai_chunk_model`:                 splitParams.AiChunkModel,
 		`ai_chunk_model_config_id`:       splitParams.AiChunkModelConfigId,
+		`ai_chunk_enable_thinking`:       splitParams.AiChunkEnableThinking,
 		`ai_chunk_size`:                  splitParams.AiChunkSize,
 		`ai_chunk_prumpt`:                splitParams.AiChunkPrumpt,
 		`ai_chunk_task_id`:               splitParams.AiChunkTaskId,
@@ -1783,6 +1784,7 @@ func AISplitDocs(adminUserId, fileId int, splitParams define.SplitParams, list d
 				chanStream,
 				0.1,
 				maxToken,
+				ToThinkingSwitch(splitParams.AiChunkEnableThinking),
 			)
 			docSplitItem := define.DocSplitItem{
 				PageNum: item.PageNum,

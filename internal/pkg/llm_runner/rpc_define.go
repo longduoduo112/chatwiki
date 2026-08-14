@@ -9,6 +9,7 @@ type RpcRunRequest struct {
 	Command string
 	WorkDir string
 	RunID   string
+	Env     map[string]string
 }
 
 type RpcRunResponse struct {

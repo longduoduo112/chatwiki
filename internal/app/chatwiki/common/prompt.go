@@ -182,13 +182,13 @@ func UnifyLineBreak(content string) string {
 	return content
 }
 
-func CreatePromptByAi(lang string, demand string, adminUserId, modelConfigId int, useModel string) (string, error) {
+func CreatePromptByAi(lang string, demand string, adminUserId, modelConfigId int, useModel string, enableThinking ThinkingSwitch) (string, error) {
 	messages := []adaptor.ZhimaChatCompletionMessage{
 		{Role: `system`, Content: define.PromptDefaultCreatePrompt},
 		{Role: `user`, Content: demand},
 	}
 	chatResp, _, err := RequestChat(lang, adminUserId, cast.ToString(adminUserId), nil, lib_define.AppYunPc,
-		modelConfigId, useModel, messages, nil, 0.5, 2000)
+		modelConfigId, useModel, messages, nil, 0.5, 2000, enableThinking)
 	if err != nil {
 		logs.Error(err.Error())
 		return ``, err

@@ -216,6 +216,7 @@ func ExtractLibFaqFiles(adminUserId int, splitParams define.SplitFaqParams, subm
 				chanStream,
 				0.1,
 				maxToken,
+				ToThinkingSwitch(splitParams.ChunkEnableThinking),
 			)
 			docSplitItem := define.DocSplitItem{
 				PageNum: item.PageNum,

@@ -11,11 +11,12 @@ import (
 func GetAzureHandler(modelInfo ModelInfo, config msql.Params, useModel string) (*ModelCallHandler, error) {
 	handler := &ModelCallHandler{
 		Meta: adaptor.Meta{
-			Corp:       `azure`,
-			EndPoint:   config[`api_endpoint`],
-			APIVersion: config[`api_version`],
-			APIKey:     config[`api_key`],
-			Model:      useModel,
+			Corp:              `azure`,
+			EndPoint:          config[`api_endpoint`],
+			APIVersion:        config[`api_version`],
+			APIKey:            config[`api_key`],
+			Model:             useModel,
+			ChoosableThinking: tool.InArrayString(useModel, modelInfo.GetChoosableThinkingModels()),
 		},
 		config: config,
 	}
@@ -38,10 +39,11 @@ func GetAzureSupplierHandler(modelInfo ModelInfo, config msql.Params) (*Supplier
 func GetClaudeHandler(modelInfo ModelInfo, config msql.Params, useModel string) (*ModelCallHandler, error) {
 	handler := &ModelCallHandler{
 		Meta: adaptor.Meta{
-			Corp:     `claude`,
-			EndPoint: config[`api_endpoint`],
-			APIKey:   config[`api_key`],
-			Model:    useModel,
+			Corp:              `claude`,
+			EndPoint:          config[`api_endpoint`],
+			APIKey:            config[`api_key`],
+			Model:             useModel,
+			ChoosableThinking: tool.InArrayString(useModel, modelInfo.GetChoosableThinkingModels()),
 		},
 		config: config,
 	}
@@ -63,10 +65,11 @@ func GetClaudeSupplierHandler(modelInfo ModelInfo, config msql.Params) (*Supplie
 func GetGeminiHandler(modelInfo ModelInfo, config msql.Params, useModel string) (*ModelCallHandler, error) {
 	handler := &ModelCallHandler{
 		Meta: adaptor.Meta{
-			Corp:     `gemini`,
-			EndPoint: config[`api_endpoint`],
-			APIKey:   config[`api_key`],
-			Model:    useModel,
+			Corp:              `gemini`,
+			EndPoint:          config[`api_endpoint`],
+			APIKey:            config[`api_key`],
+			Model:             useModel,
+			ChoosableThinking: tool.InArrayString(useModel, modelInfo.GetChoosableThinkingModels()),
 		},
 		config: config,
 	}
@@ -88,11 +91,12 @@ func GetGeminiSupplierHandler(modelInfo ModelInfo, config msql.Params) (*Supplie
 func GetYiyanHandler(modelInfo ModelInfo, config msql.Params, useModel string) (*ModelCallHandler, error) {
 	handler := &ModelCallHandler{
 		Meta: adaptor.Meta{
-			Corp:      `baidu`,
-			EndPoint:  config[`api_endpoint`],
-			APIKey:    config[`api_key`],
-			SecretKey: config[`secret_key`],
-			Model:     useModel,
+			Corp:              `baidu`,
+			EndPoint:          config[`api_endpoint`],
+			APIKey:            config[`api_key`],
+			SecretKey:         config[`secret_key`],
+			Model:             useModel,
+			ChoosableThinking: tool.InArrayString(useModel, modelInfo.GetChoosableThinkingModels()),
 		},
 		config: config,
 	}
@@ -141,10 +145,11 @@ func GetTongyiSupplierHandler(modelInfo ModelInfo, config msql.Params) (*Supplie
 func GetBaaiHandle(modelInfo ModelInfo, config msql.Params, useModel string) (*ModelCallHandler, error) {
 	handler := &ModelCallHandler{
 		Meta: adaptor.Meta{
-			Corp:     `baai`,
-			EndPoint: config[`api_endpoint`],
-			APIKey:   config[`api_key`],
-			Model:    useModel,
+			Corp:              `baai`,
+			EndPoint:          config[`api_endpoint`],
+			APIKey:            config[`api_key`],
+			Model:             useModel,
+			ChoosableThinking: tool.InArrayString(useModel, modelInfo.GetChoosableThinkingModels()),
 		},
 		config: config,
 	}
@@ -166,10 +171,11 @@ func GetBaaiSupplierHandle(modelInfo ModelInfo, config msql.Params) (*SupplierHa
 func GetCohereHandle(modelInfo ModelInfo, config msql.Params, useModel string) (*ModelCallHandler, error) {
 	handler := &ModelCallHandler{
 		Meta: adaptor.Meta{
-			Corp:     `cohere`,
-			EndPoint: config[`api_endpoint`],
-			APIKey:   config[`api_key`],
-			Model:    useModel,
+			Corp:              `cohere`,
+			EndPoint:          config[`api_endpoint`],
+			APIKey:            config[`api_key`],
+			Model:             useModel,
+			ChoosableThinking: tool.InArrayString(useModel, modelInfo.GetChoosableThinkingModels()),
 		},
 		config: config,
 	}
@@ -191,10 +197,11 @@ func GetCohereSupplierHandle(modelInfo ModelInfo, config msql.Params) (*Supplier
 func GetOllamaHandle(modelInfo ModelInfo, config msql.Params, useModel string) (*ModelCallHandler, error) {
 	handler := &ModelCallHandler{
 		Meta: adaptor.Meta{
-			Corp:     `ollama`,
-			EndPoint: config[`api_endpoint`],
-			APIKey:   config[`api_key`],
-			Model:    useModel,
+			Corp:              `ollama`,
+			EndPoint:          config[`api_endpoint`],
+			APIKey:            config[`api_key`],
+			Model:             useModel,
+			ChoosableThinking: tool.InArrayString(useModel, modelInfo.GetChoosableThinkingModels()),
 		},
 		config: config,
 	}
@@ -216,11 +223,12 @@ func GetOllamaSupplierHandle(modelInfo ModelInfo, config msql.Params) (*Supplier
 func GetXinferenceHandle(modelInfo ModelInfo, config msql.Params, useModel string) (*ModelCallHandler, error) {
 	handler := &ModelCallHandler{
 		Meta: adaptor.Meta{
-			Corp:       `xinference`,
-			EndPoint:   config[`api_endpoint`],
-			APIKey:     config[`api_key`],
-			APIVersion: config["api_version"],
-			Model:      useModel,
+			Corp:              `xinference`,
+			EndPoint:          config[`api_endpoint`],
+			APIKey:            config[`api_key`],
+			APIVersion:        config["api_version"],
+			Model:             useModel,
+			ChoosableThinking: tool.InArrayString(useModel, modelInfo.GetChoosableThinkingModels()),
 		},
 	}
 	return handler, nil
@@ -241,10 +249,11 @@ func GetXinferenceSupplierHandle(modelInfo ModelInfo, config msql.Params) (*Supp
 func GetDeepseekHandle(modelInfo ModelInfo, config msql.Params, useModel string) (*ModelCallHandler, error) {
 	handler := &ModelCallHandler{
 		Meta: adaptor.Meta{
-			Corp:     `deepseek`,
-			EndPoint: config[`api_endpoint`],
-			APIKey:   config[`api_key`],
-			Model:    useModel,
+			Corp:              `deepseek`,
+			EndPoint:          config[`api_endpoint`],
+			APIKey:            config[`api_key`],
+			Model:             useModel,
+			ChoosableThinking: tool.InArrayString(useModel, modelInfo.GetChoosableThinkingModels()),
 		},
 		config: config,
 	}
@@ -266,10 +275,11 @@ func GetDeepseekSupplierHandle(modelInfo ModelInfo, config msql.Params) (*Suppli
 func GetJinaHandle(modelInfo ModelInfo, config msql.Params, useModel string) (*ModelCallHandler, error) {
 	handler := &ModelCallHandler{
 		Meta: adaptor.Meta{
-			Corp:     `jina`,
-			EndPoint: config[`api_endpoint`],
-			APIKey:   config[`api_key`],
-			Model:    useModel,
+			Corp:              `jina`,
+			EndPoint:          config[`api_endpoint`],
+			APIKey:            config[`api_key`],
+			Model:             useModel,
+			ChoosableThinking: tool.InArrayString(useModel, modelInfo.GetChoosableThinkingModels()),
 		},
 		config: config,
 	}
@@ -291,10 +301,11 @@ func GetJinaSupplierHandle(modelInfo ModelInfo, config msql.Params) (*SupplierHa
 func GetLingYiWanWuHandle(modelInfo ModelInfo, config msql.Params, useModel string) (*ModelCallHandler, error) {
 	handler := &ModelCallHandler{
 		Meta: adaptor.Meta{
-			Corp:     `lingyiwanwu`,
-			EndPoint: config[`api_endpoint`],
-			APIKey:   config[`api_key`],
-			Model:    useModel,
+			Corp:              `lingyiwanwu`,
+			EndPoint:          config[`api_endpoint`],
+			APIKey:            config[`api_key`],
+			Model:             useModel,
+			ChoosableThinking: tool.InArrayString(useModel, modelInfo.GetChoosableThinkingModels()),
 		},
 		config: config,
 	}
@@ -316,10 +327,11 @@ func GetLingYiWanWuSupplierHandle(modelInfo ModelInfo, config msql.Params) (*Sup
 func GetMoonShotHandle(modelInfo ModelInfo, config msql.Params, useModel string) (*ModelCallHandler, error) {
 	handler := &ModelCallHandler{
 		Meta: adaptor.Meta{
-			Corp:     `moonshot`,
-			EndPoint: config[`api_endpoint`],
-			APIKey:   config[`api_key`],
-			Model:    useModel,
+			Corp:              `moonshot`,
+			EndPoint:          config[`api_endpoint`],
+			APIKey:            config[`api_key`],
+			Model:             useModel,
+			ChoosableThinking: tool.InArrayString(useModel, modelInfo.GetChoosableThinkingModels()),
 		},
 		config: config,
 	}
@@ -341,10 +353,11 @@ func GetMoonShotSupplierHandle(modelInfo ModelInfo, config msql.Params) (*Suppli
 func GetBaichuanHandle(modelInfo ModelInfo, config msql.Params, useModel string) (*ModelCallHandler, error) {
 	handler := &ModelCallHandler{
 		Meta: adaptor.Meta{
-			Corp:     `baichuan`,
-			EndPoint: config[`api_endpoint`],
-			APIKey:   config[`api_key`],
-			Model:    useModel,
+			Corp:              `baichuan`,
+			EndPoint:          config[`api_endpoint`],
+			APIKey:            config[`api_key`],
+			Model:             useModel,
+			ChoosableThinking: tool.InArrayString(useModel, modelInfo.GetChoosableThinkingModels()),
 		},
 		config: config,
 	}
@@ -366,10 +379,11 @@ func GetBaichuanSupplierHandle(modelInfo ModelInfo, config msql.Params) (*Suppli
 func GetZhipuHandle(modelInfo ModelInfo, config msql.Params, useModel string) (*ModelCallHandler, error) {
 	handler := &ModelCallHandler{
 		Meta: adaptor.Meta{
-			Corp:     `zhipu`,
-			EndPoint: config[`api_endpoint`],
-			APIKey:   config[`api_key`],
-			Model:    useModel,
+			Corp:              `zhipu`,
+			EndPoint:          config[`api_endpoint`],
+			APIKey:            config[`api_key`],
+			Model:             useModel,
+			ChoosableThinking: tool.InArrayString(useModel, modelInfo.GetChoosableThinkingModels()),
 		},
 		config: config,
 	}
@@ -391,10 +405,11 @@ func GetZhipuSupplierHandle(modelInfo ModelInfo, config msql.Params) (*SupplierH
 func GetOpenAIHandle(modelInfo ModelInfo, config msql.Params, useModel string) (*ModelCallHandler, error) {
 	handler := &ModelCallHandler{
 		Meta: adaptor.Meta{
-			Corp:     `openai`,
-			EndPoint: config[`api_endpoint`],
-			APIKey:   config[`api_key`],
-			Model:    useModel,
+			Corp:              `openai`,
+			EndPoint:          config[`api_endpoint`],
+			APIKey:            config[`api_key`],
+			Model:             useModel,
+			ChoosableThinking: tool.InArrayString(useModel, modelInfo.GetChoosableThinkingModels()),
 		},
 		config: config,
 	}
@@ -416,11 +431,12 @@ func GetOpenAISupplierHandle(modelInfo ModelInfo, config msql.Params) (*Supplier
 func GetOpenAIAgentHandle(modelInfo ModelInfo, config msql.Params, useModel string) (*ModelCallHandler, error) {
 	handler := &ModelCallHandler{
 		Meta: adaptor.Meta{
-			Corp:       `openaiAgent`,
-			APIKey:     config[`api_key`],
-			EndPoint:   config[`api_endpoint`],
-			APIVersion: config["api_version"],
-			Model:      useModel,
+			Corp:              `openaiAgent`,
+			APIKey:            config[`api_key`],
+			EndPoint:          config[`api_endpoint`],
+			APIVersion:        config["api_version"],
+			Model:             useModel,
+			ChoosableThinking: tool.InArrayString(useModel, modelInfo.GetChoosableThinkingModels()),
 		},
 		config: config,
 	}
@@ -443,12 +459,13 @@ func GetOpenAIAgentSupplierHandle(modelInfo ModelInfo, config msql.Params) (*Sup
 func GetSparkHandle(modelInfo ModelInfo, config msql.Params, useModel string) (*ModelCallHandler, error) {
 	handler := &ModelCallHandler{
 		Meta: adaptor.Meta{
-			Corp:      `spark`,
-			EndPoint:  config[`api_endpoint`],
-			APIKey:    config[`api_key`],
-			SecretKey: config[`secret_key`],
-			APPID:     config[`app_id`],
-			Model:     useModel,
+			Corp:              `spark`,
+			EndPoint:          config[`api_endpoint`],
+			APIKey:            config[`api_key`],
+			SecretKey:         config[`secret_key`],
+			APPID:             config[`app_id`],
+			Model:             useModel,
+			ChoosableThinking: tool.InArrayString(useModel, modelInfo.GetChoosableThinkingModels()),
 		},
 		config: config,
 	}
@@ -472,12 +489,13 @@ func GetSparkSupplierHandle(modelInfo ModelInfo, config msql.Params) (*SupplierH
 func GetHunyuanHandle(modelInfo ModelInfo, config msql.Params, useModel string) (*ModelCallHandler, error) {
 	handler := &ModelCallHandler{
 		Meta: adaptor.Meta{
-			Corp:      `hunyuan`,
-			EndPoint:  config[`api_endpoint`],
-			APIKey:    config[`api_key`],
-			SecretKey: config[`secret_key`],
-			Region:    config[`region`],
-			Model:     useModel,
+			Corp:              `hunyuan`,
+			EndPoint:          config[`api_endpoint`],
+			APIKey:            config[`api_key`],
+			SecretKey:         config[`secret_key`],
+			Region:            config[`region`],
+			Model:             useModel,
+			ChoosableThinking: tool.InArrayString(useModel, modelInfo.GetChoosableThinkingModels()),
 		},
 		config: config,
 	}
@@ -531,10 +549,11 @@ func GetDoubaoSupplierHandle(modelInfo ModelInfo, config msql.Params) (*Supplier
 func GetMinimaxHandle(modelInfo ModelInfo, config msql.Params, useModel string) (*ModelCallHandler, error) {
 	handler := &ModelCallHandler{
 		Meta: adaptor.Meta{
-			Corp:     `minimax`,
-			EndPoint: config[`api_endpoint`],
-			APIKey:   config[`api_key`],
-			Model:    useModel,
+			Corp:              `minimax`,
+			EndPoint:          config[`api_endpoint`],
+			APIKey:            config[`api_key`],
+			Model:             useModel,
+			ChoosableThinking: tool.InArrayString(useModel, modelInfo.GetChoosableThinkingModels()),
 		},
 		config: config,
 	}

@@ -49,6 +49,13 @@
         margin-bottom: 4px;
       }
     }
+
+    .thinking-switch {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 12px;
+    }
   }
 }
 </style>
@@ -92,13 +99,24 @@
               <a-radio value="1">{{ t('radio_specify_model') }}</a-radio>
             </a-radio-group>
             <ModelSelect
-              v-if="modelStatus == '1'"
+              v-show="modelStatus == '1'"
               modelType="LLM"
               v-model:modeName="formState.optimize_question_use_model"
               v-model:modeId="formState.optimize_question_model_config_id"
               style="width: 100%; margin-top: 8px;"
               @loaded="onVectorModelLoaded"
             />
+            <div class="thinking-switch" v-if="showEnableThinking">
+              <span>{{ t('label_deep_thinking') }}</span>
+              <a-tooltip :title="t('tooltip_deep_thinking')">
+                <QuestionCircleOutlined />
+              </a-tooltip>
+              <a-switch
+                v-model:checked="formState.optimize_question_enable_thinking"
+                :checkedValue="1"
+                :unCheckedValue="0"
+              />
+            </div>
           </div>
           <div class="modal-item">
             <div class="label">{{ t('label_dialogue_background') }}</div>
@@ -113,7 +131,8 @@
   </edit-box>
 </template>
 <script setup>
-import { ref, reactive, inject, toRaw, nextTick, onMounted } from 'vue'
+import { ref, reactive, inject, toRaw, nextTick, onMounted, computed } from 'vue'
+import { QuestionCircleOutlined } from '@ant-design/icons-vue'
 import { useI18n } from '@/hooks/web/useI18n'
 import EditBox from './edit-box.vue'
 import ModelSelect from '@/components/model-select/model-select.vue'
@@ -129,13 +148,14 @@ const modelStatus = ref('0')
 const formState = reactive({
   optimize_question_use_model: '',
   optimize_question_model_config_id: '',
-
+  optimize_question_enable_thinking: 0
 })
 
 onMounted(() => {
   modelStatus.value = robotInfo.optimize_question_model_config_id != 0 ? '1' : '0'
   formState.optimize_question_use_model = robotInfo.optimize_question_use_model
   formState.optimize_question_model_config_id = robotInfo.optimize_question_model_config_id
+  formState.optimize_question_enable_thinking = +robotInfo.optimize_question_enable_thinking || 0
 })
 
 const onSave = () => {
@@ -144,15 +164,29 @@ const onSave = () => {
 }
 
 const vectorModelList = ref([])
-const onVectorModelLoaded = (list) => {
+const choosableThinking = ref({})
+const onVectorModelLoaded = (list, thinkingMap) => {
   vectorModelList.value = list
+  choosableThinking.value = thinkingMap || {}
 
   nextTick(() => {
-    if (!formState.optimize_question_use_model || !Number(formState.optimize_question_model_config_id)) {
+    if (
+      modelStatus.value === '1' &&
+      (!formState.optimize_question_use_model || !Number(formState.optimize_question_model_config_id))
+    ) {
       setDefaultModel()
     }
   })
 }
+const showEnableThinking = computed(() => {
+  const modelConfigId =
+    modelStatus.value === '1'
+      ? formState.optimize_question_model_config_id
+      : robotInfo.model_config_id
+  const useModel =
+    modelStatus.value === '1' ? formState.optimize_question_use_model : robotInfo.use_model
+  return !!choosableThinking.value[modelConfigId + '#' + useModel]
+})
 const setDefaultModel = () => {
   if (vectorModelList.value.length > 0) {
     // 遍历查找chatwiki模型
@@ -189,10 +223,15 @@ const handleSave = () => {
   updateRobotInfo({ ...toRaw(formState) })
 }
 
-const handleChangeModel = (val) => {
-  if (val != 1) {
+const handleChangeModel = () => {
+  if (modelStatus.value !== '1') {
     formState.optimize_question_use_model = ''
     formState.optimize_question_model_config_id = 0
+  } else if (
+    !formState.optimize_question_use_model ||
+    !Number(formState.optimize_question_model_config_id)
+  ) {
+    setDefaultModel()
   }
 }
 

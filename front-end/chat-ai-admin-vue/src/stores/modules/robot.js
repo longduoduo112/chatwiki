@@ -1,6 +1,6 @@
-import { reactive, ref } from 'vue'
-import { defineStore } from 'pinia'
-import { getRobotInfo, getRobotList, getRobotGroupList, getChatVariables } from '@/api/robot/index'
+import {reactive, ref} from 'vue'
+import {defineStore} from 'pinia'
+import {getChatVariables, getRobotGroupList, getRobotInfo, getRobotList} from '@/api/robot/index'
 
 // WebApp配置
 const external_config_h5_default = {
@@ -82,6 +82,7 @@ export const useRobotStore = defineStore('robot', () => {
     optimize_question_dialogue_background: '',
     optimize_question_model_config_id: '',
     optimize_question_use_model: '',
+    optimize_question_enable_thinking: 0,
     rerank_status: 0,
     rerank_use_model: undefined,
     rerank_model_config_id: undefined,
@@ -225,6 +226,7 @@ export const useRobotStore = defineStore('robot', () => {
     robotInfo.optimize_question_dialogue_background = data.optimize_question_dialogue_background
     robotInfo.optimize_question_model_config_id = data.optimize_question_model_config_id
     robotInfo.optimize_question_use_model = data.optimize_question_use_model
+    robotInfo.optimize_question_enable_thinking = +data.optimize_question_enable_thinking || 0
     robotInfo.rerank_status = Number(data.rerank_status)
     robotInfo.rerank_use_model = data.rerank_use_model
     robotInfo.rerank_model_config_id = data.rerank_model_config_id

@@ -80,6 +80,7 @@ func BuildLibraryChatRequestMessage(params *define.ChatRequestParam, curMsgId in
 		prompt := params.Robot[`prompt`]
 		promptStruct := params.Robot[`prompt_struct`]
 		ReplaceChatVariables(params.Lang, sessionId, params.WorkFlowGlobal, &prompt, &promptStruct)
+		ReplaceSystemVariables(params.Lang, &prompt, &promptStruct) // inject built-in system variables (e.g. current time)
 		params.Prompt = BuildPromptStruct(params.Lang, cast.ToInt(params.Robot[`prompt_type`]), prompt, promptStruct)
 	}
 	params.Prompt = ReplaceMiniCardShortMarkersForRobotPrompt(params.AdminUserId, params.Prompt)
@@ -168,6 +169,7 @@ func BuildDirectChatRequestMessage(params *define.ChatRequestParam, curMsgId int
 		prompt := params.Robot[`prompt`]
 		promptStruct := params.Robot[`prompt_struct`]
 		ReplaceChatVariables(params.Lang, sessionId, params.WorkFlowGlobal, &prompt, &promptStruct)
+		ReplaceSystemVariables(params.Lang, &prompt, &promptStruct) // inject built-in system variables (e.g. current time)
 		params.Prompt = BuildPromptStruct(params.Lang, cast.ToInt(params.Robot[`prompt_type`]), prompt, promptStruct)
 	}
 	params.Prompt = ReplaceMiniCardShortMarkersForRobotPrompt(params.AdminUserId, params.Prompt)

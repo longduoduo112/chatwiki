@@ -276,6 +276,7 @@ type BridgeCreateLibraryReq struct {
 	AiChunkPrumpt                    string `form:"ai_chunk_prumpt"`
 	AiChunkModel                     string `form:"ai_chunk_model"`
 	AiChunkModelConfigId             string `form:"ai_chunk_model_config_id"`
+	AiChunkEnableThinking            int    `form:"ai_chunk_enable_thinking"`
 	AiChunkSize                      string `form:"ai_chunk_size"`
 	QaIndexType                      string `form:"qa_index_type"`
 	FatherChunkParagraphType         string `form:"father_chunk_paragraph_type"`
@@ -314,6 +315,7 @@ func BridgeCreateLibrary(adminUserId, loginUserId int, lang string, req *BridgeC
 	AiChunkPrumpt := cast.ToString(req.AiChunkPrumpt)
 	AiChunkModel := strings.TrimSpace(req.AiChunkModel)
 	AiChunkModelConfigId := cast.ToInt(req.AiChunkModelConfigId)
+	AiChunkEnableThinking := cast.ToInt(cast.ToBool(req.AiChunkEnableThinking))
 	AiChunkSize := cast.ToInt(req.AiChunkSize)
 	qaIndexType := cast.ToInt(req.QaIndexType)
 	groupId := cast.ToInt(req.GroupId)
@@ -362,6 +364,7 @@ func BridgeCreateLibrary(adminUserId, loginUserId int, lang string, req *BridgeC
 		AiChunkPrumpt:                    AiChunkPrumpt,
 		AiChunkModel:                     AiChunkModel,
 		AiChunkModelConfigId:             req.AiChunkModelConfigId,
+		AiChunkEnableThinking:            req.AiChunkEnableThinking,
 		AiChunkSize:                      req.AiChunkSize,
 		QaIndexType:                      req.QaIndexType,
 		FatherChunkParagraphType:         req.FatherChunkParagraphType,
@@ -423,6 +426,7 @@ func BridgeCreateLibrary(adminUserId, loginUserId int, lang string, req *BridgeC
 		`ai_chunk_prumpt`:                      AiChunkPrumpt,
 		`ai_chunk_model`:                       AiChunkModel,
 		`ai_chunk_model_config_id`:             AiChunkModelConfigId,
+		`ai_chunk_enable_thinking`:             AiChunkEnableThinking,
 		`ai_chunk_size`:                        AiChunkSize,
 		`qa_index_type`:                        qaIndexType,
 		`group_id`:                             groupId,
@@ -499,6 +503,7 @@ type BridgeEditLibraryReq struct {
 	AiChunkPrumpt                    string `form:"ai_chunk_prumpt"`
 	AiChunkModel                     string `form:"ai_chunk_model"`
 	AiChunkModelConfigId             string `form:"ai_chunk_model_config_id"`
+	AiChunkEnableThinking            int    `form:"ai_chunk_enable_thinking"`
 	AiChunkSize                      string `form:"ai_chunk_size"`
 	QaIndexType                      string `form:"qa_index_type"`
 	FatherChunkParagraphType         string `form:"father_chunk_paragraph_type"`
@@ -542,6 +547,7 @@ func BridgeEditLibrary(c *gin.Context, adminUserId, loginUserId int, lang string
 	AiChunkPrumpt := cast.ToString(req.AiChunkPrumpt)
 	AiChunkModel := strings.TrimSpace(req.AiChunkModel)
 	AiChunkModelConfigId := cast.ToInt(req.AiChunkModelConfigId)
+	AiChunkEnableThinking := cast.ToInt(cast.ToBool(req.AiChunkEnableThinking))
 	AiChunkSize := cast.ToInt(req.AiChunkSize)
 	qaIndexType := cast.ToInt(req.QaIndexType)
 	iconTemplateConfigId := cast.ToInt(req.IconTemplateConfigId)
@@ -590,6 +596,7 @@ func BridgeEditLibrary(c *gin.Context, adminUserId, loginUserId int, lang string
 		AiChunkPrumpt:                    AiChunkPrumpt,
 		AiChunkModel:                     AiChunkModel,
 		AiChunkModelConfigId:             req.AiChunkModelConfigId,
+		AiChunkEnableThinking:            req.AiChunkEnableThinking,
 		AiChunkSize:                      req.AiChunkSize,
 		QaIndexType:                      req.QaIndexType,
 		FatherChunkParagraphType:         req.FatherChunkParagraphType,
@@ -669,6 +676,7 @@ func BridgeEditLibrary(c *gin.Context, adminUserId, loginUserId int, lang string
 		`ai_chunk_prumpt`:                      AiChunkPrumpt,
 		`ai_chunk_model`:                       AiChunkModel,
 		`ai_chunk_model_config_id`:             AiChunkModelConfigId,
+		`ai_chunk_enable_thinking`:             AiChunkEnableThinking,
 		`ai_chunk_size`:                        AiChunkSize,
 		`qa_index_type`:                        qaIndexType,
 		`icon_template_config_id`:              iconTemplateConfigId,

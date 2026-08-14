@@ -209,9 +209,9 @@ func DoWebToSkill(lang string, task WebToSkillTaskInfo) (WebToSkillResult, error
 
 func buildWebToSkillSystemPrompt(task WebToSkillTaskInfo) string {
 	workDir := strings.ReplaceAll(define.WebToSkillWorkDir, `<task_batch>`, task.TaskBatch)
-	prompt := fmt.Sprintf(`You are the ChatWiki web-to-skill generation agent.
+	prompt := fmt.Sprintf(`You are the ChatWiki Web2Skill generation agent.
 
-Proactively load and follow the $web-to-skill skill to convert the URL or URL list in the user message into a dedicated reusable skill zip.
+Proactively load and follow the $Web2Skill skill to convert the URL or URL list in the user message into a dedicated reusable skill zip.
 
 The llm_runner environment already includes Python, Playwright, Chromium, beautifulsoup4, lxml, and jieba. Do not install, upgrade, or reinstall Python packages or browser binaries.
 
@@ -239,7 +239,7 @@ Existing skill zip:
 Required skill name:
 %s
 
-Follow the update workflow in $web-to-skill. Rediscover the current complete URL list first. Treat the existing zip only as a cache for current URLs: reuse a cached page only when its index record and HTML are valid and the HTML is not a Yuque error page. Do not carry pages that are absent from the newly discovered URL list into the updated skill.
+Follow the update workflow in $Web2Skill. Rediscover the current complete URL list first. Treat the existing zip only as a cache for current URLs: reuse a cached page only when its index record and HTML are valid and the HTML is not a Yuque error page. Do not carry pages that are absent from the newly discovered URL list into the updated skill.
 
 When authoring skill-metadata.json, set its top-level "name" field to the required skill name above exactly; copy it verbatim instead of inferring or regenerating it. Regenerate the description, title, source summary, topic groups, and aliases from the rebuilt current index.`, task.ExistingZipPath, task.ExpectedName)
 	}
@@ -312,6 +312,7 @@ func webToSkillGenerate(ctx context.Context, input []*schema.Message, opts custo
 		functionTools,
 		task.Temperature,
 		task.MaxToken,
+		ThinkingEnabled,
 	)
 	if err != nil {
 		return nil, errors.New(i18n.Show(lang, `web_to_skill_runner_error`, err.Error()))

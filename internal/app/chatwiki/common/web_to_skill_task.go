@@ -400,7 +400,7 @@ func GetWebToSkillTaskDownloadFile(lang string, adminUserId int, id int64) (stri
 	}
 	fileName := info[`file_name`]
 	if fileName == `` {
-		fileName = fmt.Sprintf(`web-to-skill-%d.zip`, id)
+		fileName = fmt.Sprintf(`Web2Skill-%d.zip`, id)
 	}
 	return file, fileName, nil
 }
@@ -422,7 +422,7 @@ func InstallWebToSkillTask(lang string, adminUserId int, id int64, overwrite boo
 	}
 	fileName := info[`file_name`]
 	if fileName == `` {
-		fileName = fmt.Sprintf(`web-to-skill-%d.zip`, id)
+		fileName = fmt.Sprintf(`Web2Skill-%d.zip`, id)
 	}
 	item, errKey, err := InstallUserClawbotSkillZip(
 		adminUserId,
@@ -448,7 +448,7 @@ func RunWebToSkillTask(id int64) (returnErr error) {
 	}
 	defer func() {
 		if recovered := recover(); recovered != nil {
-			panicErr := fmt.Errorf(`web-to-skill task panic: %v`, recovered)
+			panicErr := fmt.Errorf(`Web2Skill task panic: %v`, recovered)
 			logs.Error(`task:%d,err:%s`, id, panicErr.Error())
 			_ = finishWebToSkillTask(id, define.WebToSkillTaskStatusFailed, msql.Datas{`err_msg`: panicErr.Error()})
 			returnErr = panicErr

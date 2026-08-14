@@ -16,6 +16,11 @@ const (
 )
 
 const (
+	DocToSkillOperationGenerate = 0
+	DocToSkillOperationUpdate   = 1
+)
+
+const (
 	DocToSkillTaskDefaultPageSize = 20
 	DocToSkillTaskDefaultTemp     = 1
 	DocToSkillTaskDefaultMaxToken = 32 * 1024
@@ -44,12 +49,20 @@ type DocToSkillTaskListFilter struct {
 	Size   int `form:"size" json:"size"`
 }
 
-type DocToSkillTaskCreateParams struct {
+type DocToSkillTaskFormParams struct {
 	CustomPrompt  string   `form:"custom_prompt" json:"custom_prompt"`
 	ModelConfigId int      `form:"model_config_id" json:"model_config_id" binding:"required,gt=0"`
 	UseModel      string   `form:"use_model" json:"use_model" binding:"required"`
 	Temperature   *float32 `form:"temperature" json:"temperature" binding:"omitempty,gte=0,lte=2"`
 	MaxToken      *int     `form:"max_token" json:"max_token" binding:"omitempty,gt=0"`
+	OnlineOcr     bool     `form:"online_ocr" json:"online_ocr"`
+}
+
+type DocToSkillTaskCreateParams = DocToSkillTaskFormParams
+
+type DocToSkillTaskUpdateParams struct {
+	DocToSkillTaskFormParams
+	ID int64 `form:"id" json:"id" binding:"required,gt=0"`
 }
 
 type DocToSkillTaskIDParams struct {
@@ -72,6 +85,9 @@ type DocToSkillTaskItem struct {
 	UseModel         string        `json:"use_model"`
 	Temperature      float32       `json:"temperature"`
 	MaxToken         int           `json:"max_token"`
+	OperationType    int           `json:"operation_type"`
+	OnlineOcr        bool          `json:"online_ocr"`
+	Version          int           `json:"version"`
 	Status           int           `json:"status"`
 	SkillName        string        `json:"skill_name"`
 	SkillDescription string        `json:"skill_description"`

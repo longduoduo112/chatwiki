@@ -70,6 +70,14 @@ export const createDocToSkillTask = (data = {}) => {
   })
 }
 
+export const updateDocToSkillTask = (data = {}) => {
+  return request.post({
+    headers: { 'Content-Type': 'multipart/form-data' },
+    url: '/manage/updateDocToSkillTask',
+    data
+  })
+}
+
 export const stopDocToSkillTask = (data = {}) => {
   return request.post({
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -97,6 +105,14 @@ export const regenerateDocToSkillTask = (data = {}) => {
   return request.post({
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     url: '/manage/regenerateDocToSkillTask',
+    data
+  })
+}
+
+export const deleteDocToSkillTask = (data = {}) => {
+  return request.post({
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    url: '/manage/deleteDocToSkillTask',
     data
   })
 }

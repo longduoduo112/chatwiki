@@ -483,6 +483,7 @@ let formData = {
   ai_chunk_size: 5000, // ai大模型分段最大字符数
   ai_chunk_model:'', // ai大模型分段模型名称
   ai_chunk_model_config_id: '', // ai大模型分段模型配置id
+  ai_chunk_enable_thinking: 0, // AI大模型分段深度思考开关
   ai_chunk_prumpt: defaultAiChunkPrumpt,
   ai_chunk_task_id: '',  //  ai分段数据id，如果有ai分段数据就有值
   father_chunk_paragraph_type: 2,
@@ -536,6 +537,7 @@ const getFileInfo = async () => {
       semantic_chunk_use_model: res.data.semantic_chunk_use_model || '',
       ai_chunk_prumpt: res.data.ai_chunk_prumpt || '',
       ai_chunk_model: res.data.ai_chunk_model || '',
+      ai_chunk_enable_thinking: +res.data.ai_chunk_enable_thinking || 0,
       semantic_chunk_model_config_id:
         res.data.semantic_chunk_model_config_id > 0 ? res.data.semantic_chunk_model_config_id : '',
       ai_chunk_model_config_id:
@@ -1195,6 +1197,7 @@ const handleSaveLibFileSplit = async (documentFragmentList, index) => {
     ai_chunk_model_config_id: formData.ai_chunk_model_config_id
       ? +formData.ai_chunk_model_config_id
       : 0,
+    ai_chunk_enable_thinking: formData.ai_chunk_enable_thinking || 0,
     is_table_file: settingMode.value
   }
 

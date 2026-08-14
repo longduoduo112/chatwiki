@@ -652,6 +652,7 @@ func setChunkParam(chunkParam *define.ChunkParam, splitParams *define.SplitParam
 		} else if splitParams.ChunkType == define.ChunkTypeAi {
 			splitParams.AiChunkModel = cast.ToString(libraryInfo[`ai_chunk_model`])
 			splitParams.AiChunkModelConfigId = cast.ToInt(libraryInfo[`ai_chunk_model_config_id`])
+			splitParams.AiChunkEnableThinking = cast.ToInt(libraryInfo[`ai_chunk_enable_thinking`])
 			splitParams.AiChunkPrumpt = cast.ToString(libraryInfo[`ai_chunk_prumpt`])
 			splitParams.AiChunkSize = cast.ToInt(libraryInfo[`ai_chunk_size`])
 			splitParams.AiChunkNew = !isTableFile
@@ -680,6 +681,7 @@ func setChunkParam(chunkParam *define.ChunkParam, splitParams *define.SplitParam
 	} else if splitParams.ChunkType == define.ChunkTypeAi {
 		splitParams.AiChunkModel = cast.ToString(chunkParam.AiChunkModel)
 		splitParams.AiChunkModelConfigId = cast.ToInt(chunkParam.AiChunkModelConfigId)
+		splitParams.AiChunkEnableThinking = chunkParam.AiChunkEnableThinking
 		splitParams.AiChunkPrumpt = cast.ToString(chunkParam.AiChunkPrumpt)
 		splitParams.AiChunkSize = cast.ToInt(chunkParam.AiChunkSize)
 		splitParams.AiChunkNew = !isTableFile
@@ -784,6 +786,7 @@ func GetLibFileInfo(c *gin.Context) {
 	info[`default_use_model`] = library[`use_model`]
 	if info[`ai_chunk_model`] == "" {
 		info[`ai_chunk_model`] = library[`ai_chunk_model`]
+		info[`ai_chunk_enable_thinking`] = library[`ai_chunk_enable_thinking`]
 	}
 	if cast.ToInt(info[`ai_chunk_model_config_id`]) == 0 {
 		info[`ai_chunk_model_config_id`] = library[`ai_chunk_model_config_id`]
@@ -1026,6 +1029,7 @@ func unifyGetLibFileSplit(c *gin.Context, chunkPreview bool) {
 		AiChunkPrumpt:              cast.ToString(c.Query(`ai_chunk_prumpt`)),
 		AiChunkModel:               strings.TrimSpace(c.Query(`ai_chunk_model`)),
 		AiChunkModelConfigId:       cast.ToInt(c.Query(`ai_chunk_model_config_id`)),
+		AiChunkEnableThinking:      cast.ToInt(c.Query(`ai_chunk_enable_thinking`)),
 		AiChunkSize:                cast.ToInt(c.Query(`ai_chunk_size`)),
 		AiChunkTaskId:              strings.TrimSpace(c.Query(`ai_chunk_task_id`)),
 		NotMergedText:              cast.ToBool(c.Query(`not_merged_text`)),

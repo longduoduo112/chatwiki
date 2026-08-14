@@ -4,7 +4,7 @@
       {{ t('book_description') }}
     </div>
 
-    <a-button type="primary" class="add-btn" @click="createModalVisible = true">
+    <a-button type="primary" class="add-btn" @click="handleOpenCreateModal">
       <template #icon>
         <PlusOutlined />
       </template>
@@ -28,12 +28,12 @@
           {{ formatTime(record.create_time) }}
         </template>
         <template v-else-if="column.dataIndex === 'status'">
-          <span class="status-tag" :class="getStatusConfig(record.status).className">
+          <span class="status-tag" :class="getStatusConfig(record).className">
             <CheckCircleFilled v-if="Number(record.status) === 2" />
             <ExclamationCircleFilled v-else-if="Number(record.status) === 3" />
             <LoadingOutlined v-else-if="[1, 4].includes(Number(record.status))" />
             <ClockCircleFilled v-else />
-            {{ getStatusConfig(record.status).text }}
+            {{ getStatusConfig(record).text }}
           </span>
         </template>
         <template v-else-if="column.dataIndex === 'action'">
@@ -53,6 +53,7 @@
 
     <CreateBookToSkillModal
       v-model:visible="createModalVisible"
+      :task="selectedTask"
       @confirm="handleCreateConfirm"
     />
     <BookToSkillLogModal v-model:visible="logModalVisible" :task-id="logTaskId" />
@@ -73,6 +74,7 @@ import { useI18n } from '@/hooks/web/useI18n'
 import { useUserStore } from '@/stores/modules/user'
 import { setShowReqError } from '@/utils/http/axios/config'
 import {
+  deleteDocToSkillTask,
   getDocToSkillTaskList,
   installDocToSkill,
   regenerateDocToSkillTask,
@@ -99,12 +101,13 @@ const columns = computed(() => [
   { title: t('column_skill_name'), dataIndex: 'skill_name', key: 'skill_name' },
   { title: t('column_upload_time'), dataIndex: 'create_time', key: 'create_time', width: 190 },
   { title: t('column_status'), dataIndex: 'status', key: 'status', width: 130 },
-  { title: t('column_action'), dataIndex: 'action', key: 'action', width: 120 }
+  { title: t('column_action'), dataIndex: 'action', key: 'action', width: 200 }
 ])
 
 const taskList = ref([])
 const taskLoading = ref(false)
 const createModalVisible = ref(false)
+const selectedTask = ref(null)
 const logModalVisible = ref(false)
 const logTaskId = ref('')
 let pollingTimer = null
@@ -123,7 +126,19 @@ const taskPagination = computed(() => ({
   pageSizeOptions: ['10', '20', '50', '100']
 }))
 
-const getStatusConfig = (status) => {
+const getStatusConfig = (record) => {
+  const status = Number(record?.status)
+  if (Number(record?.operation_type) === 1) {
+    const updateStatusMap = {
+      0: { text: t('status_updating'), className: 'running' },
+      1: { text: t('status_updating'), className: 'running' },
+      2: { text: t('status_update_success'), className: 'success' },
+      3: { text: t('status_update_failed'), className: 'failed' },
+      4: { text: t('status_stopping'), className: 'stopping' },
+      5: { text: t('status_update_stopped'), className: 'stopped' }
+    }
+    return updateStatusMap[status] || updateStatusMap[0]
+  }
   const statusMap = {
     0: { text: t('status_pending'), className: 'pending' },
     1: { text: t('status_running'), className: 'running' },
@@ -132,7 +147,7 @@ const getStatusConfig = (status) => {
     4: { text: t('status_stopping'), className: 'stopping' },
     5: { text: t('status_stopped'), className: 'stopped' }
   }
-  return statusMap[Number(status)] || statusMap[0]
+  return statusMap[status] || statusMap[0]
 }
 
 const formatTime = (time) => {
@@ -149,23 +164,56 @@ const isRequestSuccess = (res) => res && (res.res === 0 || res.code === 0)
 
 const getActions = (record) => {
   const status = Number(record.status)
+  if (record.file_url && record.skill_name) {
+    const actions = [
+      { key: 'install', label: t('action_install') },
+      { key: 'download', label: t('action_download') }
+    ]
+    if ([0, 1].includes(status)) {
+      actions.push({ key: 'stop', label: t('action_stop') })
+      if (status === 0) {
+        actions.push({ key: 'delete', label: t('action_delete') })
+      }
+      return actions
+    }
+    if (status === 4) {
+      return actions
+    }
+    actions.push({ key: 'update', label: t('action_update') })
+    if ([3, 5].includes(status)) {
+      actions.push({ key: 'log', label: t('action_log') })
+    }
+    actions.push({ key: 'delete', label: t('action_delete') })
+    return actions
+  }
   if (status === 2) {
     return [
       { key: 'install', label: t('action_install') },
-      { key: 'download', label: t('action_download') }
+      { key: 'download', label: t('action_download') },
+      { key: 'delete', label: t('action_delete') }
     ]
   }
   if (status === 3) {
     return [
       { key: 'retry', label: t('action_retry') },
-      { key: 'log', label: t('action_log') }
+      { key: 'log', label: t('action_log') },
+      { key: 'delete', label: t('action_delete') }
     ]
   }
-  if (status === 0 || status === 1) {
+  if (status === 0) {
+    return [
+      { key: 'stop', label: t('action_stop') },
+      { key: 'delete', label: t('action_delete') }
+    ]
+  }
+  if (status === 1) {
     return [{ key: 'stop', label: t('action_stop') }]
   }
   if (status === 5) {
-    return [{ key: 'retry', label: t('action_retry') }]
+    return [
+      { key: 'retry', label: t('action_retry') },
+      { key: 'delete', label: t('action_delete') }
+    ]
   }
   return []
 }
@@ -236,8 +284,14 @@ const handleTableChange = (pagination) => {
 }
 
 const handleCreateConfirm = () => {
+  selectedTask.value = null
   pager.page = 1
   loadTaskList()
+}
+
+const handleOpenCreateModal = () => {
+  selectedTask.value = null
+  createModalVisible.value = true
 }
 
 const handleActionClick = (action, record) => {
@@ -252,6 +306,11 @@ const handleActionClick = (action, record) => {
     logModalVisible.value = true
   } else if (action === 'retry') {
     handleRetryTask(record)
+  } else if (action === 'update') {
+    selectedTask.value = record
+    createModalVisible.value = true
+  } else if (action === 'delete') {
+    handleDeleteTask(record)
   }
 }
 
@@ -290,7 +349,7 @@ const confirmOverwriteInstall = (record) => {
 }
 
 const handleInstallSkill = async (record, overwrite = false) => {
-  if (Number(record.status) !== 2) {
+  if (!record.file_url) {
     message.warning(t('msg_task_cannot_install'))
     return
   }
@@ -333,7 +392,7 @@ const handleInstallSkill = async (record, overwrite = false) => {
 }
 
 const handleDownloadSkill = (record) => {
-  if (Number(record.status) !== 2) {
+  if (!record.file_url) {
     message.warning(t('msg_task_cannot_download'))
     return
   }
@@ -354,6 +413,31 @@ const handleRetryTask = async (record) => {
   } catch (error) {
     console.error('重试Book转Skill任务失败', error)
   }
+}
+
+const handleDeleteTask = (record) => {
+  Modal.confirm({
+    title: t('msg_delete_confirm_title'),
+    content: t('msg_delete_confirm_content'),
+    async onOk() {
+      try {
+        const res = await deleteDocToSkillTask({ id: record.id })
+        if (isRequestSuccess(res)) {
+          message.success(t('msg_delete_success'))
+          if (taskList.value.length === 1 && pager.page > 1) {
+            pager.page -= 1
+          }
+          await loadTaskList()
+          return
+        }
+        message.error(res?.msg || t('msg_delete_failed'))
+        return Promise.reject(new Error(res?.msg || 'delete failed'))
+      } catch (error) {
+        console.error('删除Book转Skill任务失败', error)
+        throw error
+      }
+    }
+  })
 }
 
 watch(

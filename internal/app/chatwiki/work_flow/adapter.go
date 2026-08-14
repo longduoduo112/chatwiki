@@ -375,10 +375,10 @@ func (n *CateNode) Running(flow *WorkFlow) (output common.SimpleFields, nextNode
 	}
 
 	//request chat
-	flow.params.Robot[`enable_thinking`] = cast.ToString(cast.ToUint(n.params.EnableThinking))
 	chatResp, requestTime, err := common.RequestChat(
 		flow.params.Lang, flow.params.AdminUserId, openid, flow.params.Robot, flow.params.AppType,
 		n.params.ModelConfigId.Int(), n.params.UseModel, messages, nil, n.params.Temperature, n.params.MaxToken.Int(),
+		common.ThinkingSwitch(n.params.EnableThinking),
 	)
 	flow.LlmCallLogs(LlmCallInfo{Params: n.params.LlmBaseParams, Messages: messages, ChatResp: chatResp, RequestTime: requestTime, Error: err})
 	// Record deep thinking content to debug log if available
@@ -722,10 +722,10 @@ func (n *LlmNode) Running(flow *WorkFlow) (output common.SimpleFields, nextNodeK
 	//append OpenApiContent
 	messages = common.BuildOpenApiContent(flow.params.ChatRequestParam, messages)
 	//request chat
-	flow.params.Robot[`enable_thinking`] = cast.ToString(cast.ToUint(n.params.EnableThinking))
 	chatResp, requestTime, err := common.RequestChat(
 		flow.params.Lang, flow.params.AdminUserId, openid, flow.params.Robot, flow.params.AppType,
 		n.params.ModelConfigId.Int(), n.params.UseModel, messages, nil, n.params.Temperature, n.params.MaxToken.Int(),
+		common.ThinkingSwitch(n.params.EnableThinking),
 	)
 	flow.LlmCallLogs(LlmCallInfo{Params: n.params.LlmBaseParams, Messages: messages, ChatResp: chatResp, RequestTime: requestTime, Error: err})
 	// Record deep thinking content to debug log if available
@@ -1000,10 +1000,10 @@ func (n *QuestionOptimizeNode) Running(flow *WorkFlow) (output common.SimpleFiel
 	//append OpenApiContent
 	messages = common.BuildOpenApiContent(flow.params.ChatRequestParam, messages)
 	//request chat
-	flow.params.Robot[`enable_thinking`] = cast.ToString(cast.ToUint(n.params.EnableThinking))
 	chatResp, requestTime, err := common.RequestChat(
 		flow.params.Lang, flow.params.AdminUserId, openid, flow.params.Robot, flow.params.AppType,
 		n.params.ModelConfigId.Int(), n.params.UseModel, messages, nil, n.params.Temperature, n.params.MaxToken.Int(),
+		common.ThinkingSwitch(n.params.EnableThinking),
 	)
 	flow.LlmCallLogs(LlmCallInfo{Params: n.params.LlmBaseParams, Messages: messages, ChatResp: chatResp, RequestTime: requestTime, Error: err})
 	// Record deep thinking content to debug log if available
@@ -1100,10 +1100,10 @@ func (n *ParamsExtractorNode) Running(flow *WorkFlow) (outputs common.SimpleFiel
 	//append OpenApiContent
 	messages = common.BuildOpenApiContent(flow.params.ChatRequestParam, messages)
 	//request chat
-	flow.params.Robot[`enable_thinking`] = cast.ToString(cast.ToUint(n.params.EnableThinking))
 	chatResp, requestTime, err := common.RequestChat(
 		flow.params.Lang, flow.params.AdminUserId, openid, flow.params.Robot, flow.params.AppType,
 		n.params.ModelConfigId.Int(), n.params.UseModel, messages, nil, n.params.Temperature, n.params.MaxToken.Int(),
+		common.ThinkingSwitch(n.params.EnableThinking),
 	)
 	flow.LlmCallLogs(LlmCallInfo{Params: n.params.LlmBaseParams, Messages: messages, ChatResp: chatResp, RequestTime: requestTime, Error: err})
 	// Record deep thinking content to debug log if available

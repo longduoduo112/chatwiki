@@ -10,6 +10,7 @@ import (
 	"net/rpc"
 	"os"
 	"os/exec"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -35,6 +36,14 @@ func (r *CommandRunner) Run(req RpcRunRequest, resp *RpcRunResponse) (_ error) {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, "/bin/sh", "-c", req.Command)
+	commandEnv, err := buildCommandEnv(req.Env)
+	if err != nil {
+		resp.IsError = true
+		resp.ErrorMsg = err.Error()
+		resp.ExitCode = -1
+		return
+	}
+	cmd.Env = commandEnv
 	configureCommandProcessGroup(cmd, cancel)
 	if req.WorkDir != "" {
 		cmd.Dir = req.WorkDir
@@ -47,7 +56,7 @@ func (r *CommandRunner) Run(req RpcRunRequest, resp *RpcRunResponse) (_ error) {
 	var stdoutBuf, stderrBuf strings.Builder
 	cmd.Stdout, cmd.Stderr = &stdoutBuf, &stderrBuf
 	exitCode := 0
-	err := cmd.Run()
+	err = cmd.Run()
 	if err == nil {
 		resp.Output = stdoutBuf.String()
 		return // success
@@ -85,6 +94,32 @@ func (r *CommandRunner) Run(req RpcRunRequest, resp *RpcRunResponse) (_ error) {
 	resp.Output = strings.Join(parts, "\n")
 	resp.ExitCode = exitCode
 	return // command exited with non-zero code
+}
+
+func buildCommandEnv(overrides map[string]string) ([]string, error) {
+	values := make(map[string]string)
+	for _, item := range os.Environ() {
+		name, value, ok := strings.Cut(item, `=`)
+		if ok && name != `` {
+			values[name] = value
+		}
+	}
+	for name, value := range overrides {
+		if name == `` || strings.ContainsAny(name, "=\x00") || strings.ContainsRune(value, '\x00') {
+			return nil, fmt.Errorf(`invalid command environment variable name: %q`, name)
+		}
+		values[name] = value
+	}
+	keys := make([]string, 0, len(values))
+	for name := range values {
+		keys = append(keys, name)
+	}
+	sort.Strings(keys)
+	env := make([]string, 0, len(keys))
+	for _, name := range keys {
+		env = append(env, name+`=`+values[name])
+	}
+	return env, nil
 }
 
 func (r *CommandRunner) Cancel(req RpcCancelRequest, resp *RpcCancelResponse) (_ error) {
