@@ -360,6 +360,7 @@ func buildSystemPrompt(system string, in *ChatInParam, out *ChatOutParam) string
 	if len(in.params.Prompt) == 0 { //no custom is used
 		prompt, promptStruct := in.params.Robot[`prompt`], in.params.Robot[`prompt_struct`]
 		common.ReplaceChatVariables(in.params.Lang, in.sessionId, in.params.WorkFlowGlobal, &prompt, &promptStruct)
+		common.ReplaceSystemVariables(in.params.Lang, &prompt, &promptStruct) // inject built-in system variables (e.g. current time)
 		in.params.Prompt = prompt
 	}
 	system = `` // TODO: clear the default prompt words of the eino framework
@@ -434,6 +435,7 @@ func Generate(ctx context.Context, input []*schema.Message, opts custom_eino.Run
 		out.functionTools,
 		cast.ToFloat32(in.params.Robot[`temperature`]),
 		cast.ToInt(in.params.Robot[`max_token`]),
+		common.ToThinkingSwitch(in.params.Robot[`enable_thinking`]),
 	)
 	if chatResp.PromptToken > 0 || chatResp.CompletionToken > 0 {
 		out.chatResp.PromptToken += chatResp.PromptToken
@@ -520,6 +522,7 @@ func Stream(ctx context.Context, input []*schema.Message, opts custom_eino.Runti
 			chanStream,
 			cast.ToFloat32(in.params.Robot[`temperature`]),
 			cast.ToInt(in.params.Robot[`max_token`]),
+			common.ToThinkingSwitch(in.params.Robot[`enable_thinking`]),
 		)
 		if totalResponse.PromptToken > 0 || totalResponse.CompletionToken > 0 {
 			out.chatResp.PromptToken += totalResponse.PromptToken

@@ -125,8 +125,10 @@ func init() {
 	/* Doc-to-Skill Task */
 	Route[http.MethodGet][`/manage/getDocToSkillTaskList`] = manage.GetDocToSkillTaskList
 	Route[http.MethodPost][`/manage/createDocToSkillTask`] = manage.CreateDocToSkillTask
+	Route[http.MethodPost][`/manage/updateDocToSkillTask`] = manage.UpdateDocToSkillTask
 	Route[http.MethodPost][`/manage/stopDocToSkillTask`] = manage.StopDocToSkillTask
 	Route[http.MethodPost][`/manage/regenerateDocToSkillTask`] = manage.RegenerateDocToSkillTask
+	Route[http.MethodPost][`/manage/deleteDocToSkillTask`] = manage.DeleteDocToSkillTask
 	Route[http.MethodGet][`/manage/getDocToSkillTaskInfo`] = manage.GetDocToSkillTaskInfo
 	Route[http.MethodGet][`/manage/downloadDocToSkillFile`] = manage.DownloadDocToSkillFile
 	Route[http.MethodPost][`/manage/installDocToSkill`] = manage.InstallDocToSkill

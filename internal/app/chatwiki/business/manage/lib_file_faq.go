@@ -30,7 +30,7 @@ func GetFAQConfig(c *gin.Context) {
 	config, err := msql.Model("chat_ai_faq_files", define.Postgres).
 		Where("admin_user_id", cast.ToString(adminUserId)).
 		Order("id DESC").
-		Field(`id,chunk_type,chunk_prompt,chunk_model,chunk_model_config_id,chunk_size,chunk_overlap,separators_no`).
+		Field(`id,chunk_type,chunk_prompt,chunk_model,chunk_model_config_id,chunk_enable_thinking,chunk_size,chunk_overlap,separators_no`).
 		Find()
 	if err != nil {
 		common.FmtError(c, "sys_err")
@@ -569,6 +569,7 @@ func addFAQFile(c *gin.Context, adminUserId int) ([]int64, error) {
 	chunkPrompt := strings.TrimSpace(c.PostForm(`chunk_prompt`))
 	chunkModel := strings.TrimSpace(c.PostForm(`chunk_model`))
 	chunkModelConfigId := cast.ToInt(c.PostForm(`chunk_model_config_id`))
+	chunkEnableThinking := cast.ToInt(cast.ToBool(c.PostForm(`chunk_enable_thinking`)))
 	separatorsNo := strings.TrimSpace(c.PostForm(`separators_no`))
 	//document uploaded
 	var (
@@ -605,6 +606,7 @@ func addFAQFile(c *gin.Context, adminUserId int) ([]int64, error) {
 			`chunk_prompt`:          chunkPrompt,
 			`chunk_model`:           chunkModel,
 			`chunk_model_config_id`: chunkModelConfigId,
+			`chunk_enable_thinking`: chunkEnableThinking,
 			`create_time`:           tool.Time2Int(),
 			`update_time`:           tool.Time2Int(),
 		}

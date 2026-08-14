@@ -377,6 +377,7 @@ func SaveRobot(c *gin.Context) {
 	enableQuestionOptimize := cast.ToBool(c.DefaultPostForm(`enable_question_optimize`, `false`))
 	optimizeQuestionModelConfigId := cast.ToInt(c.DefaultPostForm(`optimize_question_model_config_id`, "0"))
 	optimizeQuestionUseModel := strings.TrimSpace(c.DefaultPostForm(`optimize_question_use_model`, ``))
+	optimizeQuestionEnableThinking := cast.ToInt(cast.ToBool(c.DefaultPostForm(`optimize_question_enable_thinking`, `0`)))
 	optimizeQuestionDialogueBackground := strings.TrimSpace(c.DefaultPostForm(`optimize_question_dialogue_background`, ``))
 	enableQuestionGuide := cast.ToBool(c.DefaultPostForm(`enable_question_guide`, `true`))
 	questionGuideNum := cast.ToInt(c.DefaultPostForm(`question_guide_num`, `3`))
@@ -737,6 +738,7 @@ func SaveRobot(c *gin.Context) {
 		`optimize_question_model_config_id`:     optimizeQuestionModelConfigId,
 		`optimize_question_dialogue_background`: optimizeQuestionDialogueBackground,
 		`optimize_question_use_model`:           optimizeQuestionUseModel,
+		`optimize_question_enable_thinking`:     optimizeQuestionEnableThinking,
 		`enable_question_guide`:                 enableQuestionGuide,
 		`question_guide_num`:                    questionGuideNum,
 		`question_guide_mode`:                   questionGuideMode,
@@ -1704,7 +1706,7 @@ func CreatePromptByAi(c *gin.Context) {
 		c.String(http.StatusOK, lib_web.FmtJson(nil, errors.New(i18n.Show(common.GetLang(c), `no_data`))))
 		return
 	}
-	promptStruct, err := common.CreatePromptByAi(common.GetLang(c), demand, adminUserId, cast.ToInt(info[`model_config_id`]), info[`use_model`])
+	promptStruct, err := common.CreatePromptByAi(common.GetLang(c), demand, adminUserId, cast.ToInt(info[`model_config_id`]), info[`use_model`], common.ToThinkingSwitch(info[`enable_thinking`]))
 	if err != nil {
 		c.String(http.StatusOK, lib_web.FmtJson(nil, err))
 		return

@@ -52,6 +52,7 @@ func DoRequestChatUnify(in *ChatInParam, out *ChatOutParam) {
 			in.chanStream,
 			cast.ToFloat32(in.params.Robot[`temperature`]),
 			cast.ToInt(in.params.Robot[`max_token`]),
+			common.ToThinkingSwitch(in.params.Robot[`enable_thinking`]),
 		)
 	} else {
 		out.chatResp, out.requestTime, out.Error = common.RequestChat(
@@ -66,6 +67,7 @@ func DoRequestChatUnify(in *ChatInParam, out *ChatOutParam) {
 			out.functionTools,
 			cast.ToFloat32(in.params.Robot[`temperature`]),
 			cast.ToInt(in.params.Robot[`max_token`]),
+			common.ToThinkingSwitch(in.params.Robot[`enable_thinking`]),
 		)
 	}
 	out.content = out.chatResp.Result

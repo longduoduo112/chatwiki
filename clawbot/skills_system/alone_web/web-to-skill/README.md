@@ -1,86 +1,93 @@
-# Web to Skill
+![横幅](images/banner.png)
 
-Turn a public website or an explicit set of URLs into a searchable, reusable AI skill.
+Web to Skill 专为产品文档、帮助中心、公共知识库及类似 Web 内容而设计。它能够发现网站导航、捕获动态渲染页面、创建本地 HTML 快照和
+JSONL 检索索引，并将所有内容打包为独立的 Skill ZIP。生成的技能保留源页面作为可追溯证据，同时提供有界的本地检索，因此 AI
+Agent 只需获取所需页面，无需加载整个网站。
 
-Web to Skill is designed for product documentation, help centers, public knowledge bases, and similar web content. It
-discovers site navigation, captures dynamically rendered pages, creates local HTML snapshots and a JSONL retrieval
-index, and packages everything as a standalone skill ZIP. The generated skill keeps the source pages as traceable
-evidence while providing bounded local retrieval, so an AI agent can fetch only the pages it needs instead of loading an
-entire site into context.
+> 官网知识和帮助文档沉睡在 HTML 中；Web to Skill 让网站文档成为客服 Agent 可随时调用的技能。
 
-## Features
+---
 
-- **Single-entry discovery**: Provide one URL to discover pages from the site's navigation or documentation tree.
-- **Explicit batch collection**: Provide multiple URLs to validate, normalize, and deduplicate only those URLs, without
-  expanding the requested scope.
-- **Dynamic rendering**: Capture JavaScript-rendered pages with Playwright and headless Chromium.
-- **Site-specific extraction**: Built-in content selectors for ChatWiki Docs, Yuque, Feishu, OpenClaw Docs, Alibaba
-  Cloud Help, KanCloud, and WeChat Official Account articles.
-- **Resilient crawling**: Sequential processing, one retry for transient failures, redirect-target deduplication,
-  consecutive-timeout stopping, and structured logs.
-- **Content cleanup**: Remove scripts, advertisements, and other non-content elements, reject advertisement-only pages,
-  extract metadata and keywords, and suppress high-frequency noise shared across pages.
-- **Traceable indexing**: Every index record points to its source URL and saved HTML snapshot.
-- **Current-scope updates**: Re-run normal URL preparation and rebuild the skill strictly from the resulting current URL
-  list. A single entry URL rediscovers its directory, while an explicit URL batch keeps that supplied scope without
-  directory discovery, so pages outside the current scope are not carried into the new package.
-- **Validated ZIP reuse**: Treat the previous successful skill ZIP as a page cache. Reuse only current URLs whose index
-  record and HTML snapshot are valid; crawl every cache miss or rejected snapshot normally.
-- **Yuque error-page filtering**: On `www.yuque.com`, reject cached error pages, retry newly rendered error pages once,
-  and omit persistent error pages from both HTML output and the index.
-- **Stable update identity**: Preserve the existing skill name during updates while regenerating its description,
-  summaries, topics, aliases, and other metadata from the rebuilt index.
-- **Bounded metadata context**: Sample at most 60 page summaries proportionally across source sites before generating
-  skill metadata.
-- **Ready-to-use skill packages**: Generate `SKILL.md`, agent configuration, the web index, HTML snapshots, and
-  retrieval helpers.
+## 为什么需要 Web to Skill
 
-## How It Works
+企业的产品、帮助、活动和政策散落在不同页面，客户却需要统一、准确的答案。传统方式很难直接把网页转变为 Agent 的对话能力：
 
-```mermaid
-flowchart LR
-    A[Public URLs] --> B[Prepare URL list]
-    X[Previous skill ZIP, optional update cache] --> C
-    B --> C[Reuse valid current pages and crawl misses]
-    C --> D[HTML snapshots and JSONL index]
-    D --> E[Validate crawl artifacts]
-    E --> F[Build bounded metadata outline]
-    F --> G[Create source metadata]
-    G --> H[Skill ZIP]
-```
+- **官网内容分散各处**：产品、帮助中心、博客和活动散布在不同栏目，人工难以提供统一且一致的回答。
+- **维护成本高且容易过期**：依靠人工整理和同步，更新慢、易遗漏，网站改版后知识很快失效。
+- **Agent 无法直接使用官网**：原始网页不能直接被 Agent 高效理解和调用，客服只能凭经验手工回答。
 
-Deterministic scripts handle URL preparation, crawling, crawl validation, metadata outlining, and packaging. Site-level
-metadata such as the skill name, description, topic groups, and coverage notes must be produced by an AI agent from the
-bounded outline. The build script validates and packages this metadata; it does not invent business information.
+未经结构化处理时，Agent 每次回答都可能把大量相关网页的 HTML 放入上下文，令牌消耗大、响应慢、成本高。生成 Skill
+后，可按页面和主题精准检索，只调取需要的内容。
 
-An update is a full current-directory rebuild, not an incremental merge. The freshly prepared URL list is the only scope
-of the new skill. The previous ZIP can save network work, but pages found only in that ZIP are never copied into the new
-output.
+---
 
-## Requirements
+![流程](images/process.png)
+
+## 核心特性
+
+- **单入口发现**：提供一个 URL，即可从网站导航或文档树发现同一范围内的页面。
+- **显式批量收集**：提供多个 URL 时，只校验、规范化和去重这些 URL，不会扩大请求范围。
+- **动态渲染**：通过 Playwright 和无头 Chromium 捕获 JavaScript 渲染后的页面。
+- **特定站点提取**：内置 ChatWiki 文档、语雀、飞书、OpenClaw 文档、阿里云帮助、看云和微信公众号文章的内容选择器。
+- **弹性抓取**：顺序处理、瞬态故障一次重试、重定向目标去重、连续超时停止，并记录结构化日志。
+- **内容清理**：移除脚本、广告和其他非内容元素；过滤纯广告页面，提取元数据和关键词，并抑制跨页面高频噪声。
+- **可追溯索引**：每条索引记录都关联源 URL 和保存的 HTML 快照。
+- **当前范围更新**：每次更新都会从当前 URL 列表重建技能；旧 ZIP 只作为当前页面的已验证缓存，不会把已不在当前范围内的页面带入新包。
+- **语雀错误页过滤**：对 `www.yuque.com` 的错误页进行重试，持续错误页不会写入 HTML 快照或索引。
+- **稳定的更新标识**：更新时保留既有技能名称，同时根据当前重建后的索引重新生成其他元数据。
+- **有界元数据上下文**：生成技能元数据前，按源站点比例最多抽取 60 条页面摘要。
+- **即用型技能包**：生成 `SKILL.md`、Agent 配置、Web 索引、HTML 快照和检索辅助程序。
+
+---
+
+## 适用场景
+
+- **售前产品咨询**：基于官网产品与方案页，精准回答参数、价格和适用场景，引导客户完成购买决策。
+- **帮助中心自助答疑**：抓取 FAQ 与文档，让客户自助查找问题和解决办法，提升满意度、降低人工成本。
+- **营销活动解答**：同步官网活动与品牌动态，准确解答优惠规则、参与方式和截止时间。
+- **渠道合作与下载引导**：汇总合作政策和下载资源，自动引导合作伙伴和用户找到正确入口与资料。
+
+---
+
+## 工作原理
+
+确定性脚本负责 URL 准备、抓取、抓取验证、元数据大纲和打包。站点级元数据（如技能名称、描述、主题组和覆盖范围说明）必须由 AI Agent
+根据有界大纲生成；构建脚本只验证和打包这些元数据，不会虚构业务信息。
+
+对于单个入口 URL，工具会发现该页面所属目录或导航树中的页面；对于多个明确 URL，工具只处理提供的页面。随后将每个成功页面的清洗后
+HTML 与可追溯 JSONL 索引打包为技能。使用时，Agent 先检索相关页面，再按需读取其快照内容，从官网权威材料中作答。
+
+更新是一次完整的当前范围重建，而非增量合并。最新 URL 列表是新技能的唯一范围；旧 ZIP 可以节省网络抓取，但只存在于旧包中的页面绝不会复制到新输出中。
+
+---
+
+## 环境要求与安装
+
+**要求**
 
 - Python 3.10+
-- Network access to the target public website
-- Playwright, Beautiful Soup, and jieba
-- Playwright Chromium
+- 可访问目标公共网站的网络
+- `playwright`、`beautifulsoup4` 和 `jieba`
+- Playwright 的 Chromium 浏览器
 
-Install the Python dependencies and browser:
+**安装 Python 依赖和浏览器：**
 
 ```bash
 python3 -m pip install playwright beautifulsoup4 jieba
 python3 -m playwright install chromium
 ```
 
-> The examples use `python3`. Replace it with `python` if that is the executable name in your environment.
+> 示例使用 `python3`；若你的环境中可执行文件名为 `python`，请相应替换。
 
-## Quick Start
+---
 
-The examples below assume that the current directory is this `web-to-skill` skill directory and that all intermediate
-artifacts are written to `./workspace`.
+## 快速开始
 
-### 1. Prepare the URL List
+以下示例假设当前目录是此 `web-to-skill` 技能目录，所有中间工件均写入 `./workspace`。
 
-Provide one entry URL to discover its documentation directory:
+### 1. 准备 URL 列表
+
+提供一个入口 URL 以发现其文档目录：
 
 ```bash
 python3 scripts/prepare_urls.py \
@@ -88,7 +95,7 @@ python3 scripts/prepare_urls.py \
   "https://example.com/docs"
 ```
 
-Alternatively, provide multiple explicit pages. Directory discovery is skipped in this mode:
+或者提供多个明确页面；此模式跳过目录发现：
 
 ```bash
 python3 scripts/prepare_urls.py \
@@ -97,9 +104,10 @@ python3 scripts/prepare_urls.py \
   "https://example.com/docs/configuration"
 ```
 
-The result is a UTF-8 text file containing one normalized URL per line.
+结果是 UTF-8 文本文件，每行包含一个规范化 URL。目录导航和目录收集使用固定的 10 分钟限制；导航失败会重试一次。不要手动创建或编辑
+URL 列表。
 
-### 2. Crawl the Pages
+### 2. 抓取页面
 
 ```bash
 python3 scripts/crawl_urls.py \
@@ -107,27 +115,26 @@ python3 scripts/crawl_urls.py \
   --out-dir workspace/crawl
 ```
 
-This stage produces:
+此阶段产生：
 
 ```text
 workspace/crawl/
-├── url-list.txt       # Final normalized URL list
-├── index.jsonl        # URLs, titles, descriptions, keywords, and snapshot paths
-├── crawl.log          # Discovery, progress, retries, failures, and stop reasons
-└── html/              # Cleaned rendered HTML snapshots
+├── url-list.txt       # 最终规范化 URL 列表
+├── index.jsonl        # URL、标题、描述、关键词和快照路径
+├── crawl.log          # 发现、进度、重试、失败和停止原因
+└── html/              # 清洗后的渲染 HTML 快照
 ```
 
-Validate the crawl without exposing the complete log to model context:
+可在不将完整日志暴露给模型上下文的情况下验证抓取：
 
 ```bash
 python3 scripts/validate_crawl.py \
   --index workspace/crawl/index.jsonl
 ```
 
-The helper resolves crawl-index HTML paths relative to `index.jsonl` and emits only the final crawl counts, a bounded
-failure summary, a bounded redirect-duplicate summary, and a bounded Yuque error-page-skip summary.
+该辅助程序会相对于 `index.jsonl` 解析 HTML 路径，并仅返回最终抓取计数、有界失败摘要、有界重定向重复摘要和有界语雀错误页跳过摘要。
 
-Use debug mode to process at most the first five URLs while validating the workflow:
+调试模式最多处理前五个 URL，适合验证工作流：
 
 ```bash
 python3 scripts/crawl_urls.py \
@@ -136,20 +143,15 @@ python3 scripts/crawl_urls.py \
   --debug
 ```
 
-The crawler writes the effective URL list into its output directory. In debug mode, this contains at most the first five
-URLs, so the same validator can check the isolated debug artifacts:
+调试输出目录会写入实际处理的 URL 列表，因此同样可以验证隔离的调试工件：
 
 ```bash
 python3 scripts/validate_crawl.py \
   --index workspace/crawl-debug/index.jsonl
 ```
 
-### 3. Update an Existing Skill
-
-First run the normal URL preparation step again so `workspace/crawl/url-list.txt` represents the current intended scope.
-With one entry URL, this rediscovers the website's current directory. With an explicit URL batch, it validates,
-normalizes, and deduplicates only the supplied pages without directory discovery. Then provide the most recent
-successful skill ZIP as an optional cache:
+更新已有技能时，先按当前意图重新执行上一步，使 `workspace/crawl/url-list.txt` 表示当前范围；单入口会重新发现当前目录，显式
+URL 批次只保留当前提供的页面。然后将最近一次成功生成的技能 ZIP 作为可选缓存传入：
 
 ```bash
 python3 scripts/crawl_urls.py \
@@ -159,34 +161,27 @@ python3 scripts/crawl_urls.py \
   --expected-name example-docs
 ```
 
-The crawler safely stages reusable data under `workspace/existing/` and creates a fresh `workspace/crawl/index.jsonl`
-and `workspace/crawl/html/`. It copies only valid records that exactly match current normalized URLs. Missing,
-unreadable, empty, Yuque error-page, or advertisement-only snapshots are rejected and fetched normally. Recognized
-advertisement nodes are removed from otherwise reusable cached snapshots. If every current URL is reusable, the crawler
-completes without launching Chromium.
+爬虫会在 `workspace/existing/` 下安全暂存可复用数据，并为本次运行创建新的 `workspace/crawl/index.jsonl` 与
+`workspace/crawl/html/`。只有与当前规范化 URL 完全匹配且 HTML
+可读取、非语雀错误页、非纯广告页的记录才会复用；其他页面正常抓取。若当前页面全部命中可复用缓存，仍会生成完整日志和新索引，但不会启动
+Chromium。不要手动编辑 URL 列表、索引、日志或 HTML 快照。
 
-Pages present only in the previous ZIP are excluded. If a newly fetched Yuque page is still an error page after one
-retry, the page is skipped without writing HTML or an index record.
+### 3. 创建技能元数据
 
-### 4. Create Skill Metadata
-
-Generate a bounded metadata outline instead of loading the complete index:
+生成有界元数据大纲，而不是加载完整索引：
 
 ```bash
 python3 scripts/metadata_outline.py \
   --index workspace/crawl/index.jsonl
 ```
 
-The helper returns at most 60 page summaries, allocated proportionally by source site and sampled evenly within each
-site. Create `workspace/skill-metadata.json` using only that outline and the contract in
-[`references/metadata.md`](references/metadata.md). Keep `coverage_notes` empty unless the sampled metadata explicitly
-states a boundary; absence from a bounded outline is not evidence that a topic is unsupported.
+该辅助程序最多返回 60 条页面摘要，按源站点成功页面数比例分配，并在每个站点内均匀抽样。仅使用该大纲和 [
+`references/metadata.md`](references/metadata.md) 中的约定创建 `workspace/skill-metadata.json`。除非抽样元数据明确声明边界，否则将
+`coverage_notes` 留空；有界大纲中没有某主题并不表示该主题不受支持。
 
-For a new skill, generate all metadata normally. For an update, set the top-level `name` exactly to the existing skill
-name supplied through `--expected-name`; regenerate descriptions, summaries, topics, aliases, and other metadata from
-the current rebuilt index.
+新技能按常规生成全部元数据。更新时，顶层 `name` 必须与 `--expected-name` 中提供的既有技能名称完全一致；描述、摘要、主题、别名和其他元数据则应根据当前重建后的索引重新生成。
 
-### 5. Build the Skill ZIP
+### 4. 构建技能 ZIP
 
 ```bash
 python3 scripts/build_skill.py \
@@ -195,7 +190,7 @@ python3 scripts/build_skill.py \
   --zip-out workspace/generate_skill/example-docs.zip
 ```
 
-When updating, lock the package identity during the build:
+更新时锁定包标识：
 
 ```bash
 python3 scripts/build_skill.py \
@@ -205,15 +200,15 @@ python3 scripts/build_skill.py \
   --zip-out workspace/generate_skill/example-docs.zip
 ```
 
-If `metadata.name` differs from `--expected-name`, correct that field and rerun only the build step; the crawl does not
-need to run again.
+若 `metadata.name` 与 `--expected-name` 不一致，只更正该字段并重新构建，无需重新抓取。构建脚本还要求 `index.jsonl` 旁存在
+`crawl.log`：它会读取最后一个 `crawl_urls` 的 `run.done`
+事件，以索引验证其计数，并把确定性的复用、成功、失败、重定向重复、语雀错误页跳过和超时跳过覆盖说明写入生成的技能。日志缺失或不完整都会导致构建失败。
 
-The build script also requires `crawl.log` beside `index.jsonl`. It reads the last `crawl_urls run.done` event,
-validates its counts against the index, and writes a deterministic reuse, success, failure, redirect-duplicate,
-Yuque-error-page-skip, and timeout-skipped coverage note into the generated skill. A missing log or a log without
-`run.done` fails the build.
+---
 
-The generated archive has the following structure:
+## 输出结构
+
+生成的归档文件具有以下结构：
 
 ```text
 example-docs/
@@ -229,70 +224,63 @@ example-docs/
     └── fetch_rendered_html.py
 ```
 
-The generated `search_index.py` returns a bounded set of candidate pages from the local index. `fetch_rendered_html.py`
-refreshes a single page only when the saved snapshot is insufficient or current content is explicitly required.
+生成的 `search_index.py` 会从本地索引返回一组有界的候选页面。`fetch_rendered_html.py` 仅在保存的快照不足，或明确需要当前内容时刷新单个页面。
 
-## Site-Specific Behavior
+---
 
-| Site or content type | Strategy                                                                                                                                     |
-|----------------------|----------------------------------------------------------------------------------------------------------------------------------------------|
-| Generic public pages | Discover links from rendered navigation and fall back to the rendered page body                                                              |
-| ChatWiki Docs        | Use the Docusaurus sitemap and retain the language selected by the entry URL                                                                 |
-| KanCloud             | Read the full directory tree from `application/payload+json`; fail rather than silently continue when a known directory yields only one page |
-| Yuque                | On `www.yuque.com`, reject cached error pages and retry then skip persistent newly rendered error pages                                      |
-| Feishu               | Keep the longest stable body snapshot if the final rendered body becomes empty or shorter                                                    |
-| Other adapted sites  | Use built-in body selectors and fall back to the rendered page body when necessary                                                           |
-
-## Reliability and Scope
-
-- Only public `http://` and `https://` pages are supported. The project does not handle authentication, CAPTCHAs, or
-  access-control bypasses.
-- URL preparation uses fixed 10-minute navigation and directory-collection limits. A failed navigation is retried once.
-- URLs are crawled sequentially with a fixed 60-second page timeout. A timed-out page is retried once; crawling stops
-  after four consecutive final timeouts.
-- Prepared URLs that redirect to the same final page produce one index record. Redirect aliases are reported separately
-  in crawl coverage instead of being counted as failures.
-- During updates, the previous ZIP is only a validated cache for current URLs. Old-only pages are excluded, invalid
-  cache entries fall back to a normal crawl, and an all-cache-hit update does not launch Chromium.
-- Yuque error-page detection runs only for final URLs on `www.yuque.com`. It uses known error structures plus a guarded
-  main-content text fallback, so ordinary articles containing words such as "sorry" are not skipped.
-- Advertisement-only pages are retried once and omitted as crawl failures if they remain empty. Recognized advertisement
-  nodes are removed from newly rendered and reusable cached snapshots.
-- HTTP 429 and 5xx responses, browser network errors, timeouts, empty rendered bodies, Yuque error pages, and
-  advertisement-only pages enter the retry path.
-- URL preparation and crawling use fixed workflow policies. Concurrency, depth, link scope, timeout, and retry counts
-  are intentionally not exposed as command-line controls.
-- HTML snapshots represent the page state at crawl time. Re-run the crawler, or use the generated single-page refresh
-  helper, when current content is required.
-- Before crawling, make sure your use complies with the target site's terms of service, robots policies, and content
-  permissions.
-
-## Project Structure
+## 项目结构
 
 ```text
 .
 |-- README.md
-|-- SKILL.md                    # Agent workflow
-|-- agents/openai.yaml          # Skill presentation and default prompt
-|-- references/metadata.md      # Model-authored metadata schema and limits
+|-- SKILL.md                    # Agent 工作流
+|-- agents/openai.yaml          # 技能展示与默认提示词
+|-- references/metadata.md      # 模型编写的元数据结构与限制
 `-- scripts/
-    |-- prepare_urls.py         # URL validation, normalization, and discovery
-    |-- crawl_urls.py           # Validated cache reuse, crawling, Yuque filtering, indexing, and logs
-    |-- validate_crawl.py       # Relative-path checks and bounded crawl summary
-    |-- metadata_outline.py     # Bounded proportional metadata sampling
-    |-- build_skill.py          # Metadata validation and ZIP packaging
-    |-- search_index.py         # Bounded local retrieval for generated skills
-    `-- fetch_rendered_html.py  # Playwright rendering and single-page refresh
+    |-- prepare_urls.py         # URL 校验、规范化和发现
+    |-- crawl_urls.py           # 已验证缓存复用、抓取、语雀过滤、索引和日志
+    |-- validate_crawl.py       # 相对路径检查与有界抓取摘要
+    |-- metadata_outline.py     # 有界的按比例元数据抽样
+    |-- build_skill.py          # 元数据校验与 ZIP 打包
+    |-- search_index.py         # 生成技能的有界本地检索
+    `-- fetch_rendered_html.py  # Playwright 渲染与单页刷新
 ```
 
-## Design Principles
+## 站点特定行为
 
-- **Traceable facts**: Retrieved information remains connected to a source URL and saved HTML snapshot.
-- **Controlled scope**: Single-entry discovery and explicit URL batches use separate strategies to prevent accidental
-  crawl expansion.
-- **Fresh update scope**: The current URL list defines every rebuild; previous output is reusable input, never an
-  authority for retaining deleted pages.
-- **Bounded context**: Metadata generation uses a source-proportional outline, while the generated JSONL index supports
-  search-first, read-later access instead of loading the entire site into an agent context.
-- **Portable output**: Each final ZIP includes its index, snapshots, and runtime helpers, making it suitable for
-  independent distribution and installation.
+| 网站或内容类型 | 策略                                                                                       |
+|----------------|--------------------------------------------------------------------------------------------|
+| 通用公共页面   | 从渲染后的导航中发现链接，必要时回退到渲染后的页面正文。                                   |
+| ChatWiki 文档  | 使用 Docusaurus 网站地图，并保留入口 URL 所选择的语言。                                    |
+| 看云           | 从 `application/payload+json` 读取完整目录树；已知目录只返回一页时直接失败，不会静默继续。 |
+| 语雀           | 对 `www.yuque.com` 的缓存错误页予以拒绝；新渲染错误页重试一次，仍失败则跳过。              |
+| 飞书           | 若最终渲染正文变为空或变短，保留最长的稳定正文快照。                                       |
+| 其他已适配网站 | 使用内置正文选择器，必要时回退到渲染后的页面正文。                                         |
+
+---
+
+## 设计原则
+
+- **可追溯的事实**：检索结果始终关联源 URL 和保存的 HTML 快照。
+- **受控范围**：单入口发现和显式 URL 批处理采用不同策略，避免意外扩大抓取范围。
+- **当前范围更新**：每次重建由当前 URL 列表定义范围；旧输出只是可复用输入，不能作为保留已删除页面的依据。
+- **有界上下文**：元数据生成使用与源站点成比例的大纲；JSONL 索引支持先搜索、后读取，而不是把整个网站装入 Agent 上下文。
+- **便携式输出**：每个最终 ZIP 都包含索引、快照和运行时辅助程序，可独立分发和安装。
+
+---
+
+## 可靠性与范围
+
+- 仅支持公共 `http://` 和 `https://` 页面；不处理身份验证、验证码或访问控制绕过。
+- URL 准备的导航与目录收集使用固定的 10 分钟限制；导航失败会重试一次。
+- URL 按顺序抓取，单页固定超时 60 秒；超时页面重试一次，连续四次最终超时后停止抓取。
+- 指向同一最终页面的已准备 URL 只会生成一条索引记录；重定向别名会在抓取覆盖率中单独报告，不计为失败。
+- 更新时，旧 ZIP 仅是当前 URL 的已验证缓存；旧包独有页面会被排除，无效缓存会回退到正常抓取，全部命中缓存时不会启动 Chromium。
+- 语雀错误页检测仅针对最终 URL 为 `www.yuque.com` 的页面，使用已知错误结构和受保护的正文文本回退，因此不会因普通文章出现“sorry”等词而被跳过。
+- 纯广告页面会重试一次；若仍为空则记为抓取失败并不写入快照和索引。新页面与可复用缓存中的已知广告节点都会被移除。
+- HTTP 429、5xx 响应、浏览器网络错误、超时、空渲染正文、语雀错误页和纯广告页都会进入重试路径。
+- URL 准备和抓取使用固定工作流策略；并发、深度、链接范围、超时和重试次数不会作为命令行参数开放。
+- HTML 快照反映抓取时的页面状态；需要最新内容时，请重新运行爬虫，或使用生成的单页刷新辅助程序。
+- 抓取前请确保使用方式符合目标网站的 **服务条款、robots 政策和内容权限**。
+
+---

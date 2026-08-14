@@ -3,7 +3,7 @@
   "tab_insert_card": "Insert Mini Program Card",
   "tip_tag": "User input parameters will fill variables as the final prompt",
   "tip_card": "Available for WeChat Mini Program, WeChat Customer Service, and WeChat Official Account channels",
-  "btn_add_tag": "Add Tag",
+  "btn_add_tag": "New",
   "btn_add_card": "Insert Mini Program Card",
   "msg_no_cards": "No mini program cards available",
   "msg_confirm_delete": "Are you sure you want to delete this mini program card?",

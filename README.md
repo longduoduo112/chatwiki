@@ -137,6 +137,14 @@ Feel free to contact us for help or to provide suggestions to improve ChatWiki. 
 ---
 For the complete changelog, please click 👉️👉️[UpdateLog.md](./UpdateLog.md)
 
+**2026/08/14**
+
+1.[STD] Cloud version custom models support time-based pricing (compatible with DeepSeek's new pricing policy)<br/>
+2.BookToSkill: Optimized functionality, added update logic, and added online OCR support (via Alibaba Cloud API)<br/>
+3.Bot prompts: Added support for inserting the current time system variable<br/>
+4.[STD] Added the Agent official website (https://chatwikiagent.xiaokefu.com.cn)<br/>
+5.Thinking is disabled by default for all models with optional thinking unless explicitly enabled by the user<br/>
+
 **2026/08/07**
 
 1.External Service: Bot supports LINE app<br/>
@@ -163,19 +171,6 @@ For the complete changelog, please click 👉️👉️[UpdateLog.md](./UpdateLo
 8.Agent bot: Optimized associated knowledge base<br/>
 9.Fixed issue where chat test and external service user messages were obscured when rate limiting had no reply<br/>
 10.[STD] Cloud version supports DingTalk, WeCom, and Feishu login<br/>
-
-**2026/07/24**
-
-1.Workflow - Added product library search node<br/>
-2.Workflow: Added chat test mode when conversation trigger exists<br/>
-3.Fixed issue where question text was not correctly retrieved when multimodal was enabled in workflow chat test<br/>
-4.Workflow code execution: Pass Python parameters via standard input<br/>
-5.Optimized Agent bot thinking process display interaction<br/>
-6.LLM calls now use session ID to retrieve context<br/>
-7.Agent bot skill generation tool: DocToSkill optimization<br/>
-8.Agent bot configuration: Changed execute tool to be enabled by default<br/>
-9.Workflow editing: Optimized multi-user edit lock mechanism<br/>
-10.[STD] Added Alibaba Cloud SMS plugin - system plugin<br/>
 
 ## License
 

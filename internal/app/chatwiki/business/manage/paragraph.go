@@ -878,6 +878,7 @@ func GetSplitParagraph(c *gin.Context) {
 		AiChunkPrumpt:              cast.ToString(c.Query(`ai_chunk_prumpt`)),
 		AiChunkModel:               strings.TrimSpace(c.Query(`ai_chunk_model`)),
 		AiChunkModelConfigId:       cast.ToInt(c.Query(`ai_chunk_model_config_id`)),
+		AiChunkEnableThinking:      cast.ToInt(c.Query(`ai_chunk_enable_thinking`)),
 		AiChunkSize:                cast.ToInt(c.Query(`ai_chunk_size`)),
 		AiChunkTaskId:              strings.TrimSpace(c.Query(`ai_chunk_task_id`)),
 		ParagraphChunk:             true,
@@ -1062,6 +1063,7 @@ func GenerateSimilarQuestions(c *gin.Context) {
 		nil,
 		0.1,
 		1024,
+		common.ThinkingDisabled,
 	)
 	if err != nil {
 		logs.Error(err.Error())
@@ -1123,6 +1125,7 @@ func GenerateAiPrompt(c *gin.Context) {
 		nil,
 		0.1,
 		maxTokens,
+		common.ThinkingDisabled,
 	)
 	if err != nil && len(chatResp.Result) <= 0 {
 		logs.Error(err.Error())

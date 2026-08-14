@@ -133,9 +133,7 @@ func LoadUseModelConfig(params msql.Params, modelSupplier string) UseModelConfig
 		ShowModelName: params[`show_model_name`],
 	}
 	if useModel.ModelType == Llm {
-		if tool.InArrayString(modelSupplier, []string{ModelChatWiki, ModelAliyunTongyi, ModelDoubao, ModelSiliconFlow}) {
-			useModel.ThinkingType = cast.ToUint(params[`thinking_type`])
-		}
+		useModel.ThinkingType = cast.ToUint(params[`thinking_type`])
 		useModel.FunctionCall = cast.ToUint(cast.ToBool(params[`function_call`]))
 		useModel.ModelInputSupport = ModelInputSupport{
 			InputText:     cast.ToUint(cast.ToBool(params[`input_text`])),

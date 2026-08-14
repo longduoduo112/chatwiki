@@ -315,6 +315,7 @@ func GetMatchLibraryParagraphByGraphSimilarity(lang string, robot msql.Params, o
 		nil,
 		0.1,
 		500,
+		ThinkingDisabled,
 	)
 	if err != nil {
 		logs.Error("Failed to extract entities: %s", err.Error())
@@ -1205,6 +1206,7 @@ func GetOptimizedQuestions(param *define.ChatRequestParam, contextList []map[str
 		nil,
 		cast.ToFloat32(param.Robot[`temperature`]),
 		200,
+		ToThinkingSwitch(param.Robot[`optimize_question_enable_thinking`]),
 	)
 	if err != nil {
 		return nil, err

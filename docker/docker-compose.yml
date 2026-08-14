@@ -297,6 +297,7 @@ services:
     environment:
       TZ: ${TIMEZONE}
       LLM_RUNNER_COMMAND_TIMEOUT: 1h
+      CHATWIKI_APIKEY: ${CHATWIKI_APIKEY:-}
     ports:
       - ${LLM_RUNNER_PORT}:9000
     user: "10001:10001"

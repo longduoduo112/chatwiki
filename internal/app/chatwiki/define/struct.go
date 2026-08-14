@@ -143,6 +143,7 @@ type SplitParams struct {
 	AiChunkPrumpt              string   `json:"ai_chunk_prumpt"`
 	AiChunkModel               string   `json:"ai_chunk_model"`
 	AiChunkModelConfigId       int      `json:"ai_chunk_model_config_id"`
+	AiChunkEnableThinking      int      `json:"ai_chunk_enable_thinking"`
 	AiChunkTaskId              string   `json:"ai_chunk_task_id"`
 	AiChunkSize                int      `json:"ai_chunk_size"`
 	AiChunkNew                 bool     `json:"ai_chunk_new"`
@@ -257,15 +258,16 @@ type UploadFormFile struct {
 }
 
 type SplitFaqParams struct {
-	SeparatorsNo       string `json:"separators_no"`
-	ChunkSize          int    `json:"chunk_size"`
-	ChunkType          int    `json:"chunk_type"`
-	ChunkPrompt        string `json:"chunk_prompt"`
-	ChunkModel         string `json:"chunk_model"`
-	ChunkModelConfigId int    `json:"chunk_model_config_id"`
-	IsQaDoc            int    `json:"is_qa_doc"`
-	FileExt            string `json:"file_ext"`
-	ExtractType        int    `json:"extract_type"`
+	SeparatorsNo        string `json:"separators_no"`
+	ChunkSize           int    `json:"chunk_size"`
+	ChunkType           int    `json:"chunk_type"`
+	ChunkPrompt         string `json:"chunk_prompt"`
+	ChunkModel          string `json:"chunk_model"`
+	ChunkModelConfigId  int    `json:"chunk_model_config_id"`
+	ChunkEnableThinking int    `json:"chunk_enable_thinking"`
+	IsQaDoc             int    `json:"is_qa_doc"`
+	FileExt             string `json:"file_ext"`
+	ExtractType         int    `json:"extract_type"`
 }
 
 type OfficialAccountDraftListStruct struct {

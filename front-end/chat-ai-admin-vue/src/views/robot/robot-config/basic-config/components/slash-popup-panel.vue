@@ -25,17 +25,19 @@
 
     <!-- 内容区 -->
     <div class="popup-body">
-      <!-- 提示条 -->
-      <div class="popup-alert">
-        {{ activeTab === 'tag' ? t('tip_tag') : t('tip_card') }}
+      <div class="popup-toolbar">
+        <!-- 提示条 -->
+        <div class="popup-alert">
+          {{ activeTab === 'tag' ? t('tip_tag') : t('tip_card') }}
+        </div>
+        <div v-if="activeTab === 'tag'" class="add-btn" @click="handleAddTag">
+          <PlusOutlined />
+          <span>{{ t('btn_add_tag') }}</span>
+        </div>
       </div>
 
       <!-- 插入标签 Tab -->
       <div class="popup-content" v-if="activeTab === 'tag'">
-        <div class="add-btn" @click="handleAddTag">
-          <PlusOutlined />
-          <span>{{ t('btn_add_tag') }}</span>
-        </div>
         <div class="tag-list">
           <div
             class="tag-item"
@@ -167,7 +169,7 @@ const handleDeleteCard = (card) => {
 
 <style lang="less" scoped>
 .slash-popup-panel {
-  width: 472px;
+  width: 500px;
   background: #fff;
 }
 
@@ -222,13 +224,19 @@ const handleDeleteCard = (card) => {
 }
 
 .popup-body {
-  padding: 16px 32px 32px;
+  padding: 16px 16px;
+}
+
+.popup-toolbar {
   display: flex;
-  flex-direction: column;
-  gap: 16px;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
 }
 
 .popup-alert {
+  flex: 1;
+  min-width: 0;
   padding: 8px 16px;
   background: #e9f1fe;
   border: 1px solid #99bffd;
@@ -239,9 +247,7 @@ const handleDeleteCard = (card) => {
 }
 
 .popup-content {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+
 }
 
 .add-btn {
@@ -255,7 +261,6 @@ const handleDeleteCard = (card) => {
   font-size: 14px;
   line-height: 22px;
   cursor: pointer;
-  align-self: flex-start;
 
   &:hover {
     opacity: 0.9;
@@ -291,6 +296,7 @@ const handleDeleteCard = (card) => {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+  margin-top: 8px;
   max-height: 300px;
   overflow-y: auto;
 }

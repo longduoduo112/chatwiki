@@ -12,10 +12,18 @@ import (
 const rpcDialTimeout = 3 * time.Second
 
 func RpcExecuteRun(address, workDir, command string) (resp RpcRunResponse) {
-	return RpcExecuteRunWithID(address, workDir, ``, command)
+	return RpcExecuteRunWithEnv(address, workDir, command, nil)
+}
+
+func RpcExecuteRunWithEnv(address, workDir, command string, env map[string]string) (resp RpcRunResponse) {
+	return RpcExecuteRunWithIDAndEnv(address, workDir, ``, command, env)
 }
 
 func RpcExecuteRunWithID(address, workDir, runID, command string) (resp RpcRunResponse) {
+	return RpcExecuteRunWithIDAndEnv(address, workDir, runID, command, nil)
+}
+
+func RpcExecuteRunWithIDAndEnv(address, workDir, runID, command string, env map[string]string) (resp RpcRunResponse) {
 	client, err := dialRpcClient(address)
 	if err != nil {
 		resp.IsError = true
@@ -25,7 +33,7 @@ func RpcExecuteRunWithID(address, workDir, runID, command string) (resp RpcRunRe
 	defer func(client *rpc.Client) {
 		_ = client.Close()
 	}(client)
-	err = client.Call(RpcServiceName+`.Run`, RpcRunRequest{Command: command, WorkDir: workDir, RunID: runID}, &resp)
+	err = client.Call(RpcServiceName+`.Run`, RpcRunRequest{Command: command, WorkDir: workDir, RunID: runID, Env: env}, &resp)
 	if err != nil {
 		resp.IsError = true
 		resp.ErrorMsg = err.Error()

@@ -543,6 +543,19 @@
                   @loaded="onVectorModelLoaded"
                 />
               </a-form-item>
+              <a-form-item v-if="showAiChunkEnableThinking" :label="thinkingT('label_deep_thinking')">
+                <a-flex align="center" :gap="8">
+                  <a-switch
+                    v-model:checked="formState.ai_chunk_enable_thinking"
+                    :checkedValue="1"
+                    :unCheckedValue="0"
+                    @change="handleEdit"
+                  />
+                  <a-tooltip :title="thinkingT('tooltip_deep_thinking')">
+                    <QuestionCircleOutlined />
+                  </a-tooltip>
+                </a-flex>
+              </a-form-item>
               <a-form-item :label="t('label_prompt_setting')" required>
                 <a-flex :gap="8" align="center">
                   <a-textarea
@@ -683,6 +696,7 @@ import { formatSeparatorsNo } from '@/utils/index'
 import { useI18n } from '@/hooks/web/useI18n'
 
 const { t } = useI18n('views.library.library-details.knowledge-config')
+const { t: thinkingT } = useI18n('views.robot.robot-config.basic-config.components.model-settings')
 const { t: expireT } = useI18n('components.library-expire-status.index')
 const companyStore = useCompanyStore()
 const neo4j_status = computed(() => {
@@ -717,6 +731,7 @@ const formState = reactive({
   ai_chunk_size: 5000, // ai大模型分段最大字符数
   ai_chunk_model: '', // ai大模型分段模型名称
   ai_chunk_model_config_id: '', // ai大模型分段模型配置id
+  ai_chunk_enable_thinking: 0, // AI大模型分段深度思考开关
   ai_chunk_prumpt: defaultAiChunkPrumpt, // ai大模型分段提示词设置
   qa_index_type: 1,
   group_id: 0,
@@ -795,6 +810,7 @@ const getInfo = () => {
     formState.ai_chunk_size = res.data.ai_chunk_size || 5000
     formState.ai_chunk_model = res.data.ai_chunk_model
     formState.ai_chunk_model_config_id = res.data.ai_chunk_model_config_id
+    formState.ai_chunk_enable_thinking = +res.data.ai_chunk_enable_thinking || 0
     formState.ai_chunk_prumpt = res.data.ai_chunk_prumpt || defaultAiChunkPrumpt
     formState.father_chunk_paragraph_type = +res.data.father_chunk_paragraph_type || 2
     formState.father_chunk_separators_no = formatSeparatorsNo(
@@ -860,8 +876,10 @@ const onChangeModel = () => {
   handleEdit()
 }
 const vectorModelList = ref([])
-const onVectorModelLoaded = (list) => {
+const choosableThinking = ref({})
+const onVectorModelLoaded = (list, thinkingMap) => {
   vectorModelList.value = list
+  choosableThinking.value = thinkingMap || {}
 
   nextTick(() => {
     if (!formState.ai_chunk_model || !Number(formState.ai_chunk_model_config_id)) {
@@ -870,6 +888,10 @@ const onVectorModelLoaded = (list) => {
   })
   // handleEdit()
 }
+const showAiChunkEnableThinking = computed(() => {
+  const key = formState.ai_chunk_model_config_id + '#' + formState.ai_chunk_model
+  return !!choosableThinking.value[key]
+})
 
 const setDefaultModel = () => {
   if (vectorModelList.value.length > 0) {
@@ -982,6 +1004,7 @@ const handleEdit = (callback = null) => {
     ai_chunk_size: formState.ai_chunk_size,
     ai_chunk_model: formState.ai_chunk_model,
     ai_chunk_model_config_id: formState.ai_chunk_model_config_id,
+    ai_chunk_enable_thinking: formState.ai_chunk_enable_thinking,
     ai_chunk_prumpt: formState.ai_chunk_prumpt,
     father_chunk_paragraph_type: formState.father_chunk_paragraph_type,
     father_chunk_separators_no: JSON.stringify(formState.father_chunk_separators_no),

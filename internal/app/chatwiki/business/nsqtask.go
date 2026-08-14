@@ -304,6 +304,7 @@ func ConvertGraph(msg string, _ ...string) error {
 		nil,
 		0.1,
 		4096,
+		common.ThinkingDisabled,
 	)
 	if err != nil {
 		logs.Error(err.Error())
@@ -733,13 +734,14 @@ func ExtractFaqFiles(msg string, _ ...string) error {
 
 	adminUserId := cast.ToInt(file[`admin_user_id`])
 	splitFaqParams := define.SplitFaqParams{
-		ChunkType:          cast.ToInt(file[`chunk_type`]),
-		ChunkSize:          cast.ToInt(file[`chunk_size`]),
-		SeparatorsNo:       file[`separators_no`],
-		ChunkPrompt:        file[`chunk_prompt`],
-		ChunkModel:         file[`chunk_model`],
-		ChunkModelConfigId: cast.ToInt(file[`chunk_model_config_id`]),
-		ExtractType:        define.FAQExtractTypeAI,
+		ChunkType:           cast.ToInt(file[`chunk_type`]),
+		ChunkSize:           cast.ToInt(file[`chunk_size`]),
+		SeparatorsNo:        file[`separators_no`],
+		ChunkPrompt:         file[`chunk_prompt`],
+		ChunkModel:          file[`chunk_model`],
+		ChunkModelConfigId:  cast.ToInt(file[`chunk_model_config_id`]),
+		ChunkEnableThinking: cast.ToInt(file[`chunk_enable_thinking`]),
+		ExtractType:         define.FAQExtractTypeAI,
 	}
 	// FAQFileStatusAnalyzing
 	status := define.FAQFileStatusAnalyzing
@@ -1470,7 +1472,7 @@ func getAiCommentCheckRes(AdminUserId, userPrompt, use_model, model_config_id st
 	}
 
 	chatResp, _, err := common.RequestChat(define.LangZhCn, cast.ToInt(AdminUserId), AdminUserId, nil, lib_define.AppYunPc,
-		cast.ToInt(model_config_id), use_model, messages, nil, 0.5, 2000)
+		cast.ToInt(model_config_id), use_model, messages, nil, 0.5, 2000, common.ThinkingDisabled)
 	if err != nil {
 		logs.Error(`AI detection failed:` + err.Error())
 		return checkRes

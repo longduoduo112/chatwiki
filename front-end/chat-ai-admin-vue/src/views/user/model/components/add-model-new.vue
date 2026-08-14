@@ -60,9 +60,7 @@
           name="thinking_type"
           :label="t('thinking_type')"
           required
-          v-if="
-            showThinkTypeList.includes(model_info.model_define) && formState.model_type == 'LLM'
-          "
+          v-if="formState.model_type == 'LLM'"
         >
           <a-radio-group class="thiing-radio-box" v-model:value="formState.thinking_type">
             <a-radio value="1">{{ t('thinking_type_supported') }}</a-radio>
@@ -178,7 +176,7 @@
 </template>
 
 <script setup>
-import { ref, h, reactive, computed } from 'vue'
+import { ref, reactive, computed } from 'vue'
 import { useI18n } from '@/hooks/web/useI18n'
 import {} from '@ant-design/icons-vue'
 import { message } from 'ant-design-vue'
@@ -189,8 +187,6 @@ const { t } = useI18n('views.user.model.components.add-model-new')
 const open = ref(false)
 
 const emit = defineEmits('ok')
-
-const showThinkTypeList = ['siliconflow', 'doubao', 'tongyi']
 
 const sizeOptions = getSizeOptions()
 
