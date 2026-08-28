@@ -18,6 +18,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/alibabacloud-go/tea/tea"
 	"github.com/gin-contrib/sse"
 	"github.com/go-redis/redis/v8"
 	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
@@ -25,7 +26,8 @@ import (
 	"github.com/zhimaAi/go_tools/logs"
 	"github.com/zhimaAi/go_tools/msql"
 	"github.com/zhimaAi/go_tools/tool"
-	"github.com/zhimaAi/llm_adaptor/adaptor"
+	"github.com/zhimaAi/llm_adaptor/v2/chat"
+	"github.com/zhimaAi/llm_adaptor/v2/rerank"
 )
 
 func ToStringMap(data msql.Datas, adds ...any) msql.Params {
@@ -207,7 +209,7 @@ func GetLibFileInfo(fileId, adminUserId int) (msql.Params, error) {
 	return result, err
 }
 
-func GetMatchLibraryParagraphByVectorSimilarity(lang string, adminUserId int, robot msql.Params, openid, appType, question string, libraryIds string, size int, similarity float64, searchType int) ([]msql.Params, error) {
+func GetMatchLibraryParagraphByVectorSimilarity(ctx context.Context, lang string, adminUserId int, robot msql.Params, openid, appType, question string, libraryIds string, size int, similarity float64, searchType int) ([]msql.Params, error) {
 	result := make([]msql.Params, 0)
 	if !tool.InArrayInt(searchType, []int{define.SearchTypeMixed, define.SearchTypeVector}) {
 		return result, nil
@@ -242,7 +244,7 @@ func GetMatchLibraryParagraphByVectorSimilarity(lang string, adminUserId int, ro
 			wg.Add(1)
 			go func(wg *sync.WaitGroup, adminUserId int, robot msql.Params, openid, appType string, modelConfigId int, useModel, question string, libraryIds string, size int, list *define.SimilarityResult) {
 				defer wg.Done()
-				embedding, err := GetVector2000(lang, adminUserId, openid, robot, msql.Params{}, msql.Params{}, modelConfigId, useModel, question)
+				embedding, err := GetVector2000(ctx, lang, adminUserId, openid, robot, msql.Params{}, msql.Params{}, modelConfigId, useModel, question)
 				if err != nil {
 					logs.Error(err.Error())
 					return
@@ -272,7 +274,7 @@ func GetMatchLibraryParagraphByVectorSimilarity(lang string, adminUserId int, ro
 	return result, nil
 }
 
-func GetMatchLibraryParagraphByGraphSimilarity(lang string, robot msql.Params, openid, appType, question string, libraryIds string, size int, searchType int) ([]msql.Params, error) {
+func GetMatchLibraryParagraphByGraphSimilarity(ctx context.Context, lang string, robot msql.Params, openid, appType, question string, libraryIds string, size int, searchType int) ([]msql.Params, error) {
 	result := make([]msql.Params, 0)
 	if GetNeo4jStatus(cast.ToInt(robot[`admin_user_id`])) || !tool.InArrayInt(searchType, []int{define.SearchTypeMixed, define.SearchTypeGraph}) {
 		return result, nil
@@ -302,8 +304,9 @@ func GetMatchLibraryParagraphByGraphSimilarity(lang string, robot msql.Params, o
 
 	// 1. Extract entities from the question
 	extractEntitiesPrompt := strings.ReplaceAll(define.PromptDefaultEntityExtract, `{{question}}`, question)
-	messages := []adaptor.ZhimaChatCompletionMessage{{Role: `system`, Content: extractEntitiesPrompt}}
+	messages := []chat.Message{{Role: chat.RoleSystem, Content: chat.MessageContent{Text: tea.String(extractEntitiesPrompt)}}}
 	chatResp, _, err := RequestChat(
+		ctx,
 		lang,
 		cast.ToInt(robot[`admin_user_id`]),
 		openid,
@@ -323,17 +326,13 @@ func GetMatchLibraryParagraphByGraphSimilarity(lang string, robot msql.Params, o
 	}
 
 	// Clean and parse LLM response
-	chatResp.Result = strings.TrimSpace(chatResp.Result)
-	chatResp.Result = strings.TrimPrefix(chatResp.Result, "```json")
-	chatResp.Result = strings.TrimPrefix(chatResp.Result, "```")
-	chatResp.Result = strings.TrimSuffix(chatResp.Result, "```")
-	chatResp.Result = strings.TrimSpace(chatResp.Result)
+	chatResp.NormalizeJSONResult()
 
 	// 2. Parse the entity list extracted by LLM
 	var entities []string
-	err = json.Unmarshal([]byte(chatResp.Result), &entities)
+	err = json.Unmarshal([]byte(chatResp.Result()), &entities)
 	if err != nil {
-		logs.Error("Failed to parse entities: %s, raw data: %s", err.Error(), chatResp.Result)
+		logs.Error("Failed to parse entities: %s, raw data: %s", err.Error(), chatResp.Result())
 		return result, err
 	}
 
@@ -614,13 +613,17 @@ func GetMatchLibraryDataIdsByFullText(content, libraryIds string, size int) ([]s
 	return ids, nil
 }
 
-func GetMatchLibraryDataIdsByLike(content, libraryIds string, size int) ([]string, error) {
+func GetMatchLibraryDataIdsByLike(content, libraryIds string, size int, fields ...string) ([]string, error) {
 	ids := make([]string, 0)
+	field := `id`
+	if len(fields) > 0 {
+		field = fields[0]
+	}
 	// Exact search
 	ids, err := msql.Model(`chat_ai_library_file_data_index`, define.Postgres).Where(`library_id`, `in`, libraryIds).
 		Where(`delete_time`, `0`).
 		Where(fmt.Sprintf(`content ILIKE '%%%s%%'`, content)).
-		Limit(size).ColumnArr(`id`)
+		Limit(size).ColumnArr(field)
 	if err != nil {
 		return ids, err
 	}
@@ -646,7 +649,7 @@ func GetMatchFileParagraphIdsByFullTextSearch(question, fileIds string) ([]strin
 	return ids, nil
 }
 
-func GetMatchLibraryParagraphByMergeRerank(lang string, openid, appType, question string, list []msql.Params, robot msql.Params) ([]msql.Params, error) {
+func GetMatchLibraryParagraphByMergeRerank(ctx context.Context, lang string, openid, appType, question string, list []msql.Params, robot msql.Params) ([]msql.Params, error) {
 	if len(robot) == 0 || cast.ToInt(robot[`rerank_status`]) == 0 {
 		return nil, nil //not rerank config
 	}
@@ -669,17 +672,15 @@ func GetMatchLibraryParagraphByMergeRerank(lang string, openid, appType, questio
 		}
 		chunks = append(chunks, one[`content`])
 	}
-	rerankReq := &adaptor.ZhimaRerankReq{
-		Enable:   true,
-		Query:    question,
-		Passages: chunks,
-		Data:     list,
-		TopK:     min(500, len(list)),
+	rerankReq := &rerank.CreateRequest{
+		Query:     question,
+		Documents: chunks,
+		TopN:      tea.Int(min(500, len(list))),
 	}
-	return RerankData(lang, cast.ToInt(robot[`admin_user_id`]), openid, appType, robot, rerankReq)
+	return RerankData(ctx, lang, cast.ToInt(robot[`admin_user_id`]), openid, appType, robot, rerankReq, list)
 }
 
-func GetMatchLibraryParagraphList(lang string, openid, appType, appId, question string, optimizedQuestions []string, libraryIds string, size int, similarity float64, searchType int, robot msql.Params) (_ []msql.Params, libUseTime LibUseTime, _ error) {
+func GetMatchLibraryParagraphList(ctx context.Context, lang string, openid, appType, appId, question string, optimizedQuestions []string, libraryIds string, size int, similarity float64, searchType int, robot msql.Params) (_ []msql.Params, libUseTime LibUseTime, _ error) {
 	result := make([]msql.Params, 0)
 	if len(libraryIds) == 0 {
 		return result, libUseTime, nil
@@ -704,12 +705,12 @@ func GetMatchLibraryParagraphList(lang string, openid, appType, appId, question 
 
 	temp := time.Now()
 	for _, q := range append(optimizedQuestions, question) {
-		list, err := GetMatchLibraryParagraphByVectorSimilarity(lang, adminUserId, robot, openid, appType, q, libraryIds, fetchSize, similarity, searchType)
+		list, err := GetMatchLibraryParagraphByVectorSimilarity(ctx, lang, adminUserId, robot, openid, appType, q, libraryIds, fetchSize, similarity, searchType)
 		if err != nil {
 			logs.Error(err.Error())
 		}
 		vectorList = append(vectorList, changeListContent(list)...)
-		list, err = GetMatchLibraryParagraphByGraphSimilarity(lang, robot, openid, appType, q, libraryIds, fetchSize, searchType)
+		list, err = GetMatchLibraryParagraphByGraphSimilarity(ctx, lang, robot, openid, appType, q, libraryIds, fetchSize, searchType)
 		if err != nil {
 			logs.Error(err.Error())
 		}
@@ -758,7 +759,7 @@ func GetMatchLibraryParagraphList(lang string, openid, appType, appId, question 
 
 	// Rerank logic
 	temp = time.Now()
-	rerankList, err := GetMatchLibraryParagraphByMergeRerank(lang, openid, appType, question, list, robot)
+	rerankList, err := GetMatchLibraryParagraphByMergeRerank(ctx, lang, openid, appType, question, list, robot)
 	libUseTime.RerankTime = time.Now().Sub(temp).Milliseconds()
 	if err != nil {
 		logs.Error(err.Error())
@@ -1180,12 +1181,12 @@ func GetOptimizedQuestions(param *define.ChatRequestParam, contextList []map[str
 		prompt = strings.ReplaceAll(define.PromptDefaultQuestionOptimize, `{{dialogue_background}}`, ``)
 	}
 
-	messages := []adaptor.ZhimaChatCompletionMessage{{Role: `system`, Content: prompt}}
+	messages := []chat.Message{{Role: chat.RoleSystem, Content: chat.MessageContent{Text: tea.String(prompt)}}}
 	for _, item := range contextList {
-		messages = append(messages, adaptor.ZhimaChatCompletionMessage{Role: `user`, Content: item[`question`]})
-		messages = append(messages, adaptor.ZhimaChatCompletionMessage{Role: `assistant`, Content: item[`answer`]})
+		messages = append(messages, chat.Message{Role: chat.RoleUser, Content: chat.MessageContent{Text: tea.String(item[`question`])}})
+		messages = append(messages, chat.Message{Role: chat.RoleAssistant, Content: chat.MessageContent{Text: tea.String(item[`answer`])}})
 	}
-	messages = append(messages, adaptor.ZhimaChatCompletionMessage{Role: `user`, Content: question})
+	messages = append(messages, chat.Message{Role: chat.RoleUser, Content: chat.MessageContent{Text: tea.String(question)}})
 
 	modelConfigId := cast.ToInt(param.Robot[`model_config_id`])
 	useModel := param.Robot[`use_model`]
@@ -1195,6 +1196,7 @@ func GetOptimizedQuestions(param *define.ChatRequestParam, contextList []map[str
 	}
 
 	chatResp, _, err := RequestChat(
+		param.StopCtx,
 		param.Lang,
 		param.AdminUserId,
 		param.Openid,
@@ -1212,7 +1214,7 @@ func GetOptimizedQuestions(param *define.ChatRequestParam, contextList []map[str
 		return nil, err
 	}
 
-	return []string{chatResp.Result}, nil
+	return []string{chatResp.Result()}, nil
 }
 
 func ClientSideNeedLogin(adminUserId int) bool {
@@ -1294,14 +1296,14 @@ func GetRobotNode(robotId uint, nodeKey string) (msql.Params, error) {
 	return result, err
 }
 
-func LibraryAiSummary(lang string, adminUserId int, question, prompt, libraryIds string, size, maxToken int, similarity, temperature float64, searchType int, robot msql.Params, chanStream chan sse.Event, summarySwitch int) error {
+func LibraryAiSummary(ctx context.Context, lang string, adminUserId int, question, prompt, libraryIds string, size, maxToken int, similarity, temperature float64, searchType int, robot msql.Params, chanStream chan sse.Event, summarySwitch int) error {
 	defer close(chanStream)
 	chanStream <- sse.Event{Event: `ping`, Data: tool.Time2Int()}
 	if summarySwitch == define.SwitchOff {
 		chanStream <- sse.Event{Event: `finish`, Data: tool.Time2Int()}
 		return nil
 	}
-	list, _, err := GetMatchLibraryParagraphList(lang, cast.ToString(adminUserId), lib_define.AppYunH5, "", question, []string{}, libraryIds, size, similarity, searchType, robot)
+	list, _, err := GetMatchLibraryParagraphList(ctx, lang, cast.ToString(adminUserId), lib_define.AppYunH5, "", question, []string{}, libraryIds, size, similarity, searchType, robot)
 	if err != nil {
 		logs.Error(err.Error())
 		chanStream <- sse.Event{Event: `error`, Data: i18n.Show(lang, `sys_err`)}
@@ -1313,18 +1315,18 @@ func LibraryAiSummary(lang string, adminUserId int, question, prompt, libraryIds
 	}
 	quoteFile := []msql.Params{}
 	quoteFileMap := make(map[int]bool)
-	summary := []adaptor.ZhimaChatCompletionMessage{
+	summary := []chat.Message{
 		{
-			Role:    `user`,
-			Content: question,
+			Role:    chat.RoleUser,
+			Content: chat.MessageContent{Text: tea.String(question)},
 		},
 		{
-			Role:    `system`,
-			Content: prompt,
+			Role:    chat.RoleSystem,
+			Content: chat.MessageContent{Text: tea.String(prompt)},
 		},
 	}
 
-	prompt, _ = FormatSystemPrompt(lang, ``, list)
+	prompt, _ = FormatSystemPrompt(lang, adminUserId, ``, list)
 	for _, item := range list {
 		file, err := GetLibFileInfo(cast.ToInt(item[`file_id`]), cast.ToInt(item[`admin_user_id`]))
 		if err != nil {
@@ -1340,19 +1342,20 @@ func LibraryAiSummary(lang string, adminUserId int, question, prompt, libraryIds
 		})
 	}
 
-	summary = append(summary, adaptor.ZhimaChatCompletionMessage{
-		Role:    `assistant`,
-		Content: prompt,
+	summary = append(summary, chat.Message{
+		Role:    chat.RoleAssistant,
+		Content: chat.MessageContent{Text: tea.String(prompt)},
 	})
 	// to ai summary
 	chatResp, requestTime, err := RequestSearchStream(
+		ctx,
 		lang,
 		cast.ToInt(robot[`admin_user_id`]),
 		cast.ToInt(robot[`model_config_id`]),
 		strings.TrimSpace(robot[`use_model`]),
 		robot,
 		summary,
-		[]adaptor.FunctionTool{},
+		[]chat.Tool{},
 		chanStream,
 		float32(temperature),
 		maxToken,

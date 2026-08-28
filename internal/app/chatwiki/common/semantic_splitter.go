@@ -5,6 +5,7 @@ package common
 import (
 	"chatwiki/internal/app/chatwiki/define"
 	"chatwiki/internal/pkg/lib_redis"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -167,6 +168,7 @@ func (h *VectorCacheBuildHandler) GetCacheKey() string {
 
 func (h *VectorCacheBuildHandler) GetCacheData() (any, error) {
 	embedding, err := GetVector2000(
+		context.Background(),
 		define.LangEnUs,
 		h.AdminUserId,
 		cast.ToString(h.AdminUserId),

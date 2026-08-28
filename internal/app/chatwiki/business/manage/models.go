@@ -106,7 +106,7 @@ func AddModelConfig(c *gin.Context) {
 	}
 	for _, field := range modelConfig.ConfigParams {
 		value := strings.TrimSpace(c.PostForm(field))
-		if len(value) == 0 && field != `api_endpoint` {
+		if len(value) == 0 {
 			c.String(http.StatusOK, lib_web.FmtJson(nil, errors.New(i18n.Show(common.GetLang(c), `param_invalid`, field))))
 			return
 		}
@@ -230,7 +230,7 @@ func EditModelConfig(c *gin.Context) {
 	}
 	for _, field := range modelInfo.ConfigParams {
 		value := strings.TrimSpace(c.PostForm(field))
-		if len(value) == 0 && field != `api_endpoint` {
+		if len(value) == 0 {
 			c.String(http.StatusOK, lib_web.FmtJson(nil, errors.New(i18n.Show(common.GetLang(c), `param_invalid`, field))))
 			return
 		}
@@ -241,10 +241,6 @@ func EditModelConfig(c *gin.Context) {
 		data[field] = value
 	}
 	info := modelInfo.ConfigInfo
-	if tool.InArrayString(info[`model_define`], []string{common.ModelBaiduYiyan, common.ModelDoubao}) {
-		secretKey := strings.TrimSpace(c.PostForm(`secret_key`))
-		data[`secret_key`] = secretKey
-	}
 	//configuration test
 	if err := configurationTest(common.ToStringMap(data, `model_define`, info[`model_define`]), modelInfo, common.GetLang(c)); err != nil {
 		c.String(http.StatusOK, lib_web.FmtJson(nil, err))
@@ -288,7 +284,7 @@ func configurationTest(config msql.Params, modelInfo common.ModelInfo, lang stri
 	if err != nil {
 		return err
 	}
-	return common.ConfigurationTest(handler.Meta, useModels[0].ModelType)
+	return common.ConfigurationTest(handler.Client, handler.Model, useModels[0].ModelType)
 }
 
 func SetModelConfigWeight(c *gin.Context) {

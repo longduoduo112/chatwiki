@@ -16,13 +16,14 @@ import (
 	"unicode/utf8"
 
 	"github.com/ZeroHawkeye/wordZero/pkg/document"
+	"github.com/alibabacloud-go/tea/tea"
 	"github.com/gin-contrib/sse"
 	"github.com/spf13/cast"
 	"github.com/zhimaAi/go_tools/curl"
 	"github.com/zhimaAi/go_tools/logs"
 	"github.com/zhimaAi/go_tools/msql"
 	"github.com/zhimaAi/go_tools/tool"
-	"github.com/zhimaAi/llm_adaptor/adaptor"
+	"github.com/zhimaAi/llm_adaptor/v2/chat"
 )
 
 func UpdateLibFileFaq(id, adminUserId int, data msql.Datas) error {
@@ -178,14 +179,14 @@ func ExtractLibFaqFiles(adminUserId int, splitParams define.SplitFaqParams, subm
 		go func(wg *sync.WaitGroup, contentMap map[int]define.DocSplitItem, index int, contents string, errMsg *string) {
 			defer wg.Done()
 			defer func() { <-currChan }()
-			messages := []adaptor.ZhimaChatCompletionMessage{
+			messages := []chat.Message{
 				{
-					Role:    `system`,
-					Content: prompt + define.ExtractLibFaqFilesPrompt,
+					Role:    chat.RoleSystem,
+					Content: chat.MessageContent{Text: tea.String(prompt + define.ExtractLibFaqFilesPrompt)},
 				},
 				{
-					Role:    `user`,
-					Content: contents,
+					Role:    chat.RoleUser,
+					Content: chat.MessageContent{Text: tea.String(contents)},
 				},
 			}
 			ctx, cancel := context.WithCancel(context.Background())
@@ -223,7 +224,7 @@ func ExtractLibFaqFiles(adminUserId int, splitParams define.SplitFaqParams, subm
 				Content: contents,
 				Images:  item.Images,
 			}
-			if err != nil && len(chatResp.Result) <= 0 {
+			if err != nil && len(chatResp.Result()) <= 0 {
 				logs.Error(err.Error())
 				if retryTimes <= 3 {
 					retryTimes++
@@ -232,9 +233,8 @@ func ExtractLibFaqFiles(adminUserId int, splitParams define.SplitFaqParams, subm
 				*errMsg = err.Error()
 				docSplitItem.AiChunkErrMsg = err.Error()
 			} else {
-				chatResp.Result, _ = strings.CutPrefix(chatResp.Result, "```json")
-				chatResp.Result, _ = strings.CutSuffix(chatResp.Result, "```")
-				docSplitItem.Answer = chatResp.Result
+				chatResp.NormalizeJSONResult()
+				docSplitItem.Answer = chatResp.Result()
 			}
 			results <- docSplitItem
 			cancel()

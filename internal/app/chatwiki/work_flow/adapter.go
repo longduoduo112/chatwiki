@@ -26,7 +26,8 @@ import (
 	"github.com/zhimaAi/go_tools/logs"
 	"github.com/zhimaAi/go_tools/msql"
 	"github.com/zhimaAi/go_tools/tool"
-	"github.com/zhimaAi/llm_adaptor/adaptor"
+	"github.com/zhimaAi/llm_adaptor/v2/chat"
+	"github.com/zhimaAi/llm_adaptor/v2/image"
 )
 
 const (
@@ -66,6 +67,7 @@ const (
 	NodeTypeImmediatelyReply = 42 // Immediate reply
 	NodeTypeQuestion         = 43 // Question
 	NodeTypeHttpTool         = 45 // HTTP tool
+	NodeTypeRednoteReply     = 46 // Rednote reply private message
 	NodeTypeGoodsSearch      = 50 // Goods library search
 	NodeTypeAgent            = 52 // Agent (clawbot as a workflow node)
 )
@@ -93,7 +95,6 @@ var NodeTypes = [...]int{
 	NodeTypeFinish,
 	NodeTypeAssign,
 	NodeTypeReply,
-	NodeTypeManual,
 	NodeTypeQuestionOptimize,
 	NodeTypeParamsExtractor,
 	NodeTypeFormInsert,
@@ -168,8 +169,6 @@ func GetNodeByKey(flow *WorkFlow, robotId uint, nodeKey string) (NodeAdapter, ms
 		return &AssignNode{params: nodeParams.Assign, nextNodeKey: info[`next_node_key`]}, info, nil
 	case NodeTypeReply:
 		return &ReplyNode{params: nodeParams.Reply, nextNodeKey: info[`next_node_key`]}, info, nil
-	case NodeTypeManual:
-		return &ManualNode{params: nodeParams.Manual}, info, nil
 	case NodeTypeQuestionOptimize:
 		return &QuestionOptimizeNode{params: nodeParams.QuestionOptimize, nextNodeKey: info[`next_node_key`]}, info, nil
 	case NodeTypeParamsExtractor:
@@ -250,9 +249,9 @@ func (n *StartNode) Running(flow *WorkFlow) (output common.SimpleFields, nextNod
 				question := strings.TrimSpace(flow.params.Question)
 				if questionMultiple, ok := common.ParseInputQuestion(question); ok {
 					var qm any
-					_ = tool.JsonDecodeUseNumber(tool.JsonEncodeNoError(common.QuestionMultipleAppendImageDomain(questionMultiple)), &qm)
+					_ = tool.JsonDecodeUseNumber(tool.JsonEncodeNoError(common.ContentPartsAppendImageDomain(questionMultiple)), &qm)
 					flow.global[`question_multiple`] = common.SimpleField{Key: `question_multiple`, Typ: common.TypArrObject}.SetVals(qm)
-					flow.global[`question`] = common.SimpleField{Key: `question`, Typ: common.TypString}.SetVals(common.GetQuestionByQuestionMultiple(questionMultiple))
+					flow.global[`question`] = common.SimpleField{Key: `question`, Typ: common.TypString}.SetVals(common.GetQuestionByContentParts(questionMultiple))
 				} else {
 					flow.global[`question`] = common.SimpleField{Key: `question`, Typ: common.TypString}.SetVals(question)
 				}
@@ -322,7 +321,7 @@ func (n *CateNode) Running(flow *WorkFlow) (output common.SimpleFields, nextNode
 	debugLog := common.SimpleField{Key: `special.llm_debug_log`, Typ: common.TypArrObject, Vals: []common.Val{}}
 
 	//part0:init messages
-	messages := make([]adaptor.ZhimaChatCompletionMessage, 0)
+	messages := make([]chat.Message, 0)
 
 	//part1:prompt
 	categorys := make([]string, 0)
@@ -342,7 +341,7 @@ func (n *CateNode) Running(flow *WorkFlow) (output common.SimpleFields, nextNode
 	prompt := fmt.Sprintf(define.WorkFlowCateNodePrompt, strings.Join(categorys, "\n"))
 
 	if n.params.Role == define.PromptRoleTypeSystem {
-		messages = append(messages, adaptor.ZhimaChatCompletionMessage{Role: define.PromptRoleTypeMap[define.PromptRoleTypeSystem], Content: prompt})
+		messages = append(messages, chat.Message{Role: chat.RoleSystem, Content: chat.MessageContent{Text: tea.String(prompt)}})
 		debugLog.Vals = append(debugLog.Vals, common.Val{Object: map[string]string{`type`: `prompt`, `content`: prompt}})
 	} else {
 		debugLog.Vals = append(debugLog.Vals, common.Val{Object: map[string]string{`type`: `prompt`, `content`: ``}})
@@ -353,8 +352,8 @@ func (n *CateNode) Running(flow *WorkFlow) (output common.SimpleFields, nextNode
 	contextList := common.BuildChatContextPair(openid, cast.ToInt(flow.params.Robot[`id`]),
 		flow.params.DialogueId, flow.params.SessionId, flow.params.CurMsgId, n.params.ContextPair.Int())
 	for i := range contextList {
-		messages = append(messages, adaptor.ZhimaChatCompletionMessage{Role: `user`, Content: contextList[i][`question`]})
-		messages = append(messages, adaptor.ZhimaChatCompletionMessage{Role: `assistant`, Content: contextList[i][`answer`]})
+		messages = append(messages, chat.Message{Role: chat.RoleUser, Content: chat.MessageContent{Text: tea.String(contextList[i][`question`])}})
+		messages = append(messages, chat.Message{Role: chat.RoleAssistant, Content: chat.MessageContent{Text: tea.String(contextList[i][`answer`])}})
 		debugLog.Vals = append(debugLog.Vals, common.Val{Object: map[string]string{`type`: `context_qa`, `question`: contextList[i][`question`], `answer`: contextList[i][`answer`]}})
 	}
 	//part3:cur_question
@@ -367,27 +366,28 @@ func (n *CateNode) Running(flow *WorkFlow) (output common.SimpleFields, nextNode
 	//part3:question,prompt+question
 	if n.params.Role == define.PromptRoleTypeUser {
 		content := strings.Join([]string{prompt, question}, "\n\n")
-		messages = append(messages, adaptor.ZhimaChatCompletionMessage{Role: `user`, Content: content})
+		messages = append(messages, chat.Message{Role: chat.RoleUser, Content: chat.MessageContent{Text: tea.String(content)}})
 		debugLog.Vals = append(debugLog.Vals, common.Val{Object: map[string]string{`type`: `cur_question`, `content`: content}})
 	} else {
-		messages = append(messages, adaptor.ZhimaChatCompletionMessage{Role: `user`, Content: question})
+		messages = append(messages, chat.Message{Role: chat.RoleUser, Content: chat.MessageContent{Text: tea.String(question)}})
 		debugLog.Vals = append(debugLog.Vals, common.Val{Object: map[string]string{`type`: `cur_question`, `content`: question}})
 	}
 
 	//request chat
 	chatResp, requestTime, err := common.RequestChat(
+		flow.context,
 		flow.params.Lang, flow.params.AdminUserId, openid, flow.params.Robot, flow.params.AppType,
 		n.params.ModelConfigId.Int(), n.params.UseModel, messages, nil, n.params.Temperature, n.params.MaxToken.Int(),
 		common.ThinkingSwitch(n.params.EnableThinking),
 	)
 	flow.LlmCallLogs(LlmCallInfo{Params: n.params.LlmBaseParams, Messages: messages, ChatResp: chatResp, RequestTime: requestTime, Error: err})
 	// Record deep thinking content to debug log if available
-	if len(chatResp.ReasoningContent) > 0 {
-		flow.Logs(`Record deep thinking content to debug log, length: %d`, len(chatResp.ReasoningContent))
-		debugLog.Vals = append(debugLog.Vals, common.Val{Object: map[string]string{`type`: `llm_thinking`, `content`: chatResp.ReasoningContent}})
+	if len(chatResp.ReasoningContent()) > 0 {
+		flow.Logs(`Record deep thinking content to debug log, length: %d`, len(chatResp.ReasoningContent()))
+		debugLog.Vals = append(debugLog.Vals, common.Val{Object: map[string]string{`type`: `llm_thinking`, `content`: chatResp.ReasoningContent()}})
 	}
 	// Output log in advance to avoid missing log due to error below
-	debugLog.Vals = append(debugLog.Vals, common.Val{Object: map[string]string{`type`: `llm_answer`, `content`: chatResp.Result}})
+	debugLog.Vals = append(debugLog.Vals, common.Val{Object: map[string]string{`type`: `llm_answer`, `content`: chatResp.Result()}})
 	debugLog.Vals = append(debugLog.Vals, common.Val{Object: map[string]any{`type`: `llm_error`, `content`: err}})
 	output = common.SimpleFields{debugLog.Key: debugLog}
 	if err != nil {
@@ -395,20 +395,20 @@ func (n *CateNode) Running(flow *WorkFlow) (output common.SimpleFields, nextNode
 		nextNodeKey = n.nextNodeKey
 		return
 	}
-	output[`llm_result.completion_token`] = common.SimpleField{Key: `llm_result.completion_token`, Typ: common.TypNumber, Vals: []common.Val{{Number: &chatResp.CompletionToken}}}
-	output[`llm_result.prompt_token`] = common.SimpleField{Key: `llm_result.prompt_token`, Typ: common.TypNumber, Vals: []common.Val{{Number: &chatResp.PromptToken}}}
-	number, err := cast.ToIntE(chatResp.Result)
+	output[`llm_result.completion_token`] = common.SimpleField{Key: `llm_result.completion_token`, Typ: common.TypNumber, Vals: []common.Val{{Number: &chatResp.Usage.CompletionTokens}}}
+	output[`llm_result.prompt_token`] = common.SimpleField{Key: `llm_result.prompt_token`, Typ: common.TypNumber, Vals: []common.Val{{Number: &chatResp.Usage.PromptTokens}}}
+	number, err := cast.ToIntE(chatResp.Result())
 	if err != nil || number < 0 || number > len(n.params.Categorys) {
-		flow.Logs(`llm returned unexpected result:` + chatResp.Result)
+		flow.Logs(`llm returned unexpected result:` + chatResp.Result())
 		nextNodeKey = n.nextNodeKey
 		return
 	}
 	if number == 0 {
-		flow.Logs(`llm determined not belonging to listed categories:` + chatResp.Result)
+		flow.Logs(`llm determined not belonging to listed categories:` + chatResp.Result())
 		nextNodeKey = n.nextNodeKey
 		return
 	}
-	flow.Logs(`llm determined category is:(%s)%s`, chatResp.Result, n.params.Categorys[number-1].Category)
+	flow.Logs(`llm determined category is:(%s)%s`, chatResp.Result(), n.params.Categorys[number-1].Category)
 	nextNodeKey = n.params.Categorys[number-1].NextNodeKey
 	return
 }
@@ -625,7 +625,7 @@ func (n *LibsNode) Running(flow *WorkFlow) (output common.SimpleFields, nextNode
 	}
 
 	list, libUseTime, err := common.GetMatchLibraryParagraphList(
-		flow.params.Lang, openid, flow.params.AppType, appId, question, []string{},
+		flow.context, flow.params.Lang, openid, flow.params.AppType, appId, question, []string{},
 		n.params.LibraryIds, n.params.TopK.Int(), n.params.Similarity, n.params.SearchType.Int(), robot,
 	)
 	isBackground := len(flow.params.Customer) > 0 && cast.ToInt(flow.params.Customer[`is_background`]) > 0
@@ -647,7 +647,7 @@ func (n *LibsNode) Running(flow *WorkFlow) (output common.SimpleFields, nextNode
 	}
 	output = common.SimpleFields{
 		`special.lib_use_time`:       common.SimpleField{Key: `special.lib_use_time`, Typ: common.TypObject, Vals: []common.Val{{Object: libUseTime}}},
-		`special.lib_paragraph_list`: common.SimpleField{Key: `special.lib_paragraph_list`, Typ: common.TypArrParams, Vals: vals, Lang: flow.params.Lang},
+		`special.lib_paragraph_list`: common.SimpleField{Key: `special.lib_paragraph_list`, Typ: common.TypArrParams, Vals: vals, Lang: flow.params.Lang, AdminUserId: flow.params.AdminUserId},
 	}
 	nextNodeKey = n.nextNodeKey
 	return
@@ -677,7 +677,7 @@ func (n *LlmNode) Running(flow *WorkFlow) (output common.SimpleFields, nextNodeK
 	}
 
 	//part0:init messages
-	messages := make([]adaptor.ZhimaChatCompletionMessage, 0)
+	messages := make([]chat.Message, 0)
 	//part1:prompt
 	list := make([]msql.Params, 0)
 	libsOutput := flow.output
@@ -688,12 +688,12 @@ func (n *LlmNode) Running(flow *WorkFlow) (output common.SimpleFields, nextNodeK
 		list = append(list, val.Params)
 	}
 	confPrompt := flow.VariableReplace(n.params.Prompt)
-	prompt, libraryContent := common.FormatSystemPrompt(flow.params.Lang, confPrompt, list)
+	prompt, libraryContent := common.FormatSystemPrompt(flow.params.Lang, flow.params.AdminUserId, confPrompt, list)
 	if n.params.Role == define.PromptRoleTypeUser {
-		messages = append(messages, adaptor.ZhimaChatCompletionMessage{Role: define.PromptRoleTypeMap[define.PromptRoleTypeSystem], Content: libraryContent})
+		messages = append(messages, chat.Message{Role: chat.RoleSystem, Content: chat.MessageContent{Text: tea.String(libraryContent)}})
 		debugLog.Vals = append(debugLog.Vals, common.Val{Object: map[string]string{`type`: `prompt`, `content`: libraryContent}})
 	} else {
-		messages = append(messages, adaptor.ZhimaChatCompletionMessage{Role: define.PromptRoleTypeMap[define.PromptRoleTypeSystem], Content: prompt})
+		messages = append(messages, chat.Message{Role: chat.RoleSystem, Content: chat.MessageContent{Text: tea.String(prompt)}})
 		debugLog.Vals = append(debugLog.Vals, common.Val{Object: map[string]string{`type`: `prompt`, `content`: prompt}})
 	}
 	//part2:context_qa
@@ -701,8 +701,8 @@ func (n *LlmNode) Running(flow *WorkFlow) (output common.SimpleFields, nextNodeK
 	contextList := common.BuildChatContextPair(openid, cast.ToInt(flow.params.Robot[`id`]),
 		flow.params.DialogueId, flow.params.SessionId, flow.params.CurMsgId, n.params.ContextPair.Int())
 	for i := range contextList {
-		messages = append(messages, adaptor.ZhimaChatCompletionMessage{Role: `user`, Content: contextList[i][`question`]})
-		messages = append(messages, adaptor.ZhimaChatCompletionMessage{Role: `assistant`, Content: contextList[i][`answer`]})
+		messages = append(messages, chat.Message{Role: chat.RoleUser, Content: chat.MessageContent{Text: tea.String(contextList[i][`question`])}})
+		messages = append(messages, chat.Message{Role: chat.RoleAssistant, Content: chat.MessageContent{Text: tea.String(contextList[i][`answer`])}})
 		debugLog.Vals = append(debugLog.Vals, common.Val{Object: map[string]string{`type`: `context_qa`, `question`: contextList[i][`question`], `answer`: contextList[i][`answer`]}})
 	}
 	//part3:question,prompt+question
@@ -713,28 +713,29 @@ func (n *LlmNode) Running(flow *WorkFlow) (output common.SimpleFields, nextNodeK
 	}
 	if n.params.Role == define.PromptRoleTypeUser {
 		content := strings.Join([]string{confPrompt, question}, "\n\n")
-		messages = append(messages, adaptor.ZhimaChatCompletionMessage{Role: `user`, Content: content})
+		messages = append(messages, chat.Message{Role: chat.RoleUser, Content: chat.MessageContent{Text: tea.String(content)}})
 		debugLog.Vals = append(debugLog.Vals, common.Val{Object: map[string]string{`type`: `cur_question`, `content`: content}})
 	} else {
-		messages = append(messages, adaptor.ZhimaChatCompletionMessage{Role: `user`, Content: question})
+		messages = append(messages, chat.Message{Role: chat.RoleUser, Content: chat.MessageContent{Text: tea.String(question)}})
 		debugLog.Vals = append(debugLog.Vals, common.Val{Object: map[string]string{`type`: `cur_question`, `content`: question}})
 	}
 	//append OpenApiContent
 	messages = common.BuildOpenApiContent(flow.params.ChatRequestParam, messages)
 	//request chat
 	chatResp, requestTime, err := common.RequestChat(
+		flow.context,
 		flow.params.Lang, flow.params.AdminUserId, openid, flow.params.Robot, flow.params.AppType,
 		n.params.ModelConfigId.Int(), n.params.UseModel, messages, nil, n.params.Temperature, n.params.MaxToken.Int(),
 		common.ThinkingSwitch(n.params.EnableThinking),
 	)
 	flow.LlmCallLogs(LlmCallInfo{Params: n.params.LlmBaseParams, Messages: messages, ChatResp: chatResp, RequestTime: requestTime, Error: err})
 	// Record deep thinking content to debug log if available
-	if len(chatResp.ReasoningContent) > 0 {
-		flow.Logs(`Record deep thinking content to debug log, length: %d`, len(chatResp.ReasoningContent))
-		debugLog.Vals = append(debugLog.Vals, common.Val{Object: map[string]string{`type`: `llm_thinking`, `content`: chatResp.ReasoningContent}})
+	if len(chatResp.ReasoningContent()) > 0 {
+		flow.Logs(`Record deep thinking content to debug log, length: %d`, len(chatResp.ReasoningContent()))
+		debugLog.Vals = append(debugLog.Vals, common.Val{Object: map[string]string{`type`: `llm_thinking`, `content`: chatResp.ReasoningContent()}})
 	}
 	// Output log in advance to avoid missing log due to error below
-	debugLog.Vals = append(debugLog.Vals, common.Val{Object: map[string]string{`type`: `llm_answer`, `content`: chatResp.Result}})
+	debugLog.Vals = append(debugLog.Vals, common.Val{Object: map[string]string{`type`: `llm_answer`, `content`: chatResp.Result()}})
 	debugLog.Vals = append(debugLog.Vals, common.Val{Object: map[string]any{`type`: `llm_error`, `content`: err}})
 	output = common.SimpleFields{
 		`special.lib_use_time`:       libsOutput[`special.lib_use_time`],
@@ -747,10 +748,10 @@ func (n *LlmNode) Running(flow *WorkFlow) (output common.SimpleFields, nextNodeK
 	}
 	llmTime := int(requestTime)
 	output[`special.llm_request_time`] = common.SimpleField{Key: `special.llm_request_time`, Typ: common.TypNumber, Vals: []common.Val{{Number: &llmTime}}}
-	output[`special.llm_reply_content`] = common.SimpleField{Key: `special.llm_reply_content`, Typ: common.TypString, Vals: []common.Val{{String: &chatResp.Result}}}
-	output[`special.mcp_reply_content`] = common.SimpleField{Key: `special.mcp_reply_content`, Typ: common.TypString, Vals: []common.Val{{String: &chatResp.Result}}}
-	output[`llm_result.completion_token`] = common.SimpleField{Key: `llm_result.completion_token`, Typ: common.TypNumber, Vals: []common.Val{{Number: &chatResp.CompletionToken}}}
-	output[`llm_result.prompt_token`] = common.SimpleField{Key: `llm_result.prompt_token`, Typ: common.TypNumber, Vals: []common.Val{{Number: &chatResp.PromptToken}}}
+	output[`special.llm_reply_content`] = common.SimpleField{Key: `special.llm_reply_content`, Typ: common.TypString, Vals: []common.Val{{String: tea.String(chatResp.Result())}}}
+	output[`special.mcp_reply_content`] = common.SimpleField{Key: `special.mcp_reply_content`, Typ: common.TypString, Vals: []common.Val{{String: tea.String(chatResp.Result())}}}
+	output[`llm_result.completion_token`] = common.SimpleField{Key: `llm_result.completion_token`, Typ: common.TypNumber, Vals: []common.Val{{Number: &chatResp.Usage.CompletionTokens}}}
+	output[`llm_result.prompt_token`] = common.SimpleField{Key: `llm_result.prompt_token`, Typ: common.TypNumber, Vals: []common.Val{{Number: &chatResp.Usage.PromptTokens}}}
 	nextNodeKey = n.nextNodeKey
 	return
 }
@@ -922,21 +923,6 @@ func (n *ReplyNode) Params() any {
 	return n.params
 }
 
-type ManualNode struct {
-	params ManualNodeParams
-}
-
-func (n *ManualNode) Running(flow *WorkFlow) (_ common.SimpleFields, _ string, err error) {
-	flow.Logs(`Executing transfer to human logic...`)
-	flow.isFinish = true
-	err = errors.New(i18n.Show(flow.params.Lang, `cloud_version_manual_node_only`))
-	return
-}
-
-func (n *ManualNode) Params() any {
-	return n.params
-}
-
 type QuestionOptimizeNode struct {
 	params      QuestionOptimizeNodeParams
 	nextNodeKey string
@@ -947,7 +933,7 @@ func (n *QuestionOptimizeNode) Running(flow *WorkFlow) (output common.SimpleFiel
 	debugLog := common.SimpleField{Key: `special.question_optimize_debug_log`, Typ: common.TypArrObject, Vals: []common.Val{}}
 
 	//part0:init messages
-	messages := make([]adaptor.ZhimaChatCompletionMessage, 0)
+	messages := make([]chat.Message, 0)
 	// Compatible with frontend input
 	if n.params.Role >= 1 {
 		n.params.Role -= 1
@@ -966,7 +952,7 @@ func (n *QuestionOptimizeNode) Running(flow *WorkFlow) (output common.SimpleFiel
 	}
 
 	if n.params.Role == define.PromptRoleTypeSystem {
-		messages = append(messages, adaptor.ZhimaChatCompletionMessage{Role: define.PromptRoleTypeMap[define.PromptRoleTypeSystem], Content: prompt})
+		messages = append(messages, chat.Message{Role: chat.RoleSystem, Content: chat.MessageContent{Text: tea.String(prompt)}})
 		debugLog.Vals = append(debugLog.Vals, common.Val{Object: map[string]string{`type`: `prompt`, `content`: prompt}})
 	} else {
 		debugLog.Vals = append(debugLog.Vals, common.Val{Object: map[string]string{`type`: `prompt`, `content`: ``}})
@@ -977,8 +963,8 @@ func (n *QuestionOptimizeNode) Running(flow *WorkFlow) (output common.SimpleFiel
 	contextList := common.BuildChatContextPair(openid, cast.ToInt(flow.params.Robot[`id`]),
 		flow.params.DialogueId, flow.params.SessionId, flow.params.CurMsgId, n.params.ContextPair.Int())
 	for i := range contextList {
-		messages = append(messages, adaptor.ZhimaChatCompletionMessage{Role: `user`, Content: contextList[i][`question`]})
-		messages = append(messages, adaptor.ZhimaChatCompletionMessage{Role: `assistant`, Content: contextList[i][`answer`]})
+		messages = append(messages, chat.Message{Role: chat.RoleUser, Content: chat.MessageContent{Text: tea.String(contextList[i][`question`])}})
+		messages = append(messages, chat.Message{Role: chat.RoleAssistant, Content: chat.MessageContent{Text: tea.String(contextList[i][`answer`])}})
 		debugLog.Vals = append(debugLog.Vals, common.Val{Object: map[string]string{`type`: `context_qa`, `question`: contextList[i][`question`], `answer`: contextList[i][`answer`]}})
 	}
 	//part4:cur_question
@@ -990,10 +976,10 @@ func (n *QuestionOptimizeNode) Running(flow *WorkFlow) (output common.SimpleFiel
 
 	if n.params.Role == define.PromptRoleTypeUser {
 		content := strings.Join([]string{prompt, question}, "\n\n")
-		messages = append(messages, adaptor.ZhimaChatCompletionMessage{Role: `user`, Content: content})
+		messages = append(messages, chat.Message{Role: chat.RoleUser, Content: chat.MessageContent{Text: tea.String(content)}})
 		debugLog.Vals = append(debugLog.Vals, common.Val{Object: map[string]string{`type`: `cur_question`, `content`: content}})
 	} else {
-		messages = append(messages, adaptor.ZhimaChatCompletionMessage{Role: `user`, Content: question})
+		messages = append(messages, chat.Message{Role: chat.RoleUser, Content: chat.MessageContent{Text: tea.String(question)}})
 		debugLog.Vals = append(debugLog.Vals, common.Val{Object: map[string]string{`type`: `cur_question`, `content`: question}})
 	}
 
@@ -1001,18 +987,19 @@ func (n *QuestionOptimizeNode) Running(flow *WorkFlow) (output common.SimpleFiel
 	messages = common.BuildOpenApiContent(flow.params.ChatRequestParam, messages)
 	//request chat
 	chatResp, requestTime, err := common.RequestChat(
+		flow.context,
 		flow.params.Lang, flow.params.AdminUserId, openid, flow.params.Robot, flow.params.AppType,
 		n.params.ModelConfigId.Int(), n.params.UseModel, messages, nil, n.params.Temperature, n.params.MaxToken.Int(),
 		common.ThinkingSwitch(n.params.EnableThinking),
 	)
 	flow.LlmCallLogs(LlmCallInfo{Params: n.params.LlmBaseParams, Messages: messages, ChatResp: chatResp, RequestTime: requestTime, Error: err})
 	// Record deep thinking content to debug log if available
-	if len(chatResp.ReasoningContent) > 0 {
-		flow.Logs(`Record deep thinking content to debug log, length: %d`, len(chatResp.ReasoningContent))
-		debugLog.Vals = append(debugLog.Vals, common.Val{Object: map[string]string{`type`: `question_optimize_thinking`, `content`: chatResp.ReasoningContent}})
+	if len(chatResp.ReasoningContent()) > 0 {
+		flow.Logs(`Record deep thinking content to debug log, length: %d`, len(chatResp.ReasoningContent()))
+		debugLog.Vals = append(debugLog.Vals, common.Val{Object: map[string]string{`type`: `question_optimize_thinking`, `content`: chatResp.ReasoningContent()}})
 	}
 	// Output log in advance to avoid missing log due to error below
-	debugLog.Vals = append(debugLog.Vals, common.Val{Object: map[string]string{`type`: `question_optimize_answer`, `content`: chatResp.Result}})
+	debugLog.Vals = append(debugLog.Vals, common.Val{Object: map[string]string{`type`: `question_optimize_answer`, `content`: chatResp.Result()}})
 	debugLog.Vals = append(debugLog.Vals, common.Val{Object: map[string]any{`type`: `question_optimize_error`, `content`: err}})
 	output = common.SimpleFields{
 		debugLog.Key: debugLog,
@@ -1023,9 +1010,9 @@ func (n *QuestionOptimizeNode) Running(flow *WorkFlow) (output common.SimpleFiel
 	}
 	llmTime := int(requestTime)
 	output[`special.question_optimize_request_time`] = common.SimpleField{Key: `special.question_optimize_request_time`, Typ: common.TypNumber, Vals: []common.Val{{Number: &llmTime}}}
-	output[`special.question_optimize_reply_content`] = common.SimpleField{Key: `special.question_optimize_reply_content`, Typ: common.TypString, Vals: []common.Val{{String: &chatResp.Result}}}
-	output[`llm_result.completion_token`] = common.SimpleField{Key: `llm_result.completion_token`, Typ: common.TypNumber, Vals: []common.Val{{Number: &chatResp.CompletionToken}}}
-	output[`llm_result.prompt_token`] = common.SimpleField{Key: `llm_result.prompt_token`, Typ: common.TypNumber, Vals: []common.Val{{Number: &chatResp.PromptToken}}}
+	output[`special.question_optimize_reply_content`] = common.SimpleField{Key: `special.question_optimize_reply_content`, Typ: common.TypString, Vals: []common.Val{{String: tea.String(chatResp.Result())}}}
+	output[`llm_result.completion_token`] = common.SimpleField{Key: `llm_result.completion_token`, Typ: common.TypNumber, Vals: []common.Val{{Number: &chatResp.Usage.CompletionTokens}}}
+	output[`llm_result.prompt_token`] = common.SimpleField{Key: `llm_result.prompt_token`, Typ: common.TypNumber, Vals: []common.Val{{Number: &chatResp.Usage.PromptTokens}}}
 	nextNodeKey = n.nextNodeKey
 	return
 }
@@ -1044,7 +1031,7 @@ func (n *ParamsExtractorNode) Running(flow *WorkFlow) (outputs common.SimpleFiel
 	debugLog := common.SimpleField{Key: `special.params_extractor_debug_log`, Typ: common.TypArrObject, Vals: []common.Val{}}
 
 	//part0:init messages
-	messages := make([]adaptor.ZhimaChatCompletionMessage, 0)
+	messages := make([]chat.Message, 0)
 	// Compatible with frontend input
 	if n.params.Role >= 1 {
 		n.params.Role -= 1
@@ -1066,7 +1053,7 @@ func (n *ParamsExtractorNode) Running(flow *WorkFlow) (outputs common.SimpleFiel
 
 	prompt = fmt.Sprintf(prompt, userPrompt, params)
 	if n.params.Role == define.PromptRoleTypeSystem {
-		messages = append(messages, adaptor.ZhimaChatCompletionMessage{Role: define.PromptRoleTypeMap[define.PromptRoleTypeSystem], Content: prompt})
+		messages = append(messages, chat.Message{Role: chat.RoleSystem, Content: chat.MessageContent{Text: tea.String(prompt)}})
 		debugLog.Vals = append(debugLog.Vals, common.Val{Object: map[string]string{`type`: `prompt`, `content`: prompt}})
 	} else {
 		debugLog.Vals = append(debugLog.Vals, common.Val{Object: map[string]string{`type`: `prompt`, `content`: ``}})
@@ -1077,8 +1064,8 @@ func (n *ParamsExtractorNode) Running(flow *WorkFlow) (outputs common.SimpleFiel
 	contextList := common.BuildChatContextPair(openid, cast.ToInt(flow.params.Robot[`id`]),
 		flow.params.DialogueId, flow.params.SessionId, flow.params.CurMsgId, n.params.ContextPair.Int())
 	for i := range contextList {
-		messages = append(messages, adaptor.ZhimaChatCompletionMessage{Role: `user`, Content: contextList[i][`question`]})
-		messages = append(messages, adaptor.ZhimaChatCompletionMessage{Role: `assistant`, Content: contextList[i][`answer`]})
+		messages = append(messages, chat.Message{Role: chat.RoleUser, Content: chat.MessageContent{Text: tea.String(contextList[i][`question`])}})
+		messages = append(messages, chat.Message{Role: chat.RoleAssistant, Content: chat.MessageContent{Text: tea.String(contextList[i][`answer`])}})
 		debugLog.Vals = append(debugLog.Vals, common.Val{Object: map[string]string{`type`: `context_qa`, `question`: contextList[i][`question`], `answer`: contextList[i][`answer`]}})
 	}
 	//part4:cur_question
@@ -1090,10 +1077,10 @@ func (n *ParamsExtractorNode) Running(flow *WorkFlow) (outputs common.SimpleFiel
 
 	if n.params.Role == define.PromptRoleTypeUser {
 		content := strings.Join([]string{prompt, question}, "\n\n")
-		messages = append(messages, adaptor.ZhimaChatCompletionMessage{Role: `user`, Content: content})
+		messages = append(messages, chat.Message{Role: chat.RoleUser, Content: chat.MessageContent{Text: tea.String(content)}})
 		debugLog.Vals = append(debugLog.Vals, common.Val{Object: map[string]string{`type`: `cur_question`, `content`: content}})
 	} else {
-		messages = append(messages, adaptor.ZhimaChatCompletionMessage{Role: `user`, Content: question})
+		messages = append(messages, chat.Message{Role: chat.RoleUser, Content: chat.MessageContent{Text: tea.String(question)}})
 		debugLog.Vals = append(debugLog.Vals, common.Val{Object: map[string]string{`type`: `cur_question`, `content`: question}})
 	}
 
@@ -1101,20 +1088,20 @@ func (n *ParamsExtractorNode) Running(flow *WorkFlow) (outputs common.SimpleFiel
 	messages = common.BuildOpenApiContent(flow.params.ChatRequestParam, messages)
 	//request chat
 	chatResp, requestTime, err := common.RequestChat(
+		flow.context,
 		flow.params.Lang, flow.params.AdminUserId, openid, flow.params.Robot, flow.params.AppType,
 		n.params.ModelConfigId.Int(), n.params.UseModel, messages, nil, n.params.Temperature, n.params.MaxToken.Int(),
 		common.ThinkingSwitch(n.params.EnableThinking),
 	)
 	flow.LlmCallLogs(LlmCallInfo{Params: n.params.LlmBaseParams, Messages: messages, ChatResp: chatResp, RequestTime: requestTime, Error: err})
 	// Record deep thinking content to debug log if available
-	if len(chatResp.ReasoningContent) > 0 {
-		flow.Logs(`Record deep thinking content to debug log, length: %d`, len(chatResp.ReasoningContent))
-		debugLog.Vals = append(debugLog.Vals, common.Val{Object: map[string]string{`type`: `params_extractor_thinking`, `content`: chatResp.ReasoningContent}})
+	if len(chatResp.ReasoningContent()) > 0 {
+		flow.Logs(`Record deep thinking content to debug log, length: %d`, len(chatResp.ReasoningContent()))
+		debugLog.Vals = append(debugLog.Vals, common.Val{Object: map[string]string{`type`: `params_extractor_thinking`, `content`: chatResp.ReasoningContent()}})
 	}
-	chatResp.Result, _ = strings.CutPrefix(chatResp.Result, "```json")
-	chatResp.Result, _ = strings.CutSuffix(chatResp.Result, "```")
+	chatResp.NormalizeJSONResult()
 	// Output log in advance to avoid missing log due to error below
-	debugLog.Vals = append(debugLog.Vals, common.Val{Object: map[string]string{`type`: `params_extractor_answer`, `content`: chatResp.Result}})
+	debugLog.Vals = append(debugLog.Vals, common.Val{Object: map[string]string{`type`: `params_extractor_answer`, `content`: chatResp.Result()}})
 	debugLog.Vals = append(debugLog.Vals, common.Val{Object: map[string]any{`type`: `params_extractor_error`, `content`: err}})
 	outputs = common.SimpleFields{
 		debugLog.Key: debugLog,
@@ -1123,13 +1110,13 @@ func (n *ParamsExtractorNode) Running(flow *WorkFlow) (outputs common.SimpleFiel
 		err = errors.New(i18n.Show(flow.params.Lang, `llm_request_failed`, err.Error()))
 		return
 	}
-	var result = make([]map[string]any, 0)
-	if err = tool.JsonDecodeUseNumber(chatResp.Result, &result); err != nil {
+	parsedResult := make([]map[string]any, 0)
+	if err = tool.JsonDecodeUseNumber(chatResp.Result(), &parsedResult); err != nil {
 		err = errors.New(i18n.Show(flow.params.Lang, `llm_response_format_error`, err.Error()))
 		return
 	}
 	mapResult := make(map[string]any)
-	for _, item := range result {
+	for _, item := range parsedResult {
 		mapResult[cast.ToString(item[`key`])] = item[`vals`]
 	}
 	output := common.SimplifyFields(n.params.Output.ExtractionData(mapResult)) // Extract data
@@ -1154,8 +1141,8 @@ func (n *ParamsExtractorNode) Running(flow *WorkFlow) (outputs common.SimpleFiel
 
 	llmTime := int(requestTime)
 	outputs[`special.params_extractor_request_time`] = common.SimpleField{Key: `special.params_extractor_request_time`, Typ: common.TypNumber, Vals: []common.Val{{Number: &llmTime}}}
-	outputs[`llm_result.completion_token`] = common.SimpleField{Key: `llm_result.completion_token`, Typ: common.TypNumber, Vals: []common.Val{{Number: &chatResp.CompletionToken}}}
-	outputs[`llm_result.prompt_token`] = common.SimpleField{Key: `llm_result.prompt_token`, Typ: common.TypNumber, Vals: []common.Val{{Number: &chatResp.PromptToken}}}
+	outputs[`llm_result.completion_token`] = common.SimpleField{Key: `llm_result.completion_token`, Typ: common.TypNumber, Vals: []common.Val{{Number: &chatResp.Usage.CompletionTokens}}}
+	outputs[`llm_result.prompt_token`] = common.SimpleField{Key: `llm_result.prompt_token`, Typ: common.TypNumber, Vals: []common.Val{{Number: &chatResp.Usage.PromptTokens}}}
 	nextNodeKey = n.nextNodeKey
 	return
 }
@@ -1789,28 +1776,34 @@ type ImageGeneration struct {
 func (n *ImageGeneration) Running(flow *WorkFlow) (output common.SimpleFields, nextNodeKey string, err error) {
 	flow.Logs(`Executing image generation logic...`)
 	output = common.SimpleFields{}
-	var optimizePromptMode *string
+	var extraBody map[string]any
 	if n.params.ImageOptimizePrompt == `1` {
-		optimizePromptMode = tea.String(`standard`)
-	}
-	var images = make([]string, 0)
-	if len(n.params.InputImages) > 0 {
-		for _, image := range n.params.InputImages {
-			images = append(images, flow.VariableReplace(image))
+		extraBody = map[string]any{
+			`optimize_prompt_options`: map[string]any{`mode`: `standard`},
 		}
 	}
-	res, err := common.RequestImageGenerate(flow.params.Lang, flow.params.AdminUserId, flow.params.Openid, flow.params.Robot, flow.params.AppType,
-		cast.ToInt(n.params.ModelConfigId), n.params.UseModel, &adaptor.ZhimaImageGenerationReq{
-			Prompt:                    flow.VariableReplace(n.params.Prompt),
-			Size:                      &n.params.Size,
-			Image:                     &images,
-			SequentialImageGeneration: tea.String(`auto`),
-			MaxImages:                 cast.ToInt(n.params.ImageNum),
-			Stream:                    false,
-			ResponseFormat:            tea.String(`b64_json`),
-			Watermark:                 tea.Bool(n.params.ImageWatermark == `1`),
-			OptimizePromptMode:        optimizePromptMode,
-		})
+	if n.params.ImageWatermark == `1` {
+		if extraBody == nil {
+			extraBody = make(map[string]any)
+		}
+		extraBody[`watermark`] = true
+	}
+	inputImages := make([]string, 0, len(n.params.InputImages))
+	if len(n.params.InputImages) > 0 {
+		for _, inputImage := range n.params.InputImages {
+			inputImages = append(inputImages, flow.VariableReplace(inputImage))
+		}
+	}
+	imageRequest := &image.GenerateRequest{
+		Prompt:    flow.VariableReplace(n.params.Prompt),
+		Size:      n.params.Size,
+		ExtraBody: extraBody,
+	}
+	if imageNum := cast.ToInt(n.params.ImageNum); imageNum > 0 {
+		imageRequest.N = tea.Int(imageNum)
+	}
+	res, err := common.RequestImageGenerate(flow.context, flow.params.Lang, flow.params.AdminUserId, flow.params.Openid, flow.params.Robot, flow.params.AppType,
+		cast.ToInt(n.params.ModelConfigId), n.params.UseModel, imageRequest, inputImages)
 	if err != nil {
 		output[`msg`] = common.SimpleField{
 			Key:  "msg",
@@ -1829,13 +1822,13 @@ func (n *ImageGeneration) Running(flow *WorkFlow) (output common.SimpleFields, n
 			logs.Info(`image generation res is empty %#v`, res)
 			return
 		}
-		for i := 0; i < len(res.Datas); i++ {
+		for i := 0; i < len(res.Data); i++ {
 			letter := 'a' + rune(i)
 			key := fmt.Sprintf(`picture_url_%c`, letter)
 			output[key] = common.SimpleField{
 				Key:  key,
 				Typ:  common.TypString,
-				Vals: []common.Val{{String: tea.String(res.Datas[i].Url)}},
+				Vals: []common.Val{{String: tea.String(res.Data[i].URL)}},
 			}
 		}
 	}
@@ -2022,7 +2015,7 @@ func (n *TextToAudioNode) Running(flow *WorkFlow) (output common.SimpleFields, n
 	}
 
 	// Call API
-	result, err := common.TtsSpeechT2A(flow.params.Lang, flow.params.AdminUserId, n.params.Arguments.ModelId, n.params.Arguments.UseModel, params)
+	result, err := common.TtsSpeechT2A(flow.context, flow.params.Lang, flow.params.AdminUserId, n.params.Arguments.ModelId, n.params.Arguments.UseModel, params)
 	if err != nil {
 		flow.Logs(`Text to speech failed: %v`, err)
 		return nil, "", err
@@ -2081,67 +2074,30 @@ func (n *VoiceCloneNode) Running(flow *WorkFlow) (output common.SimpleFields, ne
 		return nil, "", errors.New(i18n.Show(flow.params.Lang, `download_clone_audio_failed`, err.Error()))
 	}
 
-	// Upload cloned audio to get file_id
-	flow.Logs(`Uploading cloned audio...`)
-	uploadResult, err := common.TtsUploadVoiceFile(flow.params.Lang, flow.params.AdminUserId, cast.ToInt(config["id"]), "voice_clone", cloneAudioPath)
-	if err != nil {
-		return nil, "", errors.New(i18n.Show(flow.params.Lang, `upload_clone_audio_failed`, err.Error()))
-	}
-
-	var cloneFileID int64
-	if fileInfo, ok := uploadResult[`file`].(map[string]any); ok {
-		if fileID, ok := fileInfo[`file_id`].(float64); ok {
-			cloneFileID = int64(fileID)
-		}
-	}
-	if cloneFileID <= 0 {
-		return nil, "", errors.New(i18n.Show(flow.params.Lang, `get_clone_audio_file_id_failed`))
-	}
-
-	flow.Logs(`Cloned audio uploaded successfully, file_id: %d`, cloneFileID)
-
 	// Process example audio (optional)
-	var promptFileID int64
+	promptAudioPath := ""
+	promptText := ""
 	if len(n.params.Arguments.ClonePrompt.PromptAudioUrl) > 0 || len(n.params.Arguments.ClonePrompt.PromptText) > 0 {
 		promptAudioUrl := flow.VariableReplace(n.params.Arguments.ClonePrompt.PromptAudioUrl)
-		promptText := flow.VariableReplace(n.params.Arguments.ClonePrompt.PromptText)
+		promptText = flow.VariableReplace(n.params.Arguments.ClonePrompt.PromptText)
 
 		if len(promptAudioUrl) > 0 && len(promptText) > 0 {
 			// Download example audio file
-			promptAudioPath := tempDir + `/prompt_audio.mp3`
+			promptAudioPath = tempDir + `/prompt_audio.mp3`
 			if err = common.DownloadFile(promptAudioUrl, promptAudioPath); err != nil {
 				return nil, "", errors.New(i18n.Show(flow.params.Lang, `download_prompt_audio_failed`, err.Error()))
 			}
-
-			// Upload example audio to get file_id
-			flow.Logs(`Uploading example audio...`)
-			promptUploadResult, err := common.TtsUploadVoiceFile(flow.params.Lang, flow.params.AdminUserId, cast.ToInt(config["id"]), "prompt_audio", promptAudioPath)
-			if err != nil {
-				return nil, "", errors.New(i18n.Show(flow.params.Lang, `upload_prompt_audio_failed`, err.Error()))
-			}
-
-			if fileInfo, ok := promptUploadResult[`file`].(map[string]any); ok {
-				if fileID, ok := fileInfo[`file_id`].(float64); ok {
-					promptFileID = int64(fileID)
-				}
-			}
-			if promptFileID <= 0 {
-				return nil, "", errors.New(i18n.Show(flow.params.Lang, `get_prompt_audio_file_id_failed`))
-			}
-			flow.Logs(`Example audio uploaded successfully, file_id: %d`, promptFileID)
 		}
 	}
 
 	// Build parameters
 	params := make(map[string]any)
-	params[`file_id`] = cloneFileID
 	params[`voice_id`] = voiceId
 
 	// Build clone_prompt (optional)
-	if promptFileID > 0 && len(n.params.Arguments.ClonePrompt.PromptText) > 0 {
+	if promptAudioPath != "" && promptText != "" {
 		clonePrompt := make(map[string]any)
-		clonePrompt[`prompt_audio`] = promptFileID
-		clonePrompt[`prompt_text`] = flow.VariableReplace(n.params.Arguments.ClonePrompt.PromptText)
+		clonePrompt[`prompt_text`] = promptText
 		params[`clone_prompt`] = clonePrompt
 	}
 
@@ -2172,7 +2128,10 @@ func (n *VoiceCloneNode) Running(flow *WorkFlow) (output common.SimpleFields, ne
 
 	// Call cloning API
 	flow.Logs(`Starting voice cloning...`)
-	result, err := common.TtsCloneVoice(flow.params.Lang, flow.params.AdminUserId, cast.ToInt(config["id"]), params)
+	result, err := common.TtsCloneVoiceFromFiles(
+		flow.context, flow.params.Lang, flow.params.AdminUserId, cast.ToInt(config["id"]),
+		cloneAudioPath, promptAudioPath, params,
+	)
 	if err != nil {
 		flow.Logs(`Voice cloning failed: %v`, err)
 		return nil, "", err

@@ -462,7 +462,7 @@ func escapeGoodsLibLike(value string) string {
 }
 
 func goodsLibLibrarySelectFields() string {
-	return `id,group_id,goods_id,goods_name,category,brand,price,stock,link,images,description,qa,custom_info,switch_status,create_time,update_time`
+	return `id,group_id,goods_id,goods_name,category,brand,price,stock,link,images,description,qa,custom_info,goods_wechat_card,switch_status,create_time,update_time`
 }
 
 func formatGoodsLibLibraryList(lang string, list []msql.Params, groups []msql.Params) []map[string]any {
@@ -479,23 +479,24 @@ func formatGoodsLibLibraryItem(item msql.Params, groupNames map[int64]string) ma
 	_ = json.Unmarshal([]byte(item[`images`]), &images)
 	groupId := cast.ToInt64(item[`group_id`])
 	return map[string]any{
-		`id`:            cast.ToInt64(item[`id`]),
-		`group_id`:      groupId,
-		`group_names`:   goodsLibGroupNames(groupId, groupNames),
-		`goods_id`:      item[`goods_id`],
-		`goods_name`:    item[`goods_name`],
-		`category`:      item[`category`],
-		`brand`:         item[`brand`],
-		`price`:         cast.ToFloat64(item[`price`]),
-		`stock`:         cast.ToInt64(item[`stock`]),
-		`link`:          item[`link`],
-		`images`:        images,
-		`description`:   item[`description`],
-		`qa`:            item[`qa`],
-		`custom_info`:   item[`custom_info`],
-		`switch_status`: cast.ToInt(item[`switch_status`]),
-		`create_time`:   cast.ToInt(item[`create_time`]),
-		`update_time`:   cast.ToInt(item[`update_time`]),
+		`id`:                cast.ToInt64(item[`id`]),
+		`group_id`:          groupId,
+		`group_names`:       goodsLibGroupNames(groupId, groupNames),
+		`goods_id`:          item[`goods_id`],
+		`goods_name`:        item[`goods_name`],
+		`category`:          item[`category`],
+		`brand`:             item[`brand`],
+		`price`:             cast.ToFloat64(item[`price`]),
+		`stock`:             cast.ToInt64(item[`stock`]),
+		`link`:              item[`link`],
+		`images`:            images,
+		`description`:       item[`description`],
+		`qa`:                item[`qa`],
+		`custom_info`:       item[`custom_info`],
+		`goods_wechat_card`: formatGoodsWechatCard(item[`goods_wechat_card`]),
+		`switch_status`:     cast.ToInt(item[`switch_status`]),
+		`create_time`:       cast.ToInt(item[`create_time`]),
+		`update_time`:       cast.ToInt(item[`update_time`]),
 	}
 }
 
@@ -618,7 +619,7 @@ func SaveGoodsLibLibrary(lang string, adminUserId int, params define.GoodsLibSav
 
 func goodsLibLibraryData(params define.GoodsLibSaveParams) msql.Datas {
 	images, _ := json.Marshal(params.Images)
-	return msql.Datas{
+	data := msql.Datas{
 		`group_id`:    params.GroupID,
 		`goods_id`:    params.GoodsID,
 		`goods_name`:  params.GoodsName,
@@ -632,6 +633,10 @@ func goodsLibLibraryData(params define.GoodsLibSaveParams) msql.Datas {
 		`qa`:          params.QA,
 		`custom_info`: params.CustomInfo,
 	}
+	if params.GoodsWechatCard != nil {
+		data[`goods_wechat_card`] = encodeGoodsWechatCard(params.GoodsWechatCard)
+	}
+	return data
 }
 
 func normalizeGoodsLibSaveParams(lang string, params *define.GoodsLibSaveParams) error {
@@ -643,6 +648,9 @@ func normalizeGoodsLibSaveParams(lang string, params *define.GoodsLibSaveParams)
 	params.Description = strings.TrimSpace(params.Description)
 	params.QA = strings.TrimSpace(params.QA)
 	params.CustomInfo = strings.TrimSpace(params.CustomInfo)
+	if err := NormalizeGoodsWechatCard(lang, params.GoodsWechatCard); err != nil {
+		return err
+	}
 	if params.ID < 0 {
 		return errors.New(i18n.Show(lang, `param_invalid`, `id`))
 	}
@@ -857,6 +865,10 @@ func ImportGoodsLibLibrary(lang string, adminUserId int, groupId int64, fileHead
 	if _, ok := headerMap[`goods_name`]; !ok {
 		return nil, errors.New(i18n.Show(lang, `param_invalid`, i18n.Show(lang, `goods_import_header_goods_name`)))
 	}
+	hasGoodsWechatCardHeaders, err := validateGoodsWechatCardImportHeaders(lang, headerMap)
+	if err != nil {
+		return nil, err
+	}
 	result := &define.GoodsLibImportResult{
 		Errors:  make([]define.GoodsLibImportError, 0),
 		Headers: goodsLibImportHeaderDefinitions(lang),
@@ -881,6 +893,14 @@ func ImportGoodsLibLibrary(lang string, adminUserId int, groupId int64, fileHead
 			Description: goodsLibImportCell(row, headerMap, `description`),
 			QA:          goodsLibImportCell(row, headerMap, `qa`),
 			CustomInfo:  goodsLibImportCell(row, headerMap, `custom_info`),
+		}
+		if hasGoodsWechatCardHeaders {
+			params.GoodsWechatCard = &define.GoodsWechatCard{
+				Appid: goodsLibImportCell(row, headerMap, `card_appid`),
+				Path:  goodsLibImportCell(row, headerMap, `card_path`),
+				Title: goodsLibImportCell(row, headerMap, `card_title`),
+				Image: goodsLibImportCell(row, headerMap, `card_image`),
+			}
 		}
 		if err = normalizeGoodsLibSaveParams(lang, &params); err != nil {
 			result.FailedCount++
@@ -935,7 +955,33 @@ func goodsLibImportHeaderDefinitions(lang string) []define.GoodsLibImportHeader 
 		{Field: `description`, Name: i18n.Show(lang, `goods_import_header_description`)},
 		{Field: `qa`, Name: i18n.Show(lang, `goods_import_header_qa`)},
 		{Field: `custom_info`, Name: i18n.Show(lang, `goods_import_header_custom_info`)},
+		{Field: `card_appid`, Name: i18n.Show(lang, `goods_import_header_card_appid`)},
+		{Field: `card_path`, Name: i18n.Show(lang, `goods_import_header_card_path`)},
+		{Field: `card_title`, Name: i18n.Show(lang, `goods_import_header_card_title`)},
+		{Field: `card_image`, Name: i18n.Show(lang, `goods_import_header_card_image`)},
 	}
+}
+
+func validateGoodsWechatCardImportHeaders(lang string, headerMap map[string]int) (bool, error) {
+	fields := []string{`card_appid`, `card_path`, `card_title`, `card_image`}
+	present := 0
+	for _, field := range fields {
+		if _, ok := headerMap[field]; ok {
+			present++
+		}
+	}
+	if present == 0 {
+		return false, nil
+	}
+	if present == len(fields) {
+		return true, nil
+	}
+	for _, field := range fields {
+		if _, ok := headerMap[field]; !ok {
+			return false, errors.New(i18n.Show(lang, `param_invalid`, i18n.Show(lang, `goods_import_header_`+field)))
+		}
+	}
+	return false, errors.New(i18n.Show(lang, `param_invalid`, `goods_wechat_card`))
 }
 
 func goodsLibImportHeaderMap(lang string, headers []string) map[string]int {
@@ -1013,6 +1059,10 @@ func ExportGoodsLibLibrary(lang string, adminUserId int, filter define.GoodsLibL
 			`description`: i18n.Show(lang, `goods_import_example_description`),
 			`qa`:          i18n.Show(lang, `goods_import_example_qa`),
 			`custom_info`: i18n.Show(lang, `goods_import_example_custom_info`),
+			`card_appid`:  `wx1234567890abcdef`,
+			`card_path`:   `pages/goods/detail?id=1`,
+			`card_title`:  i18n.Show(lang, `goods_import_example_card_title`),
+			`card_image`:  `https://example.com/goods-card.jpg`,
 		})
 	} else {
 		query := buildGoodsLibLibraryQuery(adminUserId, filter)
@@ -1028,6 +1078,7 @@ func ExportGoodsLibLibrary(lang string, adminUserId int, filter define.GoodsLibL
 		for _, item := range list {
 			images := make([]string, 0)
 			_ = json.Unmarshal([]byte(item[`images`]), &images)
+			goodsWechatCard := parseGoodsWechatCard(item[`goods_wechat_card`])
 			data = append(data, map[string]any{
 				`goods_id`:    item[`goods_id`],
 				`goods_name`:  item[`goods_name`],
@@ -1040,6 +1091,10 @@ func ExportGoodsLibLibrary(lang string, adminUserId int, filter define.GoodsLibL
 				`description`: item[`description`],
 				`qa`:          item[`qa`],
 				`custom_info`: item[`custom_info`],
+				`card_appid`:  goodsWechatCard.Appid,
+				`card_path`:   goodsWechatCard.Path,
+				`card_title`:  goodsWechatCard.Title,
+				`card_image`:  goodsWechatCard.Image,
 			})
 		}
 	}

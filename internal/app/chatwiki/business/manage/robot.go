@@ -1706,7 +1706,7 @@ func CreatePromptByAi(c *gin.Context) {
 		c.String(http.StatusOK, lib_web.FmtJson(nil, errors.New(i18n.Show(common.GetLang(c), `no_data`))))
 		return
 	}
-	promptStruct, err := common.CreatePromptByAi(common.GetLang(c), demand, adminUserId, cast.ToInt(info[`model_config_id`]), info[`use_model`], common.ToThinkingSwitch(info[`enable_thinking`]))
+	promptStruct, err := common.CreatePromptByAi(c.Request.Context(), common.GetLang(c), demand, adminUserId, cast.ToInt(info[`model_config_id`]), info[`use_model`], common.ToThinkingSwitch(info[`enable_thinking`]))
 	if err != nil {
 		c.String(http.StatusOK, lib_web.FmtJson(nil, err))
 		return

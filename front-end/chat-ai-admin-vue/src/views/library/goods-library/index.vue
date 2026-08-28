@@ -48,6 +48,7 @@
             @hover-cell="handleHoverCell"
             @edit-field="handleOpenFieldEditor"
             @edit-basic-info="handleShowBasicInfoEdit"
+            @edit-card="handleShowCardEdit"
             @toggle-status="handleToggleStatus"
             @delete-row="handleDeleteGoods"
             @edit-row="handleShowGoodsEdit"
@@ -64,6 +65,7 @@
       @submit-goods="handleGoodsSubmit"
       @submit-field="handleFieldSubmit"
     />
+    <GoodsCardModal ref="goodsCardModalRef" @save="handleCardSave" />
     <GoodsImportModal ref="importModalRef" :group-id="selectedGroupId" :group-options="groupOptions" @ok="handleImportDone" />
     <GoodsExportModal ref="exportModalRef" :group-id="selectedGroupId" :keyword="keyword" />
   </div>
@@ -82,6 +84,7 @@ import GoodsGroupTree from './components/goods-group-tree.vue'
 import GoodsTable from './components/goods-table.vue'
 import GroupFormModal from './components/group-form-modal.vue'
 import GoodsEditorModal from './components/goods-editor-modal.vue'
+import GoodsCardModal from './components/goods-card-modal.vue'
 import GoodsImportModal from './components/goods-import-modal.vue'
 import GoodsExportModal from './components/goods-export-modal.vue'
 import {
@@ -122,6 +125,7 @@ const ungroupedCount = ref(0)
 
 const groupFormRef = ref(null)
 const goodsEditorRef = ref(null)
+const goodsCardModalRef = ref(null)
 const importModalRef = ref(null)
 const exportModalRef = ref(null)
 
@@ -157,6 +161,9 @@ const normalizeGoodsRecord = (item = {}, fallbackGroupId = '0') => ({
   description: item.description ?? '',
   qa: item.qa ?? '',
   custom_info: item.custom_info ?? '',
+  goods_wechat_card: item.goods_wechat_card && typeof item.goods_wechat_card === 'object'
+    ? { ...item.goods_wechat_card }
+    : {},
   switch_status: item.switch_status !== undefined ? Number(item.switch_status) : 1
 })
 
@@ -427,7 +434,36 @@ const handleShowGoodsEdit = (record) => {
 }
 
 const handleShowBasicInfoEdit = (record) => {
-  goodsEditorRef.value?.show({ name: 'goods_basic', data: record })
+  goodsEditorRef.value?.show({ name: 'goods_full', data: record })
+}
+
+const handleShowCardEdit = (record) => {
+  goodsCardModalRef.value?.show(record)
+}
+
+const handleCardSave = async ({ row, goods_wechat_card }, actions) => {
+  const rowId = normalizeId(row?.id)
+  const currentRecord = goodsList.value.find((item) => normalizeId(item.id) === rowId)
+  if (!rowId || !currentRecord) {
+    actions?.setSubmitting(false)
+    return
+  }
+
+  try {
+    await saveGoods({
+      ...currentRecord,
+      id: toPayloadId(rowId),
+      group_id: toPayloadId(currentRecord.group_id),
+      goods_wechat_card
+    })
+    await loadGoodsList()
+    message.success(t('message.save_success'))
+    actions?.close()
+  } catch (error) {
+    console.warn(error)
+  } finally {
+    actions?.setSubmitting(false)
+  }
 }
 
 const fieldMetaMap = {

@@ -278,7 +278,7 @@ func CreatePromptByLlm(c *gin.Context) {
 		c.String(http.StatusOK, lib_web.FmtJson(nil, errors.New(i18n.Show(common.GetLang(c), `llm_model_selection_error`))))
 		return
 	}
-	promptStruct, err := common.CreatePromptByAi(common.GetLang(c), demand, adminUserId, modelConfigId, useModel, common.ThinkingDisabled)
+	promptStruct, err := common.CreatePromptByAi(c.Request.Context(), common.GetLang(c), demand, adminUserId, modelConfigId, useModel, common.ThinkingDisabled)
 	if err != nil {
 		c.String(http.StatusOK, lib_web.FmtJson(nil, err))
 		return

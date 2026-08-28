@@ -56,6 +56,7 @@ func DoRequestChatUnify(in *ChatInParam, out *ChatOutParam) {
 		)
 	} else {
 		out.chatResp, out.requestTime, out.Error = common.RequestChat(
+			in.params.StopCtx,
 			in.params.Lang,
 			in.params.AdminUserId,
 			in.params.Openid,
@@ -70,22 +71,14 @@ func DoRequestChatUnify(in *ChatInParam, out *ChatOutParam) {
 			common.ToThinkingSwitch(in.params.Robot[`enable_thinking`]),
 		)
 	}
-	out.content = out.chatResp.Result
-	out.reasoningContent = out.chatResp.ReasoningContent
+	out.content = out.chatResp.Result()
+	out.reasoningContent = out.chatResp.ReasoningContent()
 	if out.Error != nil {
 		SendDefaultUnknownQuestionPrompt(in, out, out.Error.Error())
 	} else {
 		if content, ok := common.ReplaceMiniCardMarkersForRobotPromptReply(in.params.AdminUserId, out.content); ok {
 			out.content = content
-			out.chatResp.Result = out.content
-		}
-		if cast.ToInt(in.params.Robot[`chat_type`]) != define.ChatTypeDirect && !in.needRunWorkFlow {
-			var appendContent string
-			out.content, appendContent = common.AppendMiniCardTagsForLibraryParagraphReply(in.params.AdminUserId, out.list, out.content)
-			out.chatResp.Result = out.content
-			if len(appendContent) > 0 {
-				in.Stream(sse.Event{Event: `sending`, Data: appendContent})
-			}
+			out.chatResp.SetResult(out.content)
 		}
 		if cast.ToInt(in.params.Robot[`chat_type`]) != define.ChatTypeDirect {
 			in.saveRobotChatCache = true

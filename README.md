@@ -137,6 +137,16 @@ Feel free to contact us for help or to provide suggestions to improve ChatWiki. 
 ---
 For the complete changelog, please click 👉️👉️[UpdateLog.md](./UpdateLog.md)
 
+**2026/08/28**
+
+1.Product library: Added support for adding and replying with product cards<br/>
+2.Updated the default output description to remove mini-program card instructions<br/>
+3.Fixed an issue where mini-program cards in the WeChat Customer Service application knowledge base could not be
+returned correctly<br/>
+4.[STD] Fixed an issue where clicking the account in the upper-right corner of the admin panel displayed a "No available
+SSO configuration found" message<br/>
+5.Refactored large language model service calls<br/>
+
 **2026/08/14**
 
 1.[STD] Cloud version custom models support time-based pricing (compatible with DeepSeek's new pricing policy)<br/>
@@ -158,19 +168,6 @@ For the complete changelog, please click 👉️👉️[UpdateLog.md](./UpdateLo
 9.[STD] Added Alibaba Cloud OCR document parsing open API and credit validation<br/>
 10.Agent skill generation tool: Web to Skill now supports skill updates<br/>
 11.Knowledge base: Added validity period settings (permanent, specified date, specified days)<br/>
-
-**2026/07/31**
-
-1.External Service: Embed website SDK supports initialization parameters<br/>
-2.Optimized data table integer/number field data storage and rendering<br/>
-3.Fixed issue where variable list dropdown was not working when inserting variables in bot prompts<br/>
-4.External Service: Added popup size and position settings for embedded website<br/>
-5.Agent local knowledge base query tool: Support LLM autonomous selection of which knowledge base to query<br/>
-6.Agent bot, chat bot, and workflow: Added rate limiting settings<br/>
-7.[STD] Associated ChatWiki bot: Additionally forward image, voice, and video messages when multimodal is enabled<br/>
-8.Agent bot: Optimized associated knowledge base<br/>
-9.Fixed issue where chat test and external service user messages were obscured when rate limiting had no reply<br/>
-10.[STD] Cloud version supports DingTalk, WeCom, and Feishu login<br/>
 
 ## License
 

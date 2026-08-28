@@ -12,7 +12,6 @@ import (
 	"chatwiki/internal/pkg/lib_define"
 	"chatwiki/internal/pkg/lib_redis"
 	"chatwiki/internal/pkg/lib_web"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -21,6 +20,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/alibabacloud-go/tea/tea"
 	"github.com/gin-contrib/sse"
 	"github.com/gin-gonic/gin"
 	"github.com/spf13/cast"
@@ -28,7 +28,7 @@ import (
 	"github.com/zhimaAi/go_tools/logs"
 	"github.com/zhimaAi/go_tools/msql"
 	"github.com/zhimaAi/go_tools/tool"
-	"github.com/zhimaAi/llm_adaptor/adaptor"
+	"github.com/zhimaAi/llm_adaptor/v2/chat"
 )
 
 func GetWsUrl(c *gin.Context) {
@@ -507,9 +507,10 @@ func ChatQuestionGuide(c *gin.Context) {
 		}
 		prompt = strings.ReplaceAll(prompt, `{{num}}`, chatBaseParam.Robot[`question_guide_num`])
 		prompt = strings.ReplaceAll(prompt, `{{histories}}`, histories)
-		messages := []adaptor.ZhimaChatCompletionMessage{{Role: `user`, Content: prompt}}
+		messages := []chat.Message{{Role: chat.RoleUser, Content: chat.MessageContent{Text: tea.String(prompt)}}}
 
 		chatResp, _, err := common.RequestChat(
+			c.Request.Context(),
 			common.GetLang(c),
 			chatBaseParam.AdminUserId,
 			chatBaseParam.Openid,
@@ -528,9 +529,7 @@ func ChatQuestionGuide(c *gin.Context) {
 			c.String(http.StatusOK, lib_web.FmtJson([]string{}, nil))
 			return
 		}
-		content := chatResp.Result
-		err = json.Unmarshal([]byte(content), &guides)
-		if err != nil {
+		if err = tool.JsonDecodeUseNumber(chatResp.Result(), &guides); err != nil {
 			logs.Error(err.Error())
 			c.String(http.StatusOK, lib_web.FmtJson([]string{}, nil))
 			return

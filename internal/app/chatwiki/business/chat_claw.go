@@ -20,7 +20,7 @@ import (
 	"github.com/spf13/cast"
 	"github.com/zhimaAi/go_tools/logs"
 	"github.com/zhimaAi/go_tools/tool"
-	"github.com/zhimaAi/llm_adaptor/adaptor"
+	"github.com/zhimaAi/llm_adaptor/v2/chat"
 )
 
 // useNewDialogueFlex accepts use_new_dialogue as number 0/1 or bool true/false in JSON and normalizes to 0/1
@@ -46,14 +46,14 @@ func (v *useNewDialogueFlex) UnmarshalJSON(data []byte) error {
 
 // ChatClawChatReq chat request (streaming only)
 type ChatClawChatReq struct {
-	RobotKey            string                               `json:"robot_key" binding:"required"`
-	Content             string                               `json:"content" binding:"required"`
-	Messages            []adaptor.ZhimaChatCompletionMessage `json:"messages"`
-	DialogueId          int                                  `json:"dialogue_id"`
-	UseNewDialogue      useNewDialogueFlex                   `json:"use_new_dialogue"` // 1 or true = new session, 0 or false = continue existing dialogue
-	QuoteLib            bool                                 `json:"quote_lib"`
-	Global              map[string]any                       `json:"global"`
-	ChatPromptVariables string                               `json:"chat_prompt_variables"`
+	RobotKey            string             `json:"robot_key" binding:"required"`
+	Content             string             `json:"content" binding:"required"`
+	Messages            []chat.Message     `json:"messages"`
+	DialogueId          int                `json:"dialogue_id"`
+	UseNewDialogue      useNewDialogueFlex `json:"use_new_dialogue"` // 1 or true = new session, 0 or false = continue existing dialogue
+	QuoteLib            bool               `json:"quote_lib"`
+	Global              map[string]any     `json:"global"`
+	ChatPromptVariables string             `json:"chat_prompt_variables"`
 }
 
 // ChatClawChat chat API: requires token auth, robot_key from request body, AppType=chat_claw, streaming only

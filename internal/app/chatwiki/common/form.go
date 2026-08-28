@@ -15,7 +15,7 @@ import (
 	"github.com/zhimaAi/go_tools/logs"
 	"github.com/zhimaAi/go_tools/msql"
 	"github.com/zhimaAi/go_tools/tool"
-	"github.com/zhimaAi/llm_adaptor/adaptor"
+	"github.com/zhimaAi/llm_adaptor/v2/chat"
 )
 
 func GetFormInfo(formId, adminUserId int) (msql.Params, error) {
@@ -387,8 +387,8 @@ func SaveFormEntry(adminUserId, formId, formEntryId int, entryValues map[string]
 	return nil
 }
 
-func BuildFunctionTools(formIdList []string, adminUserId int) ([]adaptor.FunctionTool, error) {
-	var functionTools []adaptor.FunctionTool
+func BuildFunctionTools(formIdList []string, adminUserId int) ([]chat.Tool, error) {
+	var functionTools []chat.Tool
 	forms, err := msql.Model(`form`, define.Postgres).
 		Where(`admin_user_id`, cast.ToString(adminUserId)).
 		Where(`id`, `in`, strings.Join(formIdList, `,`)).
@@ -416,13 +416,16 @@ func BuildFunctionTools(formIdList []string, adminUserId int) ([]adaptor.Functio
 				required = append(required, formField[`name`])
 			}
 		}
-		functionTool := adaptor.FunctionTool{
-			Name:        form[`name`],
-			Description: form[`description`] + `(Do not assign default values to any field)`,
-			Parameters: adaptor.Parameters{
-				Type:       `object`,
-				Properties: properties,
-				Required:   required,
+		parameters, err := json.Marshal(map[string]any{`type`: `object`, `properties`: properties, `required`: required})
+		if err != nil {
+			return nil, err
+		}
+		functionTool := chat.Tool{
+			Type: `function`,
+			Function: chat.FunctionDefinition{
+				Name:        form[`name`],
+				Description: form[`description`] + `(Do not assign default values to any field)`,
+				Parameters:  parameters,
 			},
 		}
 		functionTools = append(functionTools, functionTool)
@@ -430,8 +433,8 @@ func BuildFunctionTools(formIdList []string, adminUserId int) ([]adaptor.Functio
 	return functionTools, nil
 }
 
-func SaveFormData(adminUserId, robotId int, functionToolCall adaptor.FunctionToolCall) error {
-	if _, ok := IsWorkFlowFuncCall(cast.ToString(adminUserId), functionToolCall.Name); ok {
+func SaveFormData(adminUserId, robotId int, functionToolCall chat.ToolCall) error {
+	if _, ok := IsWorkFlowFuncCall(cast.ToString(adminUserId), functionToolCall.Function.Name); ok {
 		return nil
 	}
 	robot, err := msql.Model(`chat_ai_robot`, define.Postgres).
@@ -452,9 +455,9 @@ func SaveFormData(adminUserId, robotId int, functionToolCall adaptor.FunctionToo
 		return err
 	}
 	for _, form := range forms {
-		if functionToolCall.Name == form[`name`] {
+		if functionToolCall.Function.Name == form[`name`] {
 			entryValues := make(map[string]any)
-			err := json.Unmarshal([]byte(functionToolCall.Arguments), &entryValues)
+			err := json.Unmarshal([]byte(functionToolCall.Function.Arguments), &entryValues)
 			if err != nil {
 				return err
 			}

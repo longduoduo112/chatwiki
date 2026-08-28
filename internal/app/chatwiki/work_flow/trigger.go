@@ -109,8 +109,8 @@ func (trigger *TriggerConfig) SetGlobalValue(flow *WorkFlow) {
 		// Logic for handling chat trigger when multimodal input is enabled
 		if trigger.TriggerChatConfig.QuestionMultipleSwitch {
 			if questionMultiple, ok := common.ParseInputQuestion(flow.params.Question); ok {
-				assignParams[`question_multiple`] = common.QuestionMultipleAppendImageDomain(questionMultiple)
-				assignParams[`question`] = common.GetQuestionByQuestionMultiple(questionMultiple)
+				assignParams[`question_multiple`] = common.ContentPartsAppendImageDomain(questionMultiple)
+				assignParams[`question`] = common.GetQuestionByContentParts(questionMultiple)
 			}
 		}
 	case TriggerTypeTest: // Test Trigger

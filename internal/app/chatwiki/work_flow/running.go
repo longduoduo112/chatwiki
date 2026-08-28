@@ -8,6 +8,7 @@ import (
 	"chatwiki/internal/app/chatwiki/i18n"
 	"chatwiki/internal/pkg/lib_define"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"path/filepath"
@@ -19,7 +20,7 @@ import (
 	"github.com/zhimaAi/go_tools/logs"
 	"github.com/zhimaAi/go_tools/msql"
 	"github.com/zhimaAi/go_tools/tool"
-	"github.com/zhimaAi/llm_adaptor/adaptor"
+	"github.com/zhimaAi/llm_adaptor/v2/chat"
 )
 
 type Draft struct {
@@ -95,11 +96,11 @@ func (flow *WorkFlow) Logs(format string, a ...any) {
 }
 
 type LlmCallInfo struct {
-	Params      LlmBaseParams                        `json:"params"`
-	Messages    []adaptor.ZhimaChatCompletionMessage `json:"messages"`
-	ChatResp    adaptor.ZhimaChatCompletionResponse  `json:"chat_resp"`
-	RequestTime int64                                `json:"request_time"`
-	Error       error                                `json:"error"`
+	Params      LlmBaseParams       `json:"params"`
+	Messages    []chat.Message      `json:"messages"`
+	ChatResp    common.ChatResponse `json:"chat_resp"`
+	RequestTime int64               `json:"request_time"`
+	Error       error               `json:"error"`
 }
 
 func (flow *WorkFlow) LlmCallLogs(info LlmCallInfo) {
@@ -536,7 +537,7 @@ func CallWorkFlow(params *WorkFlowParams, debugLog *[]any, monitor *common.Monit
 	return
 }
 
-func BuildFunctionTools(lang string, robot msql.Params) ([]adaptor.FunctionTool, bool) {
+func BuildFunctionTools(lang string, robot msql.Params) ([]chat.Tool, bool) {
 	if len(robot) == 0 || !tool.InArrayInt(cast.ToInt(robot[`application_type`]), []int{define.ApplicationTypeChat, define.ApplicationTypeClaw}) || len(robot[`work_flow_ids`]) == 0 {
 		return nil, false
 	}
@@ -551,7 +552,7 @@ func BuildFunctionTools(lang string, robot msql.Params) ([]adaptor.FunctionTool,
 	if err != nil {
 		logs.Error(`sql:%s,err:%s`, m.GetLastSql(), err.Error())
 	}
-	functionTools := make([]adaptor.FunctionTool, 0)
+	functionTools := make([]chat.Tool, 0)
 	for _, item := range list {
 		node, _, err := GetNodeByKey(nil, cast.ToUint(item[`id`]), item[`start_node_key`])
 		if err != nil {
@@ -581,22 +582,22 @@ func BuildFunctionTools(lang string, robot msql.Params) ([]adaptor.FunctionTool,
 		if len(item[`en_name`]) > 0 {
 			name = item[`en_name`]
 		}
-		functionTools = append(functionTools, adaptor.FunctionTool{
-			Name:        name,
-			Description: fmt.Sprintf(`%s(%s)`, item[`robot_name`], item[`robot_intro`]),
-			Parameters: adaptor.Parameters{
-				Type:       `object`,
-				Properties: properties,
-				Required:   required,
+		parameters := json.RawMessage(tool.JsonEncodeNoError(map[string]any{`type`: `object`, `properties`: properties, `required`: required}))
+		functionTools = append(functionTools, chat.Tool{
+			Type: `function`,
+			Function: chat.FunctionDefinition{
+				Name:        name,
+				Description: fmt.Sprintf(`%s(%s)`, item[`robot_name`], item[`robot_intro`]),
+				Parameters:  parameters,
 			},
 		})
 	}
 	return functionTools, len(functionTools) > 0
 }
 
-func ChooseWorkFlowRobot(adminUserId string, functionTools []adaptor.FunctionToolCall) (_ msql.Params, global map[string]any) {
+func ChooseWorkFlowRobot(adminUserId string, functionTools []chat.ToolCall) (_ msql.Params, global map[string]any) {
 	for _, functionTool := range functionTools {
-		robotKey, ok := common.IsWorkFlowFuncCall(adminUserId, functionTool.Name)
+		robotKey, ok := common.IsWorkFlowFuncCall(adminUserId, functionTool.Function.Name)
 		if !ok {
 			continue
 		}
@@ -607,7 +608,7 @@ func ChooseWorkFlowRobot(adminUserId string, functionTools []adaptor.FunctionToo
 		if len(robot) == 0 || cast.ToInt(robot[`application_type`]) != define.ApplicationTypeFlow || len(robot[`start_node_key`]) == 0 {
 			continue
 		}
-		_ = tool.JsonDecodeUseNumber(functionTool.Arguments, &global)
+		_ = tool.JsonDecodeUseNumber(functionTool.Function.Arguments, &global)
 		return robot, global
 	}
 	return

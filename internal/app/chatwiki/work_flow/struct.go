@@ -1729,7 +1729,7 @@ func (params *StartNodeParams) Verify(lang string) error {
 		if tool.InArrayString(fmt.Sprintf(`global.%s`, item.Key), SysGlobalVariables()) {
 			return errors.New(i18n.Show(lang, `custom_global_variable_conflict_with_system`, item.Key))
 		}
-		if !tool.InArrayString(item.Typ, []string{common.TypString, common.TypNumber, common.TypArrString, common.TypArrObject, common.TypBoole, common.TypArrNumber}) {
+		if !tool.InArrayString(item.Typ, []string{common.TypString, common.TypNumber, common.TypBoole, common.TypArrString, common.TypArrNumber, common.TypArrObject}) {
 			return errors.New(i18n.Show(lang, `custom_global_variable_type_not_supported`, item.Key))
 		}
 		if _, ok := maps[item.Key]; ok {
@@ -2671,7 +2671,7 @@ func (param *WorkflowNodeParams) Verify(adminUserId int, lang string) error {
 		if tool.InArrayString(fmt.Sprintf(`global.%s`, item.Key), SysGlobalVariables()) {
 			return errors.New(i18n.Show(lang, `custom_global_variable_conflict_with_system`, item.Key))
 		}
-		if !tool.InArrayString(item.Typ, []string{common.TypString, common.TypNumber, common.TypArrString, common.TypArrObject}) {
+		if !tool.InArrayString(item.Typ, []string{common.TypString, common.TypNumber, common.TypBoole, common.TypArrString, common.TypArrNumber, common.TypArrObject}) {
 			return errors.New(i18n.Show(lang, `custom_global_variable_type_not_supported`, item.Key))
 		}
 		if item.Required && len(item.Variable) == 0 {

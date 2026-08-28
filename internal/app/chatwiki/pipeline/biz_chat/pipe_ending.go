@@ -104,6 +104,9 @@ func SaveRobotMsg(in *ChatInParam, out *ChatOutParam) pipeline.PipeResult {
 	if len(out.replyContentList) > 0 { // keyword reply trigger content
 		aiMessage[`reply_content_list`] = tool.JsonEncodeNoError(out.replyContentList)
 	}
+	if len(out.answerList) > 0 { // QA direct reply multiple answers list
+		aiMessage[`answer_list`] = tool.JsonEncodeNoError(out.answerList)
+	}
 	if len(out.debugLog) > 0 {
 		aiMessage[`debug_log`] = tool.JsonEncodeNoError(out.debugLog)
 	}
@@ -175,8 +178,8 @@ func SaveAnswerSource(in *ChatInParam, out *ChatOutParam) pipeline.PipeResult {
 // AdditionAiMessage append robot message return fields
 func AdditionAiMessage(in *ChatInParam, out *ChatOutParam) pipeline.PipeResult {
 	aiMessage := msql.Datas{
-		`prompt_tokens`:     out.chatResp.PromptToken,
-		`completion_tokens`: out.chatResp.CompletionToken,
+		`prompt_tokens`:     out.chatResp.Usage.PromptTokens,
+		`completion_tokens`: out.chatResp.Usage.CompletionTokens,
 		`use_model`:         in.params.Robot[`use_model`],
 		`is_switch_manual`:  in.isSwitchManual,
 	}

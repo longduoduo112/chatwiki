@@ -7,104 +7,71 @@
       :pagination="tablePagination"
       @change="handleTableChange"
       :row-key="(record) => record.id"
-      :scroll="{ x: 1600}"
+      :scroll="{ x: 1600 }"
       :custom-row="getCustomRow"
       :row-class-name="getRowClassName"
     >
       <template #bodyCell="{ column, record }">
-        <template v-if="column.key === 'image'">
+        <template v-if="column.key === 'goods'">
           <div
-            class="cell-inner image-inner"
-            :class="isActiveCell(record.id, 'image') ? 'cell-active' : ''"
-            @click.stop="emit('edit-field', { row: record, fieldKey: 'images', fieldLabel: t('table.image'), mode: 'images' })"
-          >
-            <div class="image-box">
-              <img v-if="getImageUrl(record)" :src="getImageUrl(record)" alt="" />
-              <div v-else class="image-empty">{{ t('table.no_image') }}</div>
-              <div v-if="getImageCount(record) > 1" class="image-count">
-                {{ t('table.image_count', { count: getImageCount(record) }) }}
-              </div>
-            </div>
-          </div>
-        </template>
-
-        <template v-else-if="column.key === 'basic_info'">
-          <div
-            class="cell-inner basic-inner"
+            class="cell-inner goods-inner"
             :class="isActiveCell(record.id, 'basic_info') ? 'cell-active' : ''"
             @click.stop="emit('edit-basic-info', record)"
           >
-            <div class="info-grid">
-              <div class="info-col" style="width: 280px;">
-                <div class="info-row">
-                  <span class="info-label">ID：</span>
-                  <span class="info-value">{{ record.goods_id || record.id || '-' }}</span>
-                </div>
-                <div class="info-row">
-                  <span class="info-label">{{ t('table.name_label') }}</span>
-                  <span class="info-value">{{ record.goods_name || record.name || '-' }}</span>
-                </div>
-                <div class="info-row">
-                  <span class="info-label">{{ t('table.category_label') }}</span>
-                  <span class="info-value">{{ record.category || '-' }}</span>
-                </div>
-                <div class="info-row">
-                  <span class="info-label">{{ t('table.brand_label') }}</span>
-                  <span class="info-value">{{ record.brand || '-' }}</span>
-                </div>
+            <div class="goods-image-box">
+              <img v-if="getImageUrl(record)" :src="getImageUrl(record)" alt="" />
+              <div v-else class="image-empty">{{ t('table.no_image') }}</div>
+            </div>
+            <div class="goods-summary">
+              <div class="goods-name" :title="record.goods_name || record.name">
+                {{ record.goods_name || record.name || '-' }}
               </div>
-              <div class="info-col" style="flex: 1;">
-                <div class="info-row">
-                  <span class="info-label">{{ t('table.price_label') }}</span>
-                  <span class="info-value">{{ record.price || '-' }}</span>
-                </div>
-                <div class="info-row">
-                  <span class="info-label">{{ t('table.stock_label') }}</span>
-                  <span class="info-value">{{ record.stock || '-' }}</span>
-                </div>
-                <div class="info-row">
-                  <span class="info-label">{{ t('table.link_label') }}</span>
-                  <span class="info-value">
-                    <a
-                      v-if="record.link"
-                      class="goods-link"
-                      :href="record.link"
-                      target="_blank"
-                      :title="record.link"
-                      @click.stop
-                    >
-                      {{ t('table.link_text') }}
-                    </a>
-                    <span v-else>-</span>
-                  </span>
-                </div>
-              </div>
+              <div class="goods-price">{{ formatPrice(record.price) }}</div>
             </div>
           </div>
         </template>
 
         <template v-else-if="column.key === 'description'">
           <div
-            class="cell-inner text-inner"
-            :class="isActiveCell(record.id, 'description') ? 'cell-active' : ''"
-            @click.stop="emit('edit-field', { row: record, fieldKey: 'description', fieldLabel: t('table.description'), mode: 'textarea' })"
+            class="cell-inner description-inner"
+            @dblclick.stop
           >
-            <a-tooltip
-              v-if="record.description"
-              :mouse-enter-delay="0.3"
-              :overlay-style="{ maxWidth: '400px' }"
-              overlay-class-name="goods-cell-tooltip"
-            >
-              <template #title>
-                <div class="tooltip-pre-line">{{ record.description }}</div>
-              </template>
-              <div class="line-clamp">
-                {{ record.description }}
+            <div class="description-content">
+              <a-tooltip
+                v-if="record.description"
+                :mouse-enter-delay="0.3"
+                :overlay-style="{ maxWidth: '400px' }"
+                overlay-class-name="goods-cell-tooltip"
+              >
+                <template #title>
+                  <div class="tooltip-pre-line">{{ record.description }}</div>
+                </template>
+                <div class="line-clamp description-text">
+                  {{ record.description }}
+                </div>
+              </a-tooltip>
+              <div v-else class="line-clamp description-text placeholder">
+                {{ t('table.description_empty') }}
               </div>
-            </a-tooltip>
-            <div v-else class="line-clamp placeholder">
-              {{ t('table.description_placeholder') }}
+
+              <div v-if="getDescriptionImages(record).length" class="description-images">
+                <img
+                  v-for="(image, index) in getDescriptionImages(record)"
+                  :key="`${record.id}-description-image-${index}`"
+                  :src="image"
+                  alt=""
+                  @click.stop="handlePreviewDescriptionImages(record, image)"
+                />
+              </div>
             </div>
+          </div>
+        </template>
+
+        <template v-else-if="column.key === 'goods_card'">
+          <div class="cell-inner goods-card-inner">
+            <a-button type="link" class="goods-card-setting" @click.stop="emit('edit-card', record)">
+              {{ t('goods_card.setting') }}
+            </a-button>
           </div>
         </template>
 
@@ -166,8 +133,11 @@
               :un-checked-children="t('table.disabled')"
               @change="(checked) => emit('toggle-status', { row: record, checked })"
             />
-            <a-button type="text" class="delete-btn" @click.stop="emit('delete-row', record)">
-              <DeleteOutlined />
+            <a-button type="link" class="edit-btn" @click.stop="emit('edit-row', record)">
+              {{ t('table.edit') }}
+            </a-button>
+            <a-button type="link" class="delete-btn" @click.stop="emit('delete-row', record)">
+              {{ t('confirm.delete_btn') }}
             </a-button>
           </div>
         </template>
@@ -178,7 +148,7 @@
 
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
-import { DeleteOutlined } from '@ant-design/icons-vue'
+import { api as viewerApi } from 'v-viewer'
 import { useI18n } from '@/hooks/web/useI18n'
 
 const { t } = useI18n('views.library.goods-library.index')
@@ -206,7 +176,7 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['hover-cell', 'edit-field', 'toggle-status', 'delete-row', 'select-row', 'edit-row', 'edit-basic-info', 'change'])
+const emit = defineEmits(['hover-cell', 'edit-field', 'toggle-status', 'delete-row', 'select-row', 'edit-row', 'edit-basic-info', 'edit-card', 'change'])
 
 const tableRef = ref(null)
 const scrollY = ref(400)
@@ -252,24 +222,24 @@ const handleTableChange = (pagination) => {
 
 const columns = computed(() => [
   {
-    title: t('table.image'),
-    key: 'image',
-    width: 167
-  },
-  {
-    title: t('table.basic_info'),
-    key: 'basic_info',
-    width: 480
+    title: t('table.goods'),
+    key: 'goods',
+    width: 280
   },
   {
     title: t('table.description'),
     key: 'description',
-    width: 334
+    width: 360
   },
   {
     title: t('table.qa'),
     key: 'qa',
     width: 263
+  },
+  {
+    title: t('goods_card.table_title'),
+    key: 'goods_card',
+    width: 160
   },
   {
     title: t('custom_info.title'),
@@ -279,7 +249,7 @@ const columns = computed(() => [
   {
     title: t('table.actions'),
     key: 'actions',
-    width: 115,
+    width: 156,
     fixed: 'right',
     className: 'actions-fixed-column'
   }
@@ -324,8 +294,31 @@ const getImageUrl = (record) => {
   return images[0] || ''
 }
 
-const getImageCount = (record) => {
-  return getImageList(record).length
+const getDescriptionImages = (record) => {
+  return getImageList(record)
+}
+
+const handlePreviewDescriptionImages = (record, image) => {
+  const images = getDescriptionImages(record)
+  const initialViewIndex = images.indexOf(image)
+
+  viewerApi({
+    images,
+    options: {
+      initialViewIndex: initialViewIndex >= 0 ? initialViewIndex : 0,
+      toolbar: true,
+      title: false,
+      movable: true,
+      zoomable: true,
+      rotatable: true,
+      scalable: true
+    }
+  })
+}
+
+const formatPrice = (price) => {
+  if (price === undefined || price === null || price === '') return '-'
+  return `¥ ${price}`
 }
 </script>
 
@@ -398,24 +391,24 @@ const getImageCount = (record) => {
     border-radius: 6px;
     background: #fff;
     transition: background-color 0.2s;
+
     &:hover {
-      background: #E5EFFF;
-    }
-    &.cell-active {
-      
+      background: #e5efff;
     }
   }
 
-  .image-inner {
-    width: 158px;
+  .goods-inner {
+    display: flex;
+    align-items: center;
+    gap: 12px;
     height: 116px;
     overflow: hidden;
   }
 
-  .image-box {
-    position: relative;
-    width: 135px;
-    height: 92px;
+  .goods-image-box {
+    flex-shrink: 0;
+    width: 56px;
+    height: 56px;
     overflow: hidden;
     border-radius: 8px;
     background: #fafafa;
@@ -423,9 +416,8 @@ const getImageCount = (record) => {
     img {
       display: block;
       width: 100%;
-      max-width: 135px;
       height: 100%;
-      max-height: 92px;
+      object-fit: cover;
     }
   }
 
@@ -439,69 +431,68 @@ const getImageCount = (record) => {
     font-size: 12px;
   }
 
-  .image-count {
-    position: absolute;
-    left: 8px;
-    bottom: 8px;
-    height: 20px;
-    line-height: 20px;
-    padding: 0 8px;
-    border-radius: 10px;
-    background: rgba(0, 0, 0, 0.55);
-    color: #fff;
-    font-size: 12px;
+  .goods-summary {
+    min-width: 0;
   }
 
-  .basic-inner {
-    height: 116px;
+  .goods-name {
     overflow: hidden;
     color: #262626;
+    font-size: 14px;
+    font-weight: 500;
+    line-height: 22px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .goods-price {
+    margin-top: 4px;
+    color: #f53f3f;
     font-size: 14px;
     line-height: 20px;
   }
 
-  .info-grid {
-    display: flex;
-    gap: 0 12px;
-  }
-
-  .info-col {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    min-width: 0;
-  }
-
-  .info-row {
-    display: flex;
-    gap: 4px;
-    align-items: flex-start;
-    min-width: 0;
-  }
-
-  .info-label {
-    flex-shrink: 0;
-    width: 42px;
-    color: #8c8c8c;
-    white-space: nowrap;
-  }
-
-  .info-value {
-    flex: 1;
-    min-width: 0;
-    color: #262626;
-    white-space: nowrap;
+  .description-inner {
+    height: 116px;
     overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .goods-link {
-    color: #2475fc;
-    text-decoration: none;
 
     &:hover {
-      text-decoration: underline;
+      background: #fff;
     }
+  }
+
+  .description-content {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .description-content .description-text {
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+  }
+
+  .description-images {
+    display: flex;
+    gap: 6px;
+
+    img {
+      width: 32px;
+      height: 32px;
+      border-radius: 6px;
+      cursor: pointer;
+      object-fit: cover;
+    }
+  }
+
+  .goods-card-inner {
+    display: flex;
+    align-items: center;
+    height: 116px;
+  }
+
+  .goods-card-setting {
+    padding: 0;
   }
 
   .text-inner {
@@ -529,16 +520,18 @@ const getImageCount = (record) => {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 16px;
+    gap: 8px;
     min-height: 122px;
     padding: 12px;
   }
 
   .delete-btn {
-    width: 24px;
-    height: 24px;
     padding: 0;
-    color: #595959;
+    color: #f53f3f;
+  }
+
+  .edit-btn {
+    padding: 0;
   }
 }
 </style>

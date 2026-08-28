@@ -175,6 +175,16 @@ func SaveGoodsLibrary(c *gin.Context) {
 		common.FmtError(c, `param_err`, middlewares.GetValidateErr(params, err, common.GetLang(c)).Error())
 		return
 	}
+	if goodsWechatCardJSON, ok := c.GetPostForm(`goods_wechat_card`); ok && params.GoodsWechatCard == nil {
+		params.GoodsWechatCard = &define.GoodsWechatCard{}
+		goodsWechatCardJSON = strings.TrimSpace(goodsWechatCardJSON)
+		if goodsWechatCardJSON != `` && goodsWechatCardJSON != `{}` {
+			if err := tool.JsonDecodeUseNumber(goodsWechatCardJSON, params.GoodsWechatCard); err != nil {
+				common.FmtError(c, `param_invalid`, `goods_wechat_card`)
+				return
+			}
+		}
+	}
 	params.Images = append(params.Images, c.PostFormArray(`images[]`)...)
 	if len(params.Images) == 1 && strings.HasPrefix(strings.TrimSpace(params.Images[0]), `[`) {
 		imagesJson := params.Images[0]

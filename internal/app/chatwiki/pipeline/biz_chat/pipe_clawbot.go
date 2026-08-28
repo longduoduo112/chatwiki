@@ -31,7 +31,7 @@ import (
 	"github.com/zhimaAi/go_tools/logs"
 	"github.com/zhimaAi/go_tools/msql"
 	"github.com/zhimaAi/go_tools/tool"
-	"github.com/zhimaAi/llm_adaptor/adaptor"
+	"github.com/zhimaAi/llm_adaptor/v2/chat"
 )
 
 func buildFileOperationPrompt(robot msql.Params, e2B bool) string {
@@ -241,21 +241,32 @@ func doApplicationTypeClaw(in *ChatInParam, out *ChatOutParam) error {
 	if kbSearchTool != nil {
 		tools = append(tools, kbSearchTool)
 	}
-	goodsLibRecommendTool := newGoodsLibRecommendTool(in.params)
+	goodsLibRecommendTool := newGoodsLibRecommendTool(in.params, func(list []map[string]any) {
+		replaceGoodsWechatCardsForReply(out, list)
+	})
 	if goodsLibRecommendTool != nil {
 		tools = append(tools, goodsLibRecommendTool)
 	}
 	// related workflow
 	workFlowFuncCall, _ := work_flow.BuildFunctionTools(in.params.Lang, in.params.Robot)
 	for _, t := range workFlowFuncCall {
-		result, err := custom_eino.ConvertProperties(t.Parameters.Properties)
+		var parameters struct {
+			Type       string         `json:"type"`
+			Properties map[string]any `json:"properties"`
+			Required   []string       `json:"required"`
+		}
+		if err := tool.JsonDecodeUseNumber(string(t.Function.Parameters), &parameters); err != nil {
+			logs.Error(`Decode tool parameters:` + err.Error())
+			continue
+		}
+		result, err := custom_eino.ConvertProperties(parameters.Properties)
 		if err != nil {
 			logs.Error(`ConvertProperties:` + err.Error())
 			continue
 		}
-		sc := &jsonschema.Schema{Properties: result, Type: t.Parameters.Type, Required: t.Parameters.Required}
-		tools = append(tools, custom_eino.BuildWorkFlowTool(t.Name, t.Description, schema.NewParamsOneOfByJSONSchema(sc),
-			func(functionTool adaptor.FunctionToolCall) (string, error) {
+		sc := &jsonschema.Schema{Properties: result, Type: parameters.Type, Required: parameters.Required}
+		tools = append(tools, custom_eino.BuildWorkFlowTool(t.Function.Name, t.Function.Description, schema.NewParamsOneOfByJSONSchema(sc),
+			func(functionTool chat.ToolCall) (string, error) {
 				return doClawbotRelationWorkFlow(functionTool, in, out)
 			}))
 	}
@@ -350,9 +361,15 @@ func doApplicationTypeClaw(in *ChatInParam, out *ChatOutParam) error {
 			out.debugLog = append(out.debugLog, map[string]string{`type`: `tool_result`, `content`: tool.JsonEncodeNoError(message.Content)})
 		}
 	}
-	out.chatResp.Result = sb.String()
+	out.chatResp.SetResult(sb.String())
 	out.requestTime = time.Now().Sub(requestStartTime).Milliseconds()
-	out.content = out.chatResp.Result
+	out.content = out.chatResp.Result()
+	var appendContent string
+	out.content, appendContent = common.AppendGoodsWechatCardTags(out.content, out.goodsWechatCards)
+	out.chatResp.SetResult(out.content)
+	if appendContent != `` {
+		in.Stream(sse.Event{Event: `stream_message`, Data: schema.AssistantMessage(appendContent, nil)})
+	}
 	return nil
 }
 
@@ -388,7 +405,7 @@ func Generate(ctx context.Context, input []*schema.Message, opts custom_eino.Run
 	}
 	// reset messages
 	var systemAppend bool
-	out.messages = make([]adaptor.ZhimaChatCompletionMessage, 0) // clear
+	out.messages = make([]chat.Message, 0) // clear
 	out.messages = common.BuildOpenApiContent(in.params, out.messages)
 	for _, message := range input {
 		if message == nil {
@@ -401,13 +418,17 @@ func Generate(ctx context.Context, input []*schema.Message, opts custom_eino.Run
 		}
 		if !systemAppend && message.Role == schema.System {
 			systemAppend = true
-			result.Content = buildSystemPrompt(result.Content, in, out)
+			content := ``
+			if result.Content.Text != nil {
+				content = *result.Content.Text
+			}
+			result.Content = chat.MessageContent{Text: tea.String(buildSystemPrompt(content, in, out))}
 		}
 		out.messages = append(out.messages, result)
 	}
 	// reset functionTools
 	filterTools := buildFilterTools(in.params.Robot)
-	out.functionTools = make([]adaptor.FunctionTool, 0) // clear
+	out.functionTools = make([]chat.Tool, 0) // clear
 	for _, info := range opts.Common.Tools {
 		if info == nil {
 			continue
@@ -424,6 +445,7 @@ func Generate(ctx context.Context, input []*schema.Message, opts custom_eino.Run
 	}
 	// RequestChat
 	chatResp, _, err := common.RequestChat(
+		ctx,
 		in.params.Lang,
 		in.params.AdminUserId,
 		in.params.Openid,
@@ -437,15 +459,15 @@ func Generate(ctx context.Context, input []*schema.Message, opts custom_eino.Run
 		cast.ToInt(in.params.Robot[`max_token`]),
 		common.ToThinkingSwitch(in.params.Robot[`enable_thinking`]),
 	)
-	if chatResp.PromptToken > 0 || chatResp.CompletionToken > 0 {
-		out.chatResp.PromptToken += chatResp.PromptToken
-		out.chatResp.CompletionToken += chatResp.CompletionToken
+	if chatResp.Usage.PromptTokens > 0 || chatResp.Usage.CompletionTokens > 0 {
+		out.chatResp.Usage.PromptTokens += chatResp.Usage.PromptTokens
+		out.chatResp.Usage.CompletionTokens += chatResp.Usage.CompletionTokens
 	}
 	if err != nil {
 		return nil, err
 	}
 	// AssistantMessage
-	return custom_eino.ConvertChatResp(chatResp), nil
+	return custom_eino.ConvertChatResp(chatResp.CreateResponse), nil
 }
 
 func buildFilterTools(robot msql.Params) []string {
@@ -468,7 +490,7 @@ func Stream(ctx context.Context, input []*schema.Message, opts custom_eino.Runti
 	}
 	// reset messages
 	var systemAppend bool
-	out.messages = make([]adaptor.ZhimaChatCompletionMessage, 0) // clear
+	out.messages = make([]chat.Message, 0) // clear
 	out.messages = common.BuildOpenApiContent(in.params, out.messages)
 	for _, message := range input {
 		if message == nil {
@@ -481,13 +503,17 @@ func Stream(ctx context.Context, input []*schema.Message, opts custom_eino.Runti
 		}
 		if !systemAppend && message.Role == schema.System {
 			systemAppend = true
-			result.Content = buildSystemPrompt(result.Content, in, out)
+			content := ``
+			if result.Content.Text != nil {
+				content = *result.Content.Text
+			}
+			result.Content = chat.MessageContent{Text: tea.String(buildSystemPrompt(content, in, out))}
 		}
 		out.messages = append(out.messages, result)
 	}
 	// reset functionTools
 	filterTools := buildFilterTools(in.params.Robot)
-	out.functionTools = make([]adaptor.FunctionTool, 0) // clear
+	out.functionTools = make([]chat.Tool, 0) // clear
 	for _, info := range opts.Common.Tools {
 		if info == nil {
 			continue
@@ -504,7 +530,7 @@ func Stream(ctx context.Context, input []*schema.Message, opts custom_eino.Runti
 	}
 	// RequestChatStream
 	var streamErr error
-	var totalResponse adaptor.ZhimaChatCompletionResponse
+	var totalResponse common.ChatResponse
 	chanStream := make(chan sse.Event)
 	go func() {
 		defer close(chanStream)
@@ -524,9 +550,9 @@ func Stream(ctx context.Context, input []*schema.Message, opts custom_eino.Runti
 			cast.ToInt(in.params.Robot[`max_token`]),
 			common.ToThinkingSwitch(in.params.Robot[`enable_thinking`]),
 		)
-		if totalResponse.PromptToken > 0 || totalResponse.CompletionToken > 0 {
-			out.chatResp.PromptToken += totalResponse.PromptToken
-			out.chatResp.CompletionToken += totalResponse.CompletionToken
+		if totalResponse.Usage.PromptTokens > 0 || totalResponse.Usage.CompletionTokens > 0 {
+			out.chatResp.Usage.PromptTokens += totalResponse.Usage.PromptTokens
+			out.chatResp.Usage.CompletionTokens += totalResponse.Usage.CompletionTokens
 		}
 	}()
 	// StreamReader
@@ -539,16 +565,16 @@ func Stream(ctx context.Context, input []*schema.Message, opts custom_eino.Runti
 			if event.Event != `stream_raw` {
 				continue
 			}
-			response, ok := event.Data.(adaptor.ZhimaChatCompletionResponse)
+			response, ok := event.Data.(*chat.StreamChunk)
 			if !ok {
 				continue
 			}
 			// Fallback for legacy providers that stream a single tool call without index.
 			// Multi-tool streaming without index cannot be merged reliably here.
-			if len(response.ToolCalls) == 1 && response.ToolCalls[0].Index == nil {
-				response.ToolCalls[0].Index = tea.Int(0)
+			if len(response.Choices) > 0 && len(response.Choices[0].Delta.ToolCalls) == 1 && response.Choices[0].Delta.ToolCalls[0].Index == nil {
+				response.Choices[0].Delta.ToolCalls[0].Index = tea.Int(0)
 			}
-			_ = writer.Send(custom_eino.ConvertChatResp(response), nil)
+			_ = writer.Send(custom_eino.ConvertStreamChunk(response), nil)
 		}
 		if streamErr != nil {
 			_ = writer.Send(nil, streamErr)
@@ -656,6 +682,7 @@ func newKbsearchTool(params *define.ChatRequestParam, sessionId int) einotool.Ba
 			appId = params.AppInfo[`app_id`]
 		}
 		list, _, err := common.GetMatchLibraryParagraphList(
+			params.StopCtx,
 			params.Lang,
 			params.Openid,
 			params.AppType,
@@ -671,13 +698,13 @@ func newKbsearchTool(params *define.ChatRequestParam, sessionId int) einotool.Ba
 		if err != nil {
 			return ``, err
 		}
-		_, libraryContent := common.FormatSystemPrompt(params.Lang, ``, list)
+		_, libraryContent := common.FormatSystemPrompt(params.Lang, params.AdminUserId, ``, list)
 		return libraryContent, nil
 	})
 	return kbSearchTool
 }
 
-func newGoodsLibRecommendTool(params *define.ChatRequestParam) einotool.BaseTool {
+func newGoodsLibRecommendTool(params *define.ChatRequestParam, onResult func([]map[string]any)) einotool.BaseTool {
 	if !cast.ToBool(params.Robot[`goods_lib_recommend_switch`]) {
 		return nil // the recommendation of goods from the goods library has not been enabled
 	}
@@ -694,8 +721,18 @@ func newGoodsLibRecommendTool(params *define.ChatRequestParam) einotool.BaseTool
 		if err != nil {
 			return ``, err
 		}
+		if onResult != nil {
+			onResult(list)
+		}
 		return common.FormatGoodsLibRecommendResult(searchType, list, total), nil
 	})
+}
+
+func replaceGoodsWechatCardsForReply(out *ChatOutParam, list []map[string]any) {
+	if out == nil {
+		return
+	}
+	out.goodsWechatCards = common.ExtractGoodsWechatCardsForReply(list)
 }
 
 func ConcatStreamMessages(in *ChatInParam, mv *adk.MessageVariant) (*schema.Message, error) {
@@ -727,8 +764,8 @@ func ConcatStreamMessages(in *ChatInParam, mv *adk.MessageVariant) (*schema.Mess
 	return mv.Message, nil
 }
 
-func doClawbotRelationWorkFlow(functionTool adaptor.FunctionToolCall, in *ChatInParam, out *ChatOutParam) (string, error) {
-	workFlowRobot, workFlowGlobal := work_flow.ChooseWorkFlowRobot(cast.ToString(in.params.AdminUserId), []adaptor.FunctionToolCall{functionTool})
+func doClawbotRelationWorkFlow(functionTool chat.ToolCall, in *ChatInParam, out *ChatOutParam) (string, error) {
+	workFlowRobot, workFlowGlobal := work_flow.ChooseWorkFlowRobot(cast.ToString(in.params.AdminUserId), []chat.ToolCall{functionTool})
 	if len(workFlowRobot) == 0 {
 		return ``, errors.New(`failed to obtain workflow skill information`)
 	}

@@ -23,7 +23,7 @@ import (
 	"github.com/zhimaAi/go_tools/logs"
 	"github.com/zhimaAi/go_tools/msql"
 	"github.com/zhimaAi/go_tools/tool"
-	"github.com/zhimaAi/llm_adaptor/adaptor"
+	"github.com/zhimaAi/llm_adaptor/v2/chat"
 )
 
 type MixedContent string
@@ -39,12 +39,12 @@ func (m *MixedContent) UnmarshalJSON(data []byte) error {
 
 type (
 	ChatMessagesReq struct {
-		Content  MixedContent                         `form:"content" json:"content" binding:"required"`
-		Messages []adaptor.ZhimaChatCompletionMessage `form:"messages" json:"messages"`
-		OpenID   string                               `form:"open_id" json:"open_id" binding:"required"`
-		Stream   bool                                 `form:"stream" json:"stream,omitempty"`
-		QuoteLib bool                                 `form:"quote_lib" json:"quote_lib,omitempty"`
-		Global   map[string]any                       `form:"global" json:"global"`
+		Content  MixedContent   `form:"content" json:"content" binding:"required"`
+		Messages []chat.Message `form:"messages" json:"messages"`
+		OpenID   string         `form:"open_id" json:"open_id" binding:"required"`
+		Stream   bool           `form:"stream" json:"stream,omitempty"`
+		QuoteLib bool           `form:"quote_lib" json:"quote_lib,omitempty"`
+		Global   map[string]any `form:"global" json:"global"`
 		RobotKey string
 	}
 	ChatMessagesRes struct {
@@ -63,6 +63,7 @@ type (
 		MiniCard       []common.ReplyContent `json:"mini_card,omitempty"`
 		// function center - auto reply: (keyword reply + received message reply)
 		ReplyContentList []common.ReplyContent `json:"reply_content_list,omitempty"`
+		AnswerList       []string              `json:"answer_list,omitempty"`
 	}
 	ChatMessagesMetaData struct {
 		Usage Usage `json:"usage,omitempty"`
@@ -160,6 +161,9 @@ func ChatMessages(c *gin.Context) {
 		if isSwitchManual := cast.ToBool(message[`is_switch_manual`]); isSwitchManual {
 			res.IsSwitchManual = &isSwitchManual
 		}
+		if len(message[`answer_list`]) > 0 { // QA direct reply multiple answers list
+			_ = tool.JsonDecodeUseNumber(message[`answer_list`], &res.AnswerList)
+		}
 		if len(message[`reply_content_list`]) > 0 { // return function center auto reply content
 			_ = tool.JsonDecodeUseNumber(message[`reply_content_list`], &res.ReplyContentList)
 			for i, item := range res.ReplyContentList {
@@ -230,11 +234,6 @@ func (r *ChatMessagesReq) buildChatRequestParam(c *gin.Context) (*define.ChatReq
 		QuoteLib:            r.QuoteLib,
 		ChatPromptVariables: GetPromptVariables(robot[`id`], c),
 	}, nil
-}
-
-// Completions compatible openai standard api
-func Completions(c *gin.Context) {
-	c.String(http.StatusNotFound, `The open-source version is not supported !`)
 }
 
 func GetRobotInfo(c *gin.Context) {

@@ -467,7 +467,7 @@ func LibraryRecallTest(c *gin.Context) {
 		}
 	}
 
-	list, _, err := common.GetMatchLibraryParagraphList(common.GetLang(c), cast.ToString(userId), lib_define.AppYunH5, "", question, []string{}, libraryIds, size, similarity, searchType, robot)
+	list, _, err := common.GetMatchLibraryParagraphList(c.Request.Context(), common.GetLang(c), cast.ToString(userId), lib_define.AppYunH5, "", question, []string{}, libraryIds, size, similarity, searchType, robot)
 	for _, item := range list {
 		library, err := common.GetLibraryInfo(cast.ToInt(item[`library_id`]), userId)
 		if err != nil {
@@ -1184,7 +1184,7 @@ func GetSimilarQuestions(c *gin.Context) {
 		embedding = cast.ToString(vectorData[`embedding`])
 	}
 	if len(embedding) == 0 {
-		embedding, err = common.GetVector2000(common.GetLang(c), adminUserId, ``, msql.Params{}, msql.Params{}, msql.Params{},
+		embedding, err = common.GetVector2000(c.Request.Context(), common.GetLang(c), adminUserId, ``, msql.Params{}, msql.Params{}, msql.Params{},
 			cast.ToInt(libraryInfo[`model_config_id`]),
 			libraryInfo[`use_model`], sourceData[`question`])
 		if err != nil {

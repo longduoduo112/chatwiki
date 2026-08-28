@@ -23,7 +23,7 @@ import (
 	"github.com/zhimaAi/go_tools/logs"
 	"github.com/zhimaAi/go_tools/msql"
 	"github.com/zhimaAi/go_tools/tool"
-	"github.com/zhimaAi/llm_adaptor/adaptor"
+	"github.com/zhimaAi/llm_adaptor/v2/chat"
 )
 
 // UnifiedMessageType unified MsgType
@@ -441,16 +441,20 @@ func SendReply(push *lib_define.PushMessage) {
 	// construct to multimodal input data format
 	switch receivedMessageType {
 	case lib_define.MsgTypeImage:
-		push.Content = tool.JsonEncodeNoError(adaptor.QuestionMultiple{
-			{Type: adaptor.TypeImage, ImageUrl: adaptor.ImageUrl{Url: params.MediaIdToOssUrl}},
+		push.Content = tool.JsonEncodeNoError([]chat.ContentPart{
+			{Type: chat.ContentPartImageURL, ImageURL: &chat.ImageURL{URL: params.MediaIdToOssUrl}},
 		})
 	case lib_define.MsgTypeVoice:
-		push.Content = tool.JsonEncodeNoError(adaptor.QuestionMultiple{
-			{Type: adaptor.TypeAudio, InputAudio: adaptor.InputAudio{Data: params.MediaIdToOssUrl}},
+		audioFormat := strings.TrimPrefix(filepath.Ext(params.MediaIdToOssUrl), `.`)
+		if audioFormat == `` {
+			audioFormat = `mp3`
+		}
+		push.Content = tool.JsonEncodeNoError([]chat.ContentPart{
+			{Type: chat.ContentPartInputAudio, InputAudio: &chat.InputAudio{Data: params.MediaIdToOssUrl, Format: audioFormat}},
 		})
 	case lib_define.MsgTypeVideo:
-		push.Content = tool.JsonEncodeNoError(adaptor.QuestionMultiple{
-			{Type: adaptor.TypeVideo, VideoUrl: adaptor.VideoUrl{Url: params.MediaIdToOssUrl}},
+		push.Content = tool.JsonEncodeNoError([]chat.ContentPart{
+			{Type: chat.ContentPartVideoURL, VideoURL: &chat.VideoURL{URL: params.MediaIdToOssUrl}},
 		})
 	}
 	params.Question = push.Content // replace question with multimodal input data format

@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/alibabacloud-go/tea/tea"
 	"github.com/cloudwego/eino/adk"
 	"github.com/cloudwego/eino/adk/filesystem"
 	"github.com/cloudwego/eino/adk/middlewares/reduction"
@@ -23,7 +24,7 @@ import (
 	"github.com/spf13/cast"
 	"github.com/zhimaAi/go_tools/logs"
 	"github.com/zhimaAi/go_tools/tool"
-	"github.com/zhimaAi/llm_adaptor/adaptor"
+	"github.com/zhimaAi/llm_adaptor/v2/chat"
 )
 
 type DocToSkillTaskInfo struct {
@@ -316,7 +317,7 @@ func docToSkillGenerate(ctx context.Context, input []*schema.Message, opts custo
 		return nil, errors.New(i18n.Show(lang, `doc_to_skill_task_stopped`))
 	}
 	var systemAppend bool
-	messages := make([]adaptor.ZhimaChatCompletionMessage, 0)
+	messages := make([]chat.Message, 0)
 	for _, message := range input {
 		if message == nil {
 			continue
@@ -328,11 +329,11 @@ func docToSkillGenerate(ctx context.Context, input []*schema.Message, opts custo
 		}
 		if !systemAppend && message.Role == schema.System {
 			systemAppend = true
-			result.Content = buildDocToSkillSystemPrompt(task)
+			result.Content = chat.MessageContent{Text: tea.String(buildDocToSkillSystemPrompt(task))}
 		}
 		messages = append(messages, result)
 	}
-	functionTools := make([]adaptor.FunctionTool, 0)
+	functionTools := make([]chat.Tool, 0)
 	filterTools := []string{`write_todos`, `todo_write`}
 	for _, info := range opts.Common.Tools {
 		if info == nil || tool.InArray(info.Name, filterTools) {
@@ -346,6 +347,7 @@ func docToSkillGenerate(ctx context.Context, input []*schema.Message, opts custo
 		functionTools = append(functionTools, result)
 	}
 	chatResp, _, err := RequestChat(
+		ctx,
 		lang,
 		task.AdminUserId,
 		cast.ToString(task.AdminUserId),
@@ -362,5 +364,5 @@ func docToSkillGenerate(ctx context.Context, input []*schema.Message, opts custo
 	if err != nil {
 		return nil, errors.New(i18n.Show(lang, `doc_to_skill_runner_error`, err.Error()))
 	}
-	return custom_eino.ConvertChatResp(chatResp), nil
+	return custom_eino.ConvertChatResp(chatResp.CreateResponse), nil
 }

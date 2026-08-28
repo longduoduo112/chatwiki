@@ -18,7 +18,6 @@ import (
 	"github.com/zhimaAi/go_tools/logs"
 	"github.com/zhimaAi/go_tools/msql"
 	"github.com/zhimaAi/go_tools/tool"
-	"github.com/zhimaAi/llm_adaptor/adaptor"
 )
 
 func GetLibraryRobotInfo(adminUserId, libraryId int) ([]msql.Params, error) {
@@ -198,8 +197,8 @@ func BuildLibraryMessagesFromCache(robotKey, messageId string) ([]msql.Params, b
 	return changeListContent(fileData), true, nil
 }
 
-func ResponseMessagesFromCache(messageId string, useStream bool, chanStream chan sse.Event) (adaptor.ZhimaChatCompletionResponse, int64, error) {
-	chatResp := adaptor.ZhimaChatCompletionResponse{}
+func ResponseMessagesFromCache(messageId string, useStream bool, chanStream chan sse.Event) (ChatResponse, int64, error) {
+	chatResp := ChatResponse{}
 	requestStartTime := time.Now()
 	// Query data from chat_ai_message table
 	content, err := msql.Model("chat_ai_message", define.Postgres).
@@ -218,7 +217,7 @@ func ResponseMessagesFromCache(messageId string, useStream bool, chanStream chan
 	if useStream {
 		chanStream <- sse.Event{Event: `sending`, Data: content}
 	}
-	chatResp.Result = content
+	chatResp.SetResult(content)
 	// Return data
 	return chatResp, requestTime, nil
 }

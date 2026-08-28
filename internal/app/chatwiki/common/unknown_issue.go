@@ -5,6 +5,7 @@ package common
 import (
 	"chatwiki/internal/app/chatwiki/define"
 	"chatwiki/internal/app/chatwiki/i18n"
+	"context"
 	"errors"
 	"fmt"
 	"strings"
@@ -104,7 +105,7 @@ func DisposeStringList(sliceStr string, items ...string) []string {
 }
 
 func SaveUnknownIssueSummaryRecord(lang string, adminUserId int, robot msql.Params, question string) {
-	embedding, err := GetVector2000(lang, adminUserId, robot[`admin_user_id`], robot, msql.Params{}, msql.Params{},
+	embedding, err := GetVector2000(context.Background(), lang, adminUserId, robot[`admin_user_id`], robot, msql.Params{}, msql.Params{},
 		cast.ToInt(robot[`unknown_summary_model_config_id`]), robot[`unknown_summary_use_model`], question)
 	if err != nil {
 		logs.Error(err.Error())

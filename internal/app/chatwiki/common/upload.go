@@ -22,7 +22,6 @@ import (
 	"github.com/xuri/excelize/v2"
 	"github.com/zhimaAi/go_tools/curl"
 	"github.com/zhimaAi/go_tools/tool"
-	"github.com/zhimaAi/llm_adaptor/common"
 )
 
 type CrawlerPage struct {
@@ -166,7 +165,7 @@ func SaveUrlPage(userId int, url, saveDir string) (*define.UploadInfo, error) {
 
 	// parse response
 	var crawlerPage CrawlerPage
-	err = common.HttpDecodeResponse(resp, &crawlerPage)
+	err = json.NewDecoder(resp.Body).Decode(&crawlerPage)
 	if err != nil {
 		return nil, err
 	}

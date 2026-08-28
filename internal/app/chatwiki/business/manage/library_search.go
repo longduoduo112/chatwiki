@@ -220,7 +220,7 @@ func LibraryAiSummary(c *gin.Context) {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		if err := common.LibraryAiSummary(common.GetLang(c), userId, question, prompt, libraryIds, size, maxToken, similarity, temperature, searchType, robot, chanStream, summarySwitch); err != nil {
+		if err := common.LibraryAiSummary(c.Request.Context(), common.GetLang(c), userId, question, prompt, libraryIds, size, maxToken, similarity, temperature, searchType, robot, chanStream, summarySwitch); err != nil {
 			common.FmtError(c, `sys_err`)
 			return
 		}

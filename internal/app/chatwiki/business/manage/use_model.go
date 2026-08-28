@@ -103,16 +103,14 @@ func SaveUseModelConfig(c *gin.Context) {
 	}
 	//Model call test
 	var err error
-	if useModel.ModelType != common.Tts { //TTS models are not tested for now
-		handler, err := modelInfo.CallHandlerFunc(modelInfo, modelInfo.ConfigInfo, useModel.UseModelName)
-		if err != nil {
-			c.String(http.StatusOK, lib_web.FmtJson(nil, err))
-			return
-		}
-		if err = common.ConfigurationTest(handler.Meta, useModel.ModelType); err != nil {
-			c.String(http.StatusOK, lib_web.FmtJson(nil, err))
-			return
-		}
+	handler, err := modelInfo.CallHandlerFunc(modelInfo, modelInfo.ConfigInfo, useModel.UseModelName)
+	if err != nil {
+		c.String(http.StatusOK, lib_web.FmtJson(nil, err))
+		return
+	}
+	if err = common.ConfigurationTest(handler.Client, handler.Model, useModel.ModelType); err != nil {
+		c.String(http.StatusOK, lib_web.FmtJson(nil, err))
+		return
 	}
 	err = useModel.ToSave(common.GetLang(c), adminUserId, modelConfigId)
 	if err == nil {
@@ -180,7 +178,7 @@ func GetMiniMaxVoiceList(c *gin.Context) {
 	}
 
 	//Call MiniMax API to get the voice list
-	result, err := common.TtsGetVoiceList(common.GetLang(c), adminUserId, cast.ToInt(config[`id`]))
+	result, err := common.TtsGetVoiceList(c.Request.Context(), common.GetLang(c), adminUserId, cast.ToInt(config[`id`]))
 	if err != nil {
 		logs.Error(`get minimax voice list failed: %v`, err)
 		c.String(http.StatusOK, lib_web.FmtJson(nil, err))

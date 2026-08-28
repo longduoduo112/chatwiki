@@ -18,7 +18,7 @@ import (
 	"github.com/zhimaAi/go_tools/logs"
 	"github.com/zhimaAi/go_tools/msql"
 	"github.com/zhimaAi/go_tools/tool"
-	"github.com/zhimaAi/llm_adaptor/adaptor"
+	"github.com/zhimaAi/llm_adaptor/v2/chat"
 )
 
 // CheckChanStream check stream output pipe
@@ -69,19 +69,19 @@ func CheckParams(in *ChatInParam, out *ChatOutParam) pipeline.PipeResult {
 	}
 	// when input is multi-modal, perform basic parameter validation
 	if questionMultiple, ok := common.ParseInputQuestion(in.params.Question); ok {
+		imageTotal := 0
 		for idx := range questionMultiple {
-			var imageTotal int
 			switch questionMultiple[idx].Type {
-			case adaptor.TypeText:
+			case chat.ContentPartText:
 				if len(questionMultiple[idx].Text) == 0 {
 					out.Error = errors.New(i18n.Show(in.params.Lang, `param_invalid`, fmt.Sprintf(`question.%d.text`, idx)))
 				}
-			case adaptor.TypeImage:
+			case chat.ContentPartImageURL:
 				imageTotal++
-				if len(questionMultiple[idx].ImageUrl.Url) == 0 {
+				if questionMultiple[idx].ImageURL == nil || len(questionMultiple[idx].ImageURL.URL) == 0 {
 					out.Error = errors.New(i18n.Show(in.params.Lang, `param_invalid`, fmt.Sprintf(`question.%d.image_url.url`, idx)))
 				}
-			case adaptor.TypeAudio, adaptor.TypeVideo:
+			case chat.ContentPartInputAudio, chat.ContentPartVideoURL:
 				//current not check
 			default:
 				out.Error = errors.New(i18n.Show(in.params.Lang, `param_invalid`, fmt.Sprintf(`question.%d.type`, idx)))

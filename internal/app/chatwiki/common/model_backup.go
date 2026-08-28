@@ -5,6 +5,7 @@ package common
 import (
 	"chatwiki/internal/app/chatwiki/define"
 	"chatwiki/internal/pkg/lib_redis"
+	"errors"
 	"fmt"
 	"time"
 
@@ -12,8 +13,31 @@ import (
 	"github.com/zhimaAi/go_tools/logs"
 	"github.com/zhimaAi/go_tools/msql"
 	"github.com/zhimaAi/go_tools/tool"
-	"github.com/zhimaAi/llm_adaptor/adaptor"
+	"github.com/zhimaAi/llm_adaptor/v2/chat"
 )
+
+// ErrModelUnavailable indicates self-owned model availability failure
+// such as integral exhausted or model offline. This type of error
+// is recoverable via backup model and should be treated as provider error.
+var ErrModelUnavailable = errors.New(`self-owned model unavailable`)
+
+// WrapModelUnavailable wraps self-owned availability error
+func WrapModelUnavailable(detail string) error {
+	return fmt.Errorf(`%w: %s`, ErrModelUnavailable, detail)
+}
+
+// IsModelUnavailable checks if error is self-owned availability failure
+func IsModelUnavailable(err error) bool {
+	return errors.Is(err, ErrModelUnavailable)
+}
+
+// precheckErrStage maps handler-build error to error stage
+func precheckErrStage(err error) ModelErrStage {
+	if IsModelUnavailable(err) {
+		return ModelErrProvider
+	}
+	return ModelErrPrecheck
+}
 
 type BackupModelConfigCacheBuildHandler struct{ AdminUserId int }
 
@@ -78,7 +102,7 @@ func logModelError(lang string, adminUserId, modelConfigId int, useModel string,
 	LlmLogModelError(lang, adminUserId, config, useModel, robot, errMsg)
 }
 
-func getUsableBackupModel(lang string, adminUserId, primaryConfigId int, primaryUseModel string, messages []adaptor.ZhimaChatCompletionMessage, functionTools []adaptor.FunctionTool) (int, string, bool) {
+func getUsableBackupModel(lang string, adminUserId, primaryConfigId int, primaryUseModel string, messages []chat.Message, functionTools []chat.Tool) (int, string, bool) {
 	backup, err := GetBackupModelConfig(adminUserId)
 	if err != nil || len(backup) == 0 {
 		return 0, ``, false
@@ -111,26 +135,26 @@ func getUsableBackupModel(lang string, adminUserId, primaryConfigId int, primary
 	return backupConfigId, backupUseModel, true
 }
 
-func backupModelCapable(cfg *UseModelConfig, messages []adaptor.ZhimaChatCompletionMessage, functionTools []adaptor.FunctionTool) bool {
+func backupModelCapable(cfg *UseModelConfig, messages []chat.Message, functionTools []chat.Tool) bool {
 	if len(functionTools) > 0 && cfg.FunctionCall == 0 {
 		return false
 	}
 	var needImage, needVoice, needVideo bool
 	for _, msg := range messages {
-		if msg.Role != `user` {
+		if msg.Role != chat.RoleUser || msg.Content.Text == nil {
 			continue
 		}
-		questionMultiple, ok := ParseInputQuestion(msg.Content)
+		questionMultiple, ok := ParseInputQuestion(*msg.Content.Text)
 		if !ok {
 			continue
 		}
 		for _, item := range questionMultiple {
 			switch item.Type {
-			case adaptor.TypeImage:
+			case chat.ContentPartImageURL:
 				needImage = true
-			case adaptor.TypeAudio:
+			case chat.ContentPartInputAudio:
 				needVoice = true
-			case adaptor.TypeVideo:
+			case chat.ContentPartVideoURL:
 				needVideo = true
 			}
 		}
