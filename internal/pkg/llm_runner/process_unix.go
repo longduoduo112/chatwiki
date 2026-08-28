@@ -1,3 +1,5 @@
+// Copyright © 2016- 2025 Wuhan Sesame Small Customer Service Network Technology Co., Ltd.
+
 //go:build aix || darwin || dragonfly || freebsd || linux || netbsd || openbsd || solaris
 
 package llm_runner

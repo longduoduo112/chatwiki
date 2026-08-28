@@ -16,6 +16,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
+	"github.com/alibabacloud-go/tea/tea"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/spf13/cast"
@@ -23,7 +24,7 @@ import (
 	"github.com/zhimaAi/go_tools/logs"
 	"github.com/zhimaAi/go_tools/msql"
 	"github.com/zhimaAi/go_tools/tool"
-	"github.com/zhimaAi/llm_adaptor/adaptor"
+	"github.com/zhimaAi/llm_adaptor/v2/chat"
 )
 
 func GetParagraphList(c *gin.Context) {
@@ -1049,9 +1050,10 @@ func GenerateSimilarQuestions(c *gin.Context) {
 	prompt = strings.ReplaceAll(prompt, `{{question}}`, question)
 	prompt = strings.ReplaceAll(prompt, `{{answer}}`, answer)
 
-	messages := []adaptor.ZhimaChatCompletionMessage{{Role: `user`, Content: prompt}}
+	messages := []chat.Message{{Role: chat.RoleUser, Content: chat.MessageContent{Text: tea.String(prompt)}}}
 
 	chatResp, _, err := common.RequestChat(
+		c.Request.Context(),
 		common.GetLang(c),
 		userId,
 		``,
@@ -1070,10 +1072,9 @@ func GenerateSimilarQuestions(c *gin.Context) {
 		c.String(http.StatusOK, lib_web.FmtJson(nil, errors.New(i18n.Show(common.GetLang(c), `sys_err`))))
 		return
 	}
-	chatResp.Result = strings.TrimPrefix(chatResp.Result, "```json")
-	chatResp.Result = strings.TrimSuffix(chatResp.Result, "```")
+	chatResp.NormalizeJSONResult()
 	var result []string
-	err = json.Unmarshal([]byte(chatResp.Result), &result)
+	err = json.Unmarshal([]byte(chatResp.Result()), &result)
 	if err != nil {
 		logs.Error(err.Error())
 		c.String(http.StatusOK, lib_web.FmtJson(nil, errors.New(i18n.Show(common.GetLang(c), `sys_err`))))
@@ -1103,17 +1104,18 @@ func GenerateAiPrompt(c *gin.Context) {
 	maxTokens := 0
 	//Generate AI prompt
 	prompt := fmt.Sprintf(define.PromptAiGenerate, 500)
-	messages := []adaptor.ZhimaChatCompletionMessage{
+	messages := []chat.Message{
 		{
-			Role:    "system",
-			Content: prompt,
+			Role:    chat.RoleSystem,
+			Content: chat.MessageContent{Text: tea.String(prompt)},
 		},
 		{
-			Role:    "user",
-			Content: aiPromptQuestion,
+			Role:    chat.RoleUser,
+			Content: chat.MessageContent{Text: tea.String(aiPromptQuestion)},
 		},
 	}
 	chatResp, _, err := common.RequestChat(
+		c.Request.Context(),
 		common.GetLang(c),
 		adminUserId,
 		"",
@@ -1127,10 +1129,10 @@ func GenerateAiPrompt(c *gin.Context) {
 		maxTokens,
 		common.ThinkingDisabled,
 	)
-	if err != nil && len(chatResp.Result) <= 0 {
+	if err != nil && len(chatResp.Result()) <= 0 {
 		logs.Error(err.Error())
 		common.FmtError(c, `sys_err`, err.Error())
 		return
 	}
-	common.FmtOk(c, chatResp.Result)
+	common.FmtOk(c, chatResp.Result())
 }

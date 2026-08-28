@@ -8,14 +8,18 @@ const (
 )
 
 const (
-	GoodsLibMaxGroupLevel       = 5
-	GoodsLibGroupNameMaxLength  = 15
-	GoodsLibBaseInfoMaxLength   = 100
-	GoodsLibLinkMaxLength       = 1000
-	GoodsLibDetailMaxLength     = 1000
-	GoodsLibImageLimitSize      = 10 * 1024 * 1024
-	GoodsLibImportFileLimitSize = 100 * 1024 * 1024
-	GoodsLibDefaultPageSize     = 20
+	GoodsLibMaxGroupLevel         = 5
+	GoodsLibGroupNameMaxLength    = 15
+	GoodsLibBaseInfoMaxLength     = 100
+	GoodsLibLinkMaxLength         = 1000
+	GoodsLibDetailMaxLength       = 1000
+	GoodsWechatCardAppidMaxLength = 100
+	GoodsWechatCardPathMaxLength  = 500
+	GoodsWechatCardTitleMaxLength = 255
+	GoodsWechatCardImageMaxLength = 500
+	GoodsLibImageLimitSize        = 10 * 1024 * 1024
+	GoodsLibImportFileLimitSize   = 100 * 1024 * 1024
+	GoodsLibDefaultPageSize       = 20
 )
 
 const (
@@ -62,20 +66,28 @@ type GoodsLibListFilter struct {
 }
 
 type GoodsLibSaveParams struct {
-	ID           int64    `form:"id" json:"id" binding:"gte=0"`
-	GroupID      int64    `form:"group_id" json:"group_id" binding:"gte=0"`
-	GoodsID      string   `form:"goods_id" json:"goods_id" binding:"required"`
-	GoodsName    string   `form:"goods_name" json:"goods_name" binding:"required"`
-	Category     string   `form:"category" json:"category"`
-	Brand        string   `form:"brand" json:"brand"`
-	Price        float64  `form:"price" json:"price" binding:"gte=0"`
-	Stock        int64    `form:"stock" json:"stock"`
-	Link         string   `form:"link" json:"link"`
-	Images       []string `form:"images" json:"images"`
-	Description  string   `form:"description" json:"description"`
-	QA           string   `form:"qa" json:"qa"`
-	CustomInfo   string   `form:"custom_info" json:"custom_info"`
-	SwitchStatus *int     `form:"switch_status" json:"switch_status"`
+	ID              int64            `form:"id" json:"id" binding:"gte=0"`
+	GroupID         int64            `form:"group_id" json:"group_id" binding:"gte=0"`
+	GoodsID         string           `form:"goods_id" json:"goods_id" binding:"required"`
+	GoodsName       string           `form:"goods_name" json:"goods_name" binding:"required"`
+	Category        string           `form:"category" json:"category"`
+	Brand           string           `form:"brand" json:"brand"`
+	Price           float64          `form:"price" json:"price" binding:"gte=0"`
+	Stock           int64            `form:"stock" json:"stock"`
+	Link            string           `form:"link" json:"link"`
+	Images          []string         `form:"images" json:"images"`
+	Description     string           `form:"description" json:"description"`
+	QA              string           `form:"qa" json:"qa"`
+	CustomInfo      string           `form:"custom_info" json:"custom_info"`
+	GoodsWechatCard *GoodsWechatCard `form:"goods_wechat_card" json:"goods_wechat_card,omitempty"`
+	SwitchStatus    *int             `form:"switch_status" json:"switch_status"`
+}
+
+type GoodsWechatCard struct {
+	Appid string `form:"appid" json:"appid"`
+	Path  string `form:"path" json:"path"`
+	Title string `form:"title" json:"title"`
+	Image string `form:"image" json:"image"`
 }
 
 type GoodsLibImportHeader struct {

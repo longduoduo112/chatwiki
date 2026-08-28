@@ -13,7 +13,7 @@ import (
 	"github.com/zhimaAi/go_tools/curl"
 	"github.com/zhimaAi/go_tools/logs"
 	"github.com/zhimaAi/go_tools/tool"
-	"github.com/zhimaAi/llm_adaptor/adaptor"
+	"github.com/zhimaAi/llm_adaptor/v2/chat"
 )
 
 func BuildWelcomesReply(welcomes string) string {
@@ -100,12 +100,6 @@ type WecomMsg struct {
 	} `json:"image"`
 }
 
-type MixedItem struct {
-	Type     string           `json:"type"`
-	Text     string           `json:"text,omitempty"`
-	ImageUrl adaptor.ImageUrl `json:"image_url,omitzero"`
-}
-
 // ParseMsgItem 解析图文混排
 func ParseMsgItem(msgItem any, userId int) string {
 	list := make([]WecomMsg, 0)
@@ -113,14 +107,14 @@ func ParseMsgItem(msgItem any, userId int) string {
 	if err != nil {
 		logs.Error(`解析失败:%v/%s`, msgItem, err.Error())
 	}
-	multiple := make([]MixedItem, 0)
+	multiple := make([]chat.ContentPart, 0)
 	for _, msg := range list {
 		switch msg.Msgtype {
 		case `text`:
-			multiple = append(multiple, MixedItem{Type: adaptor.TypeText, Text: msg.Text.Content})
+			multiple = append(multiple, chat.ContentPart{Type: chat.ContentPartText, Text: msg.Text.Content})
 		case `image`:
 			if fileurl, _ := GetWecomFileByUrl(msg.Image.Url, userId); len(fileurl) > 0 {
-				multiple = append(multiple, MixedItem{Type: adaptor.TypeImage, ImageUrl: adaptor.ImageUrl{Url: fileurl}})
+				multiple = append(multiple, chat.ContentPart{Type: chat.ContentPartImageURL, ImageURL: &chat.ImageURL{URL: fileurl}})
 			}
 		}
 	}

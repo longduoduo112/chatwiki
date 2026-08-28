@@ -6,6 +6,7 @@ import (
 	"chatwiki/internal/app/chatwiki/define"
 	"chatwiki/internal/app/chatwiki/i18n"
 	"chatwiki/internal/pkg/lib_redis"
+	"context"
 	"errors"
 	"fmt"
 	"strings"
@@ -15,7 +16,12 @@ import (
 	"github.com/zhimaAi/go_tools/logs"
 	"github.com/zhimaAi/go_tools/msql"
 	"github.com/zhimaAi/go_tools/tool"
-	"github.com/zhimaAi/llm_adaptor/adaptor"
+	llm "github.com/zhimaAi/llm_adaptor/v2"
+	"github.com/zhimaAi/llm_adaptor/v2/chat"
+	"github.com/zhimaAi/llm_adaptor/v2/embedding"
+	"github.com/zhimaAi/llm_adaptor/v2/image"
+	"github.com/zhimaAi/llm_adaptor/v2/rerank"
+	"github.com/zhimaAi/llm_adaptor/v2/speech"
 )
 
 const DefaultUseModelFile = define.AppRoot + `data/default_use_model.json`
@@ -207,28 +213,48 @@ func AutoAddDefaultUseModel(lang string, adminUserId, modelConfigId int, modelDe
 	}
 }
 
-func ConfigurationTest(meta adaptor.Meta, modelType string) (err error) {
-	client := &adaptor.Adaptor{}
-	client.Init(meta)
+func ConfigurationTest(client *llm.Client, model, modelType string) (err error) {
+	ctx := context.Background()
 	switch modelType {
 	case Llm:
-		messages := []adaptor.ZhimaChatCompletionMessage{{Role: `user`, Content: `configuration test`}}
-		req := adaptor.ZhimaChatCompletionRequest{Messages: messages, MaxToken: 100, Temperature: 1}
-		_, err = client.CreateChatCompletion(req)
+		req := &chat.CreateRequest{Model: model, Messages: []chat.Message{{Role: chat.RoleUser, Content: chat.MessageContent{Text: tea.String(`configuration test`)}}}, MaxTokens: tea.Int(100), Temperature: tea.Float64(1)}
+		response, callErr := client.Chat.Create(ctx, req)
+		err = callErr
+		logLLMAdaptorError(llmAdaptorAPIChatCreate, req, response, err)
 	case TextEmbedding:
-		req := adaptor.ZhimaEmbeddingRequest{Input: `configuration test`}
-		_, err = client.CreateEmbeddings(req)
+		req := &embedding.CreateRequest{Model: model, Input: embedding.Input{Text: tea.String(`configuration test`)}}
+		response, callErr := client.Embeddings.Create(ctx, req)
+		err = callErr
+		logLLMAdaptorError(llmAdaptorAPIEmbeddingCreate, req, response, err)
 	case Rerank:
-		req := &adaptor.ZhimaRerankReq{Passages: []string{`chatwiki`, `ChatWiki`}, Query: `ChatWiki?`, TopK: 1}
-		_, err = client.CreateRerank(req)
+		req := &rerank.CreateRequest{Model: model, Documents: []string{`chatwiki`, `ChatWiki`}, Query: `ChatWiki?`, TopN: tea.Int(1)}
+		response, callErr := client.Rerank.Create(ctx, req)
+		err = callErr
+		logLLMAdaptorError(llmAdaptorAPIRerankCreate, req, response, err)
 	case Image:
-		req := &adaptor.ZhimaImageGenerationReq{Prompt: "Generate a test image", Size: tea.String("2k"), ResponseFormat: tea.String("b64_json")}
-		_, err = client.CreateImageGenerate(req)
+		req := &image.GenerateRequest{Model: model, Prompt: "Generate a test image", Size: "2k", ResponseFormat: "b64_json"}
+		response, callErr := client.Images.Generate(ctx, req)
+		err = callErr
+		logLLMAdaptorError(llmAdaptorAPIImageGenerate, req, response, err)
 		if err != nil {
 			if strings.Contains(err.Error(), `prompt cannot be empty`) {
 				err = nil
 			}
 		}
+	case Tts:
+		req := &speech.CreateRequest{
+			Model: model,
+			Text:  "configuration test",
+			VoiceSetting: &speech.VoiceSetting{
+				VoiceID: "male-qn-qingse",
+			},
+			AudioSetting: &speech.AudioSetting{
+				Format: speech.AudioFormatMP3,
+			},
+		}
+		response, callErr := client.Speech.Create(ctx, req)
+		err = callErr
+		logLLMAdaptorError(llmAdaptorAPISpeechCreate, req, response, err)
 	default:
 		return fmt.Errorf(`not support model_type :%s`, modelType)
 	}

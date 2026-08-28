@@ -314,7 +314,7 @@ func OpenSearch(c *gin.Context) {
 			`catalog`:        catalog,
 		})
 	} else if typ == `query` {
-		docInfo, _, _, err := common.LibDocSearch(common.GetLang(c), libraryId, search, library)
+		docInfo, _, _, err := common.LibDocSearch(c.Request.Context(), common.GetLang(c), libraryId, search, library)
 		if err != nil {
 			common.FmtError(c, `sys_err`)
 			return
@@ -365,7 +365,7 @@ func OpenAiSummary(c *gin.Context) {
 	wg.Add(2)
 	go func() {
 		defer wg.Done()
-		_, err = common.LibDocAiSummary(common.GetLang(c), libraryId, search, library, chanStream, IsClose)
+		_, err = common.LibDocAiSummary(c.Request.Context(), common.GetLang(c), libraryId, search, library, chanStream, IsClose)
 		if err != nil {
 			common.FmtError(c, `sys_err`)
 			return

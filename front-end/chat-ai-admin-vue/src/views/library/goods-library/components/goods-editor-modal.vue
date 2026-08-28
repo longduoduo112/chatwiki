@@ -7,7 +7,7 @@
     :confirm-loading="submitting"
     @ok="handleOk"
     :destroyOnClose="true"
-    :width="490"
+    :width="currentSchemaName === 'goods_full' ? 560 : 490"
   >
     <div class="form-box-wrapper" :class="currentSchema.submitType === 'goods' ? 'goods-editor-box' : 'field-editor-box'">
       <a-form
@@ -79,18 +79,81 @@
           />
         </a-form-item>
       </a-form>
+
+      <div ref="goodsCardSectionRef" v-if="currentSchemaName === 'goods_full'" class="goods-card-section">
+        <div class="goods-card-section-header">
+          <span class="goods-card-section-title">{{ t('goods_card.section_title') }}</span>
+          <div class="goods-card-section-actions">
+            <a-dropdown :trigger="['click']" placement="bottomRight">
+              <a-button
+                type="text"
+                class="card-section-icon-btn"
+                :aria-label="t('goods_card.add')"
+                @click.stop
+              >
+                <PlusOutlined />
+              </a-button>
+              <template #overlay>
+                <a-menu class="goods-card-type-menu">
+                  <a-menu-item
+                    key="mini-program"
+                    :disabled="Boolean(miniProgramCard)"
+                    @click="handleAddMiniProgramCard"
+                  >
+                    {{ t('goods_card.mini_program') }}
+                  </a-menu-item>
+                  <a-menu-item key="xiaohongshu" disabled>
+                    <div class="disabled-card-type">
+                      <span>{{ t('goods_card.xiaohongshu') }}</span>
+                      <span class="coming-soon">{{ t('goods_card.coming_soon') }}</span>
+                    </div>
+                  </a-menu-item>
+                  <a-menu-item key="h5" disabled>
+                    <div class="disabled-card-type">
+                      <span>{{ t('goods_card.h5') }}</span>
+                      <span class="coming-soon">{{ t('goods_card.coming_soon') }}</span>
+                    </div>
+                  </a-menu-item>
+                </a-menu>
+              </template>
+            </a-dropdown>
+
+            <a-button
+              type="text"
+              class="card-section-icon-btn"
+              :aria-label="goodsCardExpanded ? t('group_tree.collapse') : t('group_tree.expand')"
+              @click="handleToggleGoodsCard"
+            >
+              <UpOutlined v-if="goodsCardExpanded" />
+              <DownOutlined v-else />
+            </a-button>
+          </div>
+        </div>
+
+        <div v-show="goodsCardExpanded" class="goods-card-section-content">
+          <MiniProgramCardForm
+            v-if="miniProgramCard"
+            v-model="miniProgramCard"
+            @remove="handleRemoveMiniProgramCard"
+          />
+          <div v-else class="goods-card-empty">
+            {{ t('goods_card.empty') }}
+          </div>
+        </div>
+      </div>
     </div>
   </a-modal>
 </template>
 
 <script setup>
-import { computed, reactive, ref } from 'vue'
+import { computed, nextTick, reactive, ref } from 'vue'
 import { message } from 'ant-design-vue'
-import { PlusOutlined } from '@ant-design/icons-vue'
+import { DownOutlined, PlusOutlined, UpOutlined } from '@ant-design/icons-vue'
 import { generateRandomId } from '@/utils/index'
 import { uploadGoodsImage } from '@/api/goods-library'
 import { useI18n } from '@/hooks/web/useI18n'
 import { api as viewerApi } from 'v-viewer'
+import MiniProgramCardForm from './mini-program-card-form.vue'
 
 defineProps({
   groupTreeOptions: {
@@ -219,6 +282,7 @@ const editorSchemas = {
     fields: [
       FIELD_NAMES.GOODS_ID,
       FIELD_NAMES.GOODS_NAME,
+      FIELD_NAMES.DESCRIPTION,
       FIELD_NAMES.GROUP_ID,
       FIELD_NAMES.CATEGORY,
       FIELD_NAMES.BRAND,
@@ -234,6 +298,7 @@ const editorSchemas = {
     fields: [
       FIELD_NAMES.GOODS_ID,
       FIELD_NAMES.GOODS_NAME,
+      FIELD_NAMES.DESCRIPTION,
       FIELD_NAMES.GROUP_ID,
       FIELD_NAMES.CATEGORY,
       FIELD_NAMES.BRAND,
@@ -273,6 +338,9 @@ const submitting = ref(false)
 const currentSchemaName = ref('goods_full')
 const currentRow = ref(null)
 const fileList = ref([])
+const miniProgramCard = ref(null)
+const goodsCardExpanded = ref(false)
+const goodsCardSectionRef = ref(null)
 
 const formModel = reactive({
   id: '',
@@ -357,6 +425,33 @@ const getImageValues = () => {
     .filter(Boolean)
 }
 
+const normalizeMiniProgramCard = (card) => {
+  const source = card || {}
+  return {
+    appid: String(source.appid || '').trim(),
+    path: String(source.path || '').trim(),
+    title: String(source.title || '').trim(),
+    image: String(source.image || '').trim()
+  }
+}
+
+const hasMiniProgramCardValue = (card) => {
+  return Object.values(card).some((value) => Boolean(value))
+}
+
+const validateMiniProgramCard = () => {
+  if (!miniProgramCard.value) return true
+
+  const card = normalizeMiniProgramCard(miniProgramCard.value)
+  if (!hasMiniProgramCardValue(card)) return true
+  if (Object.values(card).some((value) => !value)) {
+    message.error(t('goods_card.required_fields'))
+    return false
+  }
+  miniProgramCard.value = card
+  return true
+}
+
 const getFieldLabel = (fieldName) => {
   return t(fieldDefs[fieldName].labelKey)
 }
@@ -371,6 +466,10 @@ const getFieldMaxlength = (fieldName) => {
 }
 
 const getTextareaRows = (fieldName) => {
+  if (currentSchemaName.value === 'goods_full' && fieldName === FIELD_NAMES.DESCRIPTION) {
+    return 3
+  }
+
   return fieldDefs[fieldName].rows || 4
 }
 
@@ -391,6 +490,8 @@ const resetFormModel = () => {
   formModel.qa = ''
   formModel.custom_info = ''
   formModel.link = ''
+  miniProgramCard.value = null
+  goodsCardExpanded.value = false
 }
 
 const fillGoodsModel = (data = {}) => {
@@ -402,8 +503,12 @@ const fillGoodsModel = (data = {}) => {
   formModel.brand = data.brand || ''
   formModel.price = data.price !== undefined && data.price !== null && data.price !== '' ? Number(data.price) : undefined
   formModel.stock = data.stock !== undefined && data.stock !== null && data.stock !== '' ? Number(data.stock) : undefined
+  formModel.description = data.description || ''
   formModel.link = data.link || ''
   fileList.value = normalizeImages(data.images)
+  const card = normalizeMiniProgramCard(data.goods_wechat_card)
+  miniProgramCard.value = hasMiniProgramCardValue(card) ? card : null
+  goodsCardExpanded.value = Boolean(miniProgramCard.value)
 }
 
 const fillFieldModel = (config = {}) => {
@@ -438,6 +543,38 @@ const show = (config = {}) => {
 const close = () => {
   submitting.value = false
   open.value = false
+  miniProgramCard.value = null
+  goodsCardExpanded.value = false
+}
+
+const handleAddMiniProgramCard = () => {
+  if (miniProgramCard.value) return
+
+  miniProgramCard.value = {
+    appid: '',
+    path: '',
+    title: '',
+    image: ''
+  }
+  goodsCardExpanded.value = true
+  scrollToGoodsCard()
+}
+
+const handleToggleGoodsCard = () => {
+  goodsCardExpanded.value = !goodsCardExpanded.value
+  if (goodsCardExpanded.value) {
+    scrollToGoodsCard()
+  }
+}
+
+const handleRemoveMiniProgramCard = () => {
+  miniProgramCard.value = null
+}
+
+const scrollToGoodsCard = () => {
+  nextTick(() => {
+    goodsCardSectionRef.value?.scrollIntoView({ block: 'end' })
+  })
 }
 
 const handlePreview = (file) => {
@@ -517,6 +654,7 @@ const validateBySchema = () => {
 
 const buildGoodsPayload = () => {
   const images = getImageValues()
+  const card = normalizeMiniProgramCard(miniProgramCard.value)
   return {
     id: formModel.id,
     goods_id: formModel.goods_id,
@@ -526,8 +664,10 @@ const buildGoodsPayload = () => {
     brand: formModel.brand,
     price: formModel.price,
     stock: formModel.stock,
+    description: formModel.description,
     link: formModel.link,
-    images
+    images,
+    goods_wechat_card: hasMiniProgramCardValue(card) ? card : {}
   }
 }
 
@@ -543,7 +683,7 @@ const buildFieldPayload = () => {
 }
 
 const handleOk = () => {
-  if (!validateBySchema()) {
+  if (!validateBySchema() || !validateMiniProgramCard()) {
     return
   }
 
@@ -582,6 +722,12 @@ defineExpose({
   }
 }
 
+.goods-editor-box {
+  max-height: calc(100vh - 230px);
+  padding-right: 8px;
+  overflow-y: auto;
+}
+
 .upload-trigger {
   display: flex;
   flex-direction: column;
@@ -612,5 +758,79 @@ defineExpose({
 
 .goods-image-item {
   width: 336px;
+}
+
+.goods-card-section {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid #f0f0f0;
+}
+
+.goods-card-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 40px;
+}
+
+.goods-card-section-title {
+  color: #2475fc;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.goods-card-section-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.card-section-icon-btn {
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 1px dashed #bfc5d2;
+  border-radius: 4px;
+  color: #8c8c8c;
+
+  & + & {
+    border: none;
+  }
+}
+
+.goods-card-section-content {
+  padding-bottom: 24px;
+}
+
+.goods-card-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 72px;
+  border: 1px dashed #d9d9d9;
+  border-radius: 6px;
+  color: #bfbfbf;
+  font-size: 13px;
+}
+</style>
+
+<style lang="less">
+.goods-card-type-menu {
+  min-width: 180px;
+
+  .disabled-card-type {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+  }
+
+  .coming-soon {
+    padding: 1px 6px;
+    border-radius: 4px;
+    background: #f0f0f0;
+    color: #bfbfbf;
+    font-size: 12px;
+  }
 }
 </style>

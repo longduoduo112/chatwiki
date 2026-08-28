@@ -5,81 +5,124 @@ package common
 import (
 	"chatwiki/internal/app/chatwiki/define"
 	lib_define "chatwiki/internal/pkg/lib_define"
+	"strings"
 
 	"github.com/zhimaAi/go_tools/tool"
-	"github.com/zhimaAi/llm_adaptor/adaptor"
+	"github.com/zhimaAi/llm_adaptor/v2/chat"
 )
 
-// ParseInputQuestion Parse input question to check if it's multimodal JSON format
-func ParseInputQuestion(question string) (adaptor.QuestionMultiple, bool) {
-	questionMultiple := make(adaptor.QuestionMultiple, 0)
-	err := tool.JsonDecodeUseNumber(question, &questionMultiple)
-	if err == nil && len(questionMultiple) > 0 {
-		return questionMultiple, true
+// ParseInputQuestion checks whether the input is a valid multimodal part array.
+func ParseInputQuestion(question string) ([]chat.ContentPart, bool) {
+	parts := make([]chat.ContentPart, 0)
+	if err := tool.JsonDecodeUseNumber(question, &parts); err != nil || !validQuestionParts(parts) {
+		return nil, false
 	}
-	return nil, false
+	return parts, true
 }
 
-// AppendImageDomain Unified processing of appending static resource domain
+func validQuestionParts(parts []chat.ContentPart) bool {
+	if len(parts) == 0 {
+		return false
+	}
+	for _, part := range parts {
+		switch part.Type {
+		case chat.ContentPartText:
+			if part.Text == `` {
+				return false
+			}
+		case chat.ContentPartImageURL:
+			if part.ImageURL == nil || strings.TrimSpace(part.ImageURL.URL) == `` {
+				return false
+			}
+		case chat.ContentPartInputAudio:
+			if part.InputAudio == nil || strings.TrimSpace(part.InputAudio.Data) == `` || strings.TrimSpace(part.InputAudio.Format) == `` {
+				return false
+			}
+		case chat.ContentPartVideoURL:
+			if part.VideoURL == nil || strings.TrimSpace(part.VideoURL.URL) == `` {
+				return false
+			}
+		default:
+			return false
+		}
+	}
+	return true
+}
+
+// AppendImageDomain appends the configured static-resource domain to relative links.
 func AppendImageDomain(link string) string {
-	if !IsUrl(link) {
+	if !IsUrl(link) && !strings.HasPrefix(link, `data:`) {
 		link = define.Config.WebService[`image_domain`] + link
 	}
 	return link
 }
 
-// QuestionMultipleAppendImageDomain Append static resource domain for multimodal input
-func QuestionMultipleAppendImageDomain(questionMultiple adaptor.QuestionMultiple) adaptor.QuestionMultiple {
-	for i, item := range questionMultiple {
-		switch item.Type {
-		case adaptor.TypeImage:
-			questionMultiple[i].ImageUrl.Url = AppendImageDomain(item.ImageUrl.Url)
-		case adaptor.TypeAudio:
-			questionMultiple[i].InputAudio.Data = AppendImageDomain(item.InputAudio.Data)
-		case adaptor.TypeVideo:
-			questionMultiple[i].VideoUrl.Url = AppendImageDomain(item.VideoUrl.Url)
+func questionPartsAppendImageDomain(parts []chat.ContentPart) []chat.ContentPart {
+	result := append([]chat.ContentPart(nil), parts...)
+	for index, part := range result {
+		switch part.Type {
+		case chat.ContentPartImageURL:
+			imageURL := *part.ImageURL
+			imageURL.URL = AppendImageDomain(imageURL.URL)
+			result[index].ImageURL = &imageURL
+		case chat.ContentPartInputAudio:
+			inputAudio := *part.InputAudio
+			inputAudio.Data = AppendImageDomain(inputAudio.Data)
+			result[index].InputAudio = &inputAudio
+		case chat.ContentPartVideoURL:
+			videoURL := *part.VideoURL
+			videoURL.URL = AppendImageDomain(videoURL.URL)
+			result[index].VideoURL = &videoURL
 		}
 	}
-	return questionMultiple
+	return result
 }
 
-// ConvertQuestionMultiple Convert to multimodal input structure
-func ConvertQuestionMultiple(messages []adaptor.ZhimaChatCompletionMessage) []adaptor.ZhimaChatCompletionMessage {
-	for i, message := range messages {
-		if message.Role != `user` {
+// ContentPartsAppendImageDomain normalizes persisted multimodal parts for business display and workflow variables.
+func ContentPartsAppendImageDomain(parts []chat.ContentPart) []chat.ContentPart {
+	return questionPartsAppendImageDomain(parts)
+}
+
+// ConvertQuestionMultiple is the only request-side location that writes Content.Parts.
+func ConvertQuestionMultiple(messages []chat.Message) []chat.Message {
+	for index, message := range messages {
+		if message.Role != chat.RoleUser || message.Content.Text == nil || message.Content.Parts != nil {
 			continue
 		}
-		if questionMultiple, ok := ParseInputQuestion(message.Content); ok {
-			messages[i].SetQuestionMultiple(QuestionMultipleAppendImageDomain(questionMultiple))
+		parts, ok := ParseInputQuestion(*message.Content.Text)
+		if !ok {
+			continue
 		}
+		messages[index].Content.Parts = questionPartsAppendImageDomain(parts)
+		messages[index].Content.Text = nil
 	}
 	return messages
 }
 
-// GetQuestionByQuestionMultiple Extract input question from multimodal input structure
-func GetQuestionByQuestionMultiple(questionMultiple adaptor.QuestionMultiple) string {
-	for _, item := range questionMultiple {
-		if item.Type == adaptor.TypeText && len(item.Text) > 0 {
-			return item.Text
+// GetQuestionByContentParts extracts the display text from multimodal input.
+func GetQuestionByContentParts(parts []chat.ContentPart) string {
+	for _, part := range parts {
+		if part.Type == chat.ContentPartText && len(part.Text) > 0 {
+			return part.Text
 		}
 	}
-	for _, item := range questionMultiple {
-		switch item.Type {
-		case adaptor.TypeImage:
+	for _, part := range parts {
+		switch part.Type {
+		case chat.ContentPartImageURL:
 			return `[` + lib_define.MsgTypeNameMap[lib_define.MsgTypeImage] + `]`
-		case adaptor.TypeAudio:
+		case chat.ContentPartInputAudio:
 			return `[` + lib_define.MsgTypeNameMap[lib_define.MsgTypeVoice] + `]`
-		case adaptor.TypeVideo:
+		case chat.ContentPartVideoURL:
 			return `[` + lib_define.MsgTypeNameMap[lib_define.MsgTypeVideo] + `]`
 		}
 	}
 	return ``
 }
 
-// GetFirstQuestionByInput Extract first question from user input
+// GetFirstQuestionByInput extracts the first displayable question.
 func GetFirstQuestionByInput(question string) string {
-	if questionMultiple, ok := ParseInputQuestion(question); ok {
-		return GetQuestionByQuestionMultiple(questionMultiple)
+	if parts, ok := ParseInputQuestion(question); ok {
+		return GetQuestionByContentParts(parts)
 	}
 	return question
 }

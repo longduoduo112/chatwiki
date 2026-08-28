@@ -13,7 +13,7 @@ import (
 
 	"github.com/gin-contrib/sse"
 	"github.com/spf13/cast"
-	"github.com/zhimaAi/llm_adaptor/adaptor"
+	"github.com/zhimaAi/llm_adaptor/v2/chat"
 )
 
 // CheckSkipCallLlm check if skip llm call
@@ -53,7 +53,7 @@ func BuildFunctionTools(in *ChatInParam, out *ChatOutParam) pipeline.PipeResult 
 		}
 	}
 	// chat bot supports related workflow
-	var workFlowFuncCall []adaptor.FunctionTool
+	var workFlowFuncCall []chat.Tool
 	workFlowFuncCall, in.needRunWorkFlow = work_flow.BuildFunctionTools(in.params.Lang, in.params.Robot)
 	if in.needRunWorkFlow {
 		out.functionTools = append(out.functionTools, workFlowFuncCall...)
@@ -126,7 +126,7 @@ func DoApplicationTypeFlow(in *ChatInParam, out *ChatOutParam) pipeline.PipeResu
 func DoChatByChatCache(in *ChatInParam, out *ChatOutParam) pipeline.PipeResult {
 	if in.hitCache {
 		out.chatResp, out.requestTime, out.Error = common.ResponseMessagesFromCache(in.answerMessageId, in.useStream, in.chanStream)
-		out.content = out.chatResp.Result
+		out.content = out.chatResp.Result()
 		in.Stream(sse.Event{Event: `notice`, Data: `content source: chat cache`})
 		return pipeline.PipeStop
 	}
@@ -145,8 +145,15 @@ func DoChatTypeDirect(in *ChatInParam, out *ChatOutParam) pipeline.PipeResult {
 // DoChatTypeMixture mixture mode chat logic
 func DoChatTypeMixture(in *ChatInParam, out *ChatOutParam) pipeline.PipeResult {
 	if cast.ToInt(in.params.Robot[`chat_type`]) == define.ChatTypeMixture {
-		if content, ok := common.CheckQaDirectReply(out.list, in.params.Robot); ok {
-			out.content = content
+		// Get reply count config, default to 1
+		count := cast.ToInt(in.params.Robot[`mixture_qa_direct_reply_count`])
+		if count <= 0 {
+			count = 1
+		}
+		answers := common.CheckQaDirectReplyList(out.list, in.params.Robot, count)
+		if len(answers) > 0 {
+			out.content = answers[0] // Backward compatibility: content = first item (with image/video markdown)
+			out.answerList = answers // All answers (each contains image/video markdown)
 			in.Stream(sse.Event{Event: `sending`, Data: out.content})
 		} else {
 			DoRequestChatUnify(in, out) // request llm
@@ -166,8 +173,15 @@ func DoChatTypeLibrary(in *ChatInParam, out *ChatOutParam) pipeline.PipeResult {
 			if len(out.list) == 0 {
 				in.waitChooseWorkFlow = true // wait for workflow selection
 			}
-			if content, ok := common.CheckQaDirectReply(out.list, in.params.Robot); ok {
-				out.content = content
+			// Get reply count config, default to 1
+			count := cast.ToInt(in.params.Robot[`library_qa_direct_reply_count`])
+			if count <= 0 {
+				count = 1
+			}
+			answers := common.CheckQaDirectReplyList(out.list, in.params.Robot, count)
+			if len(answers) > 0 {
+				out.content = answers[0] // Backward compatibility: content = first item (with image/video markdown)
+				out.answerList = answers // All answers (each contains image/video markdown)
 				in.Stream(sse.Event{Event: `sending`, Data: out.content})
 			} else {
 				DoRequestChatUnify(in, out) // request llm
@@ -189,7 +203,7 @@ func CheckReplyByChatCache(in *ChatInParam, out *ChatOutParam) pipeline.PipeResu
 // DoRelationWorkFlow chat bot supports related workflow
 func DoRelationWorkFlow(in *ChatInParam, out *ChatOutParam) pipeline.PipeResult {
 	if out.Error == nil && in.needRunWorkFlow {
-		workFlowRobot, workFlowGlobal := work_flow.ChooseWorkFlowRobot(cast.ToString(in.params.AdminUserId), out.chatResp.FunctionToolCalls)
+		workFlowRobot, workFlowGlobal := work_flow.ChooseWorkFlowRobot(cast.ToString(in.params.AdminUserId), out.chatResp.ToolCalls())
 		if len(workFlowRobot) == 0 { // no workflow returned by llm
 			if in.waitChooseWorkFlow {
 				DisposeUnknownQuestionPrompt(in, out)                     // unknown question (workflow scene)

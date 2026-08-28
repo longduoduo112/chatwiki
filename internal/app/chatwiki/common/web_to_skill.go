@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/alibabacloud-go/tea/tea"
 	"github.com/cloudwego/eino/adk"
 	"github.com/cloudwego/eino/adk/filesystem"
 	"github.com/cloudwego/eino/adk/middlewares/skill"
@@ -21,7 +22,7 @@ import (
 	"github.com/spf13/cast"
 	"github.com/zhimaAi/go_tools/logs"
 	"github.com/zhimaAi/go_tools/tool"
-	"github.com/zhimaAi/llm_adaptor/adaptor"
+	"github.com/zhimaAi/llm_adaptor/v2/chat"
 )
 
 type WebToSkillTaskInfo struct {
@@ -266,7 +267,7 @@ func webToSkillGenerate(ctx context.Context, input []*schema.Message, opts custo
 	}
 	// messages
 	var systemAppend bool
-	messages := make([]adaptor.ZhimaChatCompletionMessage, 0)
+	messages := make([]chat.Message, 0)
 	for _, message := range input {
 		if message == nil {
 			continue
@@ -278,12 +279,12 @@ func webToSkillGenerate(ctx context.Context, input []*schema.Message, opts custo
 		}
 		if !systemAppend && message.Role == schema.System {
 			systemAppend = true
-			result.Content = buildWebToSkillSystemPrompt(task)
+			result.Content = chat.MessageContent{Text: tea.String(buildWebToSkillSystemPrompt(task))}
 		}
 		messages = append(messages, result)
 	}
 	// functionTools
-	functionTools := make([]adaptor.FunctionTool, 0)
+	functionTools := make([]chat.Tool, 0)
 	filterTools := []string{`write_todos`, `todo_write`}
 	for _, info := range opts.Common.Tools {
 		if info == nil {
@@ -301,6 +302,7 @@ func webToSkillGenerate(ctx context.Context, input []*schema.Message, opts custo
 	}
 	// RequestChat
 	chatResp, _, err := RequestChat(
+		ctx,
 		lang,
 		task.AdminUserId,
 		cast.ToString(task.AdminUserId),
@@ -318,5 +320,5 @@ func webToSkillGenerate(ctx context.Context, input []*schema.Message, opts custo
 		return nil, errors.New(i18n.Show(lang, `web_to_skill_runner_error`, err.Error()))
 	}
 	// AssistantMessage
-	return custom_eino.ConvertChatResp(chatResp), nil
+	return custom_eino.ConvertChatResp(chatResp.CreateResponse), nil
 }

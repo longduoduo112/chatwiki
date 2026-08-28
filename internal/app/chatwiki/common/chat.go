@@ -13,11 +13,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/alibabacloud-go/tea/tea"
 	"github.com/spf13/cast"
 	"github.com/zhimaAi/go_tools/logs"
 	"github.com/zhimaAi/go_tools/msql"
 	"github.com/zhimaAi/go_tools/tool"
-	"github.com/zhimaAi/llm_adaptor/adaptor"
+	"github.com/zhimaAi/llm_adaptor/v2/chat"
 )
 
 func BuildChatContextPair(openid string, robotId, dialogueId, sessionId, curMsgId, contextPair int) []map[string]string {
@@ -56,11 +57,11 @@ func BuildChatContextPair(openid string, robotId, dialogueId, sessionId, curMsgI
 	return contextList
 }
 
-func BuildOpenApiContent(params *define.ChatRequestParam, messages []adaptor.ZhimaChatCompletionMessage) []adaptor.ZhimaChatCompletionMessage {
+func BuildOpenApiContent(params *define.ChatRequestParam, messages []chat.Message) []chat.Message {
 	if params.AppType != lib_define.AppOpenApi || len(params.OpenApiContent) == 0 {
 		return messages
 	}
-	var contents = make([]adaptor.ZhimaChatCompletionMessage, 0)
+	var contents = make([]chat.Message, 0)
 	err := tool.JsonDecode(params.OpenApiContent, &contents)
 	if err != nil {
 		logs.Error(err.Error())
@@ -75,7 +76,7 @@ func BuildOpenApiContent(params *define.ChatRequestParam, messages []adaptor.Zhi
 	return messages
 }
 
-func BuildLibraryChatRequestMessage(params *define.ChatRequestParam, curMsgId int64, dialogueId, sessionId int, debugLog *[]any) ([]adaptor.ZhimaChatCompletionMessage, []msql.Params, LibUseTime, error) {
+func BuildLibraryChatRequestMessage(params *define.ChatRequestParam, curMsgId int64, dialogueId, sessionId int, debugLog *[]any) ([]chat.Message, []msql.Params, LibUseTime, error) {
 	if len(params.Prompt) == 0 { //no custom is used
 		prompt := params.Robot[`prompt`]
 		promptStruct := params.Robot[`prompt_struct`]
@@ -113,6 +114,7 @@ func BuildLibraryChatRequestMessage(params *define.ChatRequestParam, curMsgId in
 
 	//convert match
 	list, libUseTime, err := GetMatchLibraryParagraphList(
+		params.StopCtx,
 		params.Lang,
 		params.Openid,
 		params.AppType,
@@ -131,40 +133,40 @@ func BuildLibraryChatRequestMessage(params *define.ChatRequestParam, curMsgId in
 	}
 
 	//part0:init messages
-	messages := make([]adaptor.ZhimaChatCompletionMessage, 0)
+	messages := make([]chat.Message, 0)
 	//part1:prompt
 	roleType := define.PromptRoleTypeMap[cast.ToInt(params.Robot[`prompt_role_type`])]
 	if cast.ToBool(params.Robot[`question_multiple_switch`]) {
 		// When calling multimodal, ignore user-set prompts placed in user role, always place in system role
 		roleType = define.PromptRoleTypeMap[define.PromptRoleTypeSystem]
 	}
-	prompt, libraryContent := FormatSystemPrompt(params.Lang, params.Prompt, list)
+	prompt, libraryContent := FormatSystemPrompt(params.Lang, params.AdminUserId, params.Prompt, list)
 	if roleType == define.PromptRoleUser {
-		messages = append(messages, adaptor.ZhimaChatCompletionMessage{Role: `system`, Content: libraryContent})
+		messages = append(messages, chat.Message{Role: chat.RoleSystem, Content: chat.MessageContent{Text: tea.String(libraryContent)}})
 		*debugLog = append(*debugLog, map[string]string{`type`: `prompt`, `content`: libraryContent})
 	} else {
-		messages = append(messages, adaptor.ZhimaChatCompletionMessage{Role: roleType, Content: prompt})
+		messages = append(messages, chat.Message{Role: chat.Role(roleType), Content: chat.MessageContent{Text: tea.String(prompt)}})
 		*debugLog = append(*debugLog, map[string]string{`type`: `prompt`, `content`: prompt})
 	}
 	//part2:context_qa
 	for i := range contextList {
-		messages = append(messages, adaptor.ZhimaChatCompletionMessage{Role: `user`, Content: contextList[i][`question`]})
-		messages = append(messages, adaptor.ZhimaChatCompletionMessage{Role: `assistant`, Content: contextList[i][`answer`]})
+		messages = append(messages, chat.Message{Role: chat.RoleUser, Content: chat.MessageContent{Text: tea.String(contextList[i][`question`])}})
+		messages = append(messages, chat.Message{Role: chat.RoleAssistant, Content: chat.MessageContent{Text: tea.String(contextList[i][`answer`])}})
 		*debugLog = append(*debugLog, map[string]string{`type`: `context_qa`, `question`: contextList[i][`question`], `answer`: contextList[i][`answer`]})
 	}
 	//part3:question,prompt+question
 	if roleType == define.PromptRoleUser {
 		content := strings.Join([]string{params.Prompt, params.Question}, "\n\n")
-		messages = append(messages, adaptor.ZhimaChatCompletionMessage{Role: `user`, Content: content})
+		messages = append(messages, chat.Message{Role: chat.RoleUser, Content: chat.MessageContent{Text: tea.String(content)}})
 		*debugLog = append(*debugLog, map[string]string{`type`: `cur_question`, `content`: content})
 	} else {
-		messages = append(messages, adaptor.ZhimaChatCompletionMessage{Role: `user`, Content: params.Question})
+		messages = append(messages, chat.Message{Role: chat.RoleUser, Content: chat.MessageContent{Text: tea.String(params.Question)}})
 		*debugLog = append(*debugLog, map[string]string{`type`: `cur_question`, `content`: params.Question})
 	}
 	return messages, list, libUseTime, nil
 }
 
-func BuildDirectChatRequestMessage(params *define.ChatRequestParam, curMsgId int64, dialogueId, sessionId int, debugLog *[]any) ([]adaptor.ZhimaChatCompletionMessage, error) {
+func BuildDirectChatRequestMessage(params *define.ChatRequestParam, curMsgId int64, dialogueId, sessionId int, debugLog *[]any) ([]chat.Message, error) {
 	if len(params.Prompt) == 0 { //no custom is used
 		prompt := params.Robot[`prompt`]
 		promptStruct := params.Robot[`prompt_struct`]
@@ -175,33 +177,33 @@ func BuildDirectChatRequestMessage(params *define.ChatRequestParam, curMsgId int
 	params.Prompt = ReplaceMiniCardShortMarkersForRobotPrompt(params.AdminUserId, params.Prompt)
 
 	//part0:init messages
-	messages := make([]adaptor.ZhimaChatCompletionMessage, 0)
+	messages := make([]chat.Message, 0)
 	//part1:prompt
-	prompt, _ := FormatSystemPrompt(params.Lang, params.Prompt, nil)
+	prompt, _ := FormatSystemPrompt(params.Lang, params.AdminUserId, params.Prompt, nil)
 	roleType := define.PromptRoleTypeMap[cast.ToInt(params.Robot[`prompt_role_type`])]
 	if cast.ToBool(params.Robot[`question_multiple_switch`]) {
 		// When calling multimodal, ignore user-set prompts in user role, always place in system role
 		roleType = define.PromptRoleTypeMap[define.PromptRoleTypeSystem]
 	}
 	if roleType != define.PromptRoleUser {
-		messages = append(messages, adaptor.ZhimaChatCompletionMessage{Role: roleType, Content: prompt})
+		messages = append(messages, chat.Message{Role: chat.Role(roleType), Content: chat.MessageContent{Text: tea.String(prompt)}})
 		*debugLog = append(*debugLog, map[string]string{`type`: `prompt`, `content`: prompt})
 	}
 	//part2:context_qa
 	contextList := BuildChatContextPair(params.Openid, cast.ToInt(params.Robot[`id`]),
 		dialogueId, sessionId, int(curMsgId), cast.ToInt(params.Robot[`context_pair`]))
 	for i := range contextList {
-		messages = append(messages, adaptor.ZhimaChatCompletionMessage{Role: `user`, Content: contextList[i][`question`]})
-		messages = append(messages, adaptor.ZhimaChatCompletionMessage{Role: `assistant`, Content: contextList[i][`answer`]})
+		messages = append(messages, chat.Message{Role: chat.RoleUser, Content: chat.MessageContent{Text: tea.String(contextList[i][`question`])}})
+		messages = append(messages, chat.Message{Role: chat.RoleAssistant, Content: chat.MessageContent{Text: tea.String(contextList[i][`answer`])}})
 		*debugLog = append(*debugLog, map[string]string{`type`: `context_qa`, `question`: contextList[i][`question`], `answer`: contextList[i][`answer`]})
 	}
 	//part3:cur_question
 	if roleType == define.PromptRoleUser {
 		content := strings.Join([]string{prompt, params.Question}, "\n\n")
-		messages = append(messages, adaptor.ZhimaChatCompletionMessage{Role: `user`, Content: content})
+		messages = append(messages, chat.Message{Role: chat.RoleUser, Content: chat.MessageContent{Text: tea.String(content)}})
 		*debugLog = append(*debugLog, map[string]string{`type`: `cur_question`, `content`: content})
 	} else {
-		messages = append(messages, adaptor.ZhimaChatCompletionMessage{Role: `user`, Content: params.Question})
+		messages = append(messages, chat.Message{Role: chat.RoleUser, Content: chat.MessageContent{Text: tea.String(params.Question)}})
 		*debugLog = append(*debugLog, map[string]string{`type`: `cur_question`, `content`: params.Question})
 	}
 	return messages, nil
@@ -314,30 +316,6 @@ func AppendMiniCardTagsForQADirectReply(adminUserID int, targetID int, content s
 	return content
 }
 
-// AppendMiniCardTagsForLibraryParagraphReply appends mini program card tags for recalled document paragraphs.
-func AppendMiniCardTagsForLibraryParagraphReply(adminUserID int, list []msql.Params, content string) (string, string) {
-	if adminUserID <= 0 || len(list) == 0 {
-		return content, ``
-	}
-	targetIDs := make([]int, 0, len(list))
-	targetIDMap := make(map[int]struct{}, len(list))
-	for _, item := range list {
-		if cast.ToInt(item[`type`]) != define.ParagraphTypeNormal {
-			continue
-		}
-		targetID := cast.ToInt(item[`id`])
-		if targetID <= 0 {
-			continue
-		}
-		if _, ok := targetIDMap[targetID]; ok {
-			continue
-		}
-		targetIDMap[targetID] = struct{}{}
-		targetIDs = append(targetIDs, targetID)
-	}
-	return appendMiniCardTagsByTargetIDs(adminUserID, AdminMiniCardTargetLibraryParagraph, targetIDs, content, true)
-}
-
 // ReplaceMiniCardShortMarkersForRobotPrompt replaces short prompt mini card markers before LLM requests.
 func ReplaceMiniCardShortMarkersForRobotPrompt(adminUserID int, content string) string {
 	if adminUserID <= 0 || len(content) == 0 || !miniCardPromptShortRegexp.MatchString(content) {
@@ -429,6 +407,60 @@ func buildMiniCardTag(miniCard map[string]any) string {
 		ThumbURL: cast.ToString(miniCard[`thumb_url`]),
 	}
 	return fmt.Sprintf("[wx_mini_card]%s[/wx_mini_card]", tool.JsonEncodeNoError(payload))
+}
+
+// CheckQaDirectReplyList retrieves QA direct replies from knowledge base (supports multiple replies)
+// Returns the first 'count' answers that meet the similarity threshold and are of type QA
+// Each answer preserves the same image/video processing logic as CheckQaDirectReply
+func CheckQaDirectReplyList(list []msql.Params, robot msql.Params, count int) (answers []string) {
+	if count <= 0 {
+		count = 1
+	}
+	var fieldSwitch, fieldScore string
+	switch cast.ToInt(robot[`chat_type`]) {
+	case define.ChatTypeMixture:
+		fieldSwitch, fieldScore = `mixture_qa_direct_reply_switch`, `mixture_qa_direct_reply_score`
+	case define.ChatTypeLibrary:
+		fieldSwitch, fieldScore = `library_qa_direct_reply_switch`, `library_qa_direct_reply_score`
+	default:
+		return nil
+	}
+	if !cast.ToBool(robot[fieldSwitch]) {
+		return nil
+	}
+	for _, item := range list {
+		if len(answers) >= count {
+			break
+		}
+		// Only take QA-type segments that meet the similarity threshold (same condition as the original CheckQaDirectReply)
+		if cast.ToInt(item[`type`]) != define.ParagraphTypeNormal &&
+			len(item[`similarity`]) > 0 &&
+			cast.ToFloat32(item[`similarity`]) >= cast.ToFloat32(robot[fieldScore]) {
+
+			content := cast.ToString(item[`answer`])
+
+			// Keep the same image/video processing logic as the original CheckQaDirectReply
+			if len(item[`images`]) > 0 {
+				images := make([]string, 0)
+				_ = tool.JsonDecodeUseNumber(item[`images`], &images)
+				for _, image := range images {
+					ext := strings.ToLower(strings.TrimLeft(filepath.Ext(image), `.`))
+					if tool.InArrayString(ext, define.VideoAllowExt) {
+						content += fmt.Sprintf("\n![video](%s)", image)
+					} else {
+						if !IsUrl(image) {
+							image = define.Config.WebService[`image_domain`] + image
+						}
+						content += fmt.Sprintf("\n![img](%s)", image)
+					}
+				}
+			}
+
+			content = AppendMiniCardTagsForQADirectReply(cast.ToInt(robot[`admin_user_id`]), cast.ToInt(item[`id`]), content)
+			answers = append(answers, content)
+		}
+	}
+	return answers
 }
 
 // GetRandomSliceReply randomly selects specified number of items from reply content list
@@ -1045,7 +1077,7 @@ func OnlyReceivedMessageReplyHandle(params *define.ChatRequestParam, monitor *Mo
 	var (
 		content, menuJson, reasoningContent string
 		requestTime                         int64
-		chatResp                            = adaptor.ZhimaChatCompletionResponse{}
+		chatResp                            = ChatResponse{}
 		llmStartTime                        = time.Now()
 	)
 
@@ -1103,8 +1135,8 @@ func OnlyReceivedMessageReplyHandle(params *define.ChatRequestParam, monitor *Mo
 	//websocket notify
 	ReceiverChangeNotify(params.AdminUserId, `ai_message`, ToStringMap(message, `id`, id))
 
-	message["prompt_tokens"] = chatResp.PromptToken
-	message["completion_tokens"] = chatResp.CompletionToken
+	message["prompt_tokens"] = chatResp.Usage.PromptTokens
+	message["completion_tokens"] = chatResp.Usage.CompletionTokens
 	message["use_model"] = params.Robot["use_model"]
 	return ToStringMap(message, `id`, id), nil
 }
@@ -1124,7 +1156,7 @@ func SubscribeReplyHandle(params *define.ChatRequestParam, subscribeScene string
 	var (
 		content, menuJson, reasoningContent string
 		requestTime                         int64
-		chatResp                            = adaptor.ZhimaChatCompletionResponse{}
+		chatResp                            = ChatResponse{}
 	)
 
 	quoteFile, _ := make([]msql.Params, 0), map[string]struct{}{}
@@ -1160,8 +1192,8 @@ func SubscribeReplyHandle(params *define.ChatRequestParam, subscribeScene string
 		subscribeReplyListJson := tool.JsonEncodeNoError(subscribeReplyList)
 		message[`reply_content_list`] = subscribeReplyListJson
 	}
-	message["prompt_tokens"] = chatResp.PromptToken
-	message["completion_tokens"] = chatResp.CompletionToken
+	message["prompt_tokens"] = chatResp.Usage.PromptTokens
+	message["completion_tokens"] = chatResp.Usage.CompletionTokens
 	message["use_model"] = params.Robot["use_model"]
 	return ToStringMap(message, `id`, 0), nil
 }

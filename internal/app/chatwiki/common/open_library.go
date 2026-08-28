@@ -12,13 +12,14 @@ import (
 	"strings"
 	"time"
 
+	"github.com/alibabacloud-go/tea/tea"
 	"github.com/gin-contrib/sse"
 	"github.com/go-redis/redis/v8"
 	"github.com/spf13/cast"
 	"github.com/zhimaAi/go_tools/logs"
 	"github.com/zhimaAi/go_tools/msql"
 	"github.com/zhimaAi/go_tools/tool"
-	"github.com/zhimaAi/llm_adaptor/adaptor"
+	"github.com/zhimaAi/llm_adaptor/v2/chat"
 )
 
 func SaveLibDoc(adminUserId, userId, libraryId, docId, fileId, pid, isIndex, draft int, title string, info msql.Params, content string, isDir int, docIcon string) (int, error) {
@@ -399,11 +400,11 @@ func GetLibDocCateLog(pid, libraryId int, fetchAll bool) []msql.Params {
 	return info
 }
 
-func LibDocSearch(lang string, libraryId int, search string, library msql.Params) ([]msql.Params, []adaptor.ZhimaChatCompletionMessage, []msql.Params, error) {
+func LibDocSearch(ctx context.Context, lang string, libraryId int, search string, library msql.Params) ([]msql.Params, []chat.Message, []msql.Params, error) {
 	// mixed search
 	var (
 		result                 = make([]msql.Params, 0)
-		summary                = make([]adaptor.ZhimaChatCompletionMessage, 0)
+		summary                = make([]chat.Message, 0)
 		fetchSize              = 1000
 		summarySie             = 10
 		similarity             = 0.1
@@ -412,7 +413,7 @@ func LibDocSearch(lang string, libraryId int, search string, library msql.Params
 		quoteFile              = make([]msql.Params, 0)
 	)
 	if cast.ToInt(library[`use_model_switch`]) == define.SwitchOn {
-		list, err := GetMatchLibraryParagraphByVectorSimilarity(lang, cast.ToInt(library[`admin_user_id`]), msql.Params{}, "", "", search, cast.ToString(libraryId), fetchSize, similarity, searchType)
+		list, err := GetMatchLibraryParagraphByVectorSimilarity(ctx, lang, cast.ToInt(library[`admin_user_id`]), msql.Params{}, "", "", search, cast.ToString(libraryId), fetchSize, similarity, searchType)
 		if err != nil {
 			logs.Error(err.Error())
 			return result, summary, quoteFile, err
@@ -432,9 +433,9 @@ func LibDocSearch(lang string, libraryId int, search string, library msql.Params
 		Add(DataSource{List: searchList, Key: `id`, Fixed: 50, Weight: 30}).Sort()
 
 	// quoteFile
-	summary = append(summary, adaptor.ZhimaChatCompletionMessage{
-		Role:    `user`,
-		Content: search,
+	summary = append(summary, chat.Message{
+		Role:    chat.RoleUser,
+		Content: chat.MessageContent{Text: tea.String(search)},
 	})
 	for key, one := range list {
 		if cast.ToInt(one[`number`]) != 1 {
@@ -454,9 +455,9 @@ func LibDocSearch(lang string, libraryId int, search string, library msql.Params
 		one[`create_time`] = docInfo[`create_time`]
 		one[`update_time`] = docInfo[`update_time`]
 		if key < summarySie {
-			summary = append(summary, adaptor.ZhimaChatCompletionMessage{
-				Role:    `user`,
-				Content: one[`content`],
+			summary = append(summary, chat.Message{
+				Role:    chat.RoleUser,
+				Content: chat.MessageContent{Text: tea.String(one[`content`])},
 			})
 			quoteFile = append(quoteFile, msql.Params{
 				`doc_id`:    one[`doc_id`],
@@ -469,7 +470,7 @@ func LibDocSearch(lang string, libraryId int, search string, library msql.Params
 	return result, summary, quoteFile, nil
 }
 
-func LibDocAiSummary(lang string, libraryId int, search string, library msql.Params, chanStream chan sse.Event, isClose *bool) ([]msql.Params, error) {
+func LibDocAiSummary(ctx context.Context, lang string, libraryId int, search string, library msql.Params, chanStream chan sse.Event, isClose *bool) ([]msql.Params, error) {
 	defer close(chanStream)
 	chanStream <- sse.Event{Event: `ping`, Data: tool.Time2Int()}
 	// mixed search
@@ -477,7 +478,7 @@ func LibDocAiSummary(lang string, libraryId int, search string, library msql.Par
 		temperature float32 = 0.5
 		maxToken            = 2000
 	)
-	list, summary, quoteFile, err := LibDocSearch(lang, libraryId, search, library)
+	list, summary, quoteFile, err := LibDocSearch(ctx, lang, libraryId, search, library)
 	if err != nil {
 		logs.Error(err.Error())
 		chanStream <- sse.Event{Event: `error`, Data: i18n.Show(lang, `sys_err`)}
@@ -487,13 +488,14 @@ func LibDocAiSummary(lang string, libraryId int, search string, library msql.Par
 	// to ai summary
 	if cast.ToInt(library[`ai_summary`]) == define.SwitchOn {
 		chatResp, requestTime, err := RequestSearchStream(
+			ctx,
 			lang,
 			cast.ToInt(library[`admin_user_id`]),
 			cast.ToInt(library[`summary_model_config_id`]),
 			strings.TrimSpace(library[`ai_summary_model`]),
 			library,
 			summary,
-			[]adaptor.FunctionTool{},
+			[]chat.Tool{},
 			chanStream,
 			temperature,
 			maxToken,

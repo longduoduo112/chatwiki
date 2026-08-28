@@ -37,7 +37,7 @@ func (t *KbsearchTool) Info(_ context.Context) (*schema.ToolInfo, error) {
 	return &schema.ToolInfo{
 		Name: KbsearchToolName,
 		Desc: fmt.Sprintf(
-			"Search one or more selected local knowledge bases for passages relevant to a user question. Select the most relevant knowledge bases by their name and introduction. Available knowledge bases: %s",
+			"Search one or more selected local knowledge bases for passages relevant to a user question. Select the most relevant knowledge bases by their name and introduction. If the search result contains one or more [wx_mini_card]...[/wx_mini_card] blocks, include every block verbatim in the final answer at its corresponding position. Do not omit, rewrite, summarize, escape, or invent these blocks. Available knowledge bases: %s",
 			tool.JsonEncodeNoError(t.libraries),
 		),
 		ParamsOneOf: schema.NewParamsOneOfByParams(map[string]*schema.ParameterInfo{

@@ -27,6 +27,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/PuerkitoBio/goquery"
+	"github.com/alibabacloud-go/tea/tea"
 	"github.com/gin-contrib/sse"
 	strip "github.com/grokify/html-strip-tags-go"
 	"github.com/pdfcpu/pdfcpu/pkg/api"
@@ -36,7 +37,7 @@ import (
 	"github.com/zhimaAi/go_tools/logs"
 	"github.com/zhimaAi/go_tools/msql"
 	"github.com/zhimaAi/go_tools/tool"
-	"github.com/zhimaAi/llm_adaptor/adaptor"
+	"github.com/zhimaAi/llm_adaptor/v2/chat"
 	"golang.org/x/image/webp"
 )
 
@@ -1746,14 +1747,14 @@ func AISplitDocs(adminUserId, fileId int, splitParams define.SplitParams, list d
 		go func(wg *sync.WaitGroup, contentMap map[int]define.DocSplitItem, index int, contents string, errMsg *string) {
 			defer wg.Done()
 			defer func() { <-currChan }()
-			messages := []adaptor.ZhimaChatCompletionMessage{
+			messages := []chat.Message{
 				{
-					Role:    `system`,
-					Content: splitParams.AiChunkPrumpt + define.AiChunkPrumptSuffix,
+					Role:    chat.RoleSystem,
+					Content: chat.MessageContent{Text: tea.String(splitParams.AiChunkPrumpt + define.AiChunkPrumptSuffix)},
 				},
 				{
-					Role:    `user`,
-					Content: contents,
+					Role:    chat.RoleUser,
+					Content: chat.MessageContent{Text: tea.String(contents)},
 				},
 			}
 			ctx, cancel := context.WithCancel(context.Background())
@@ -1791,7 +1792,7 @@ func AISplitDocs(adminUserId, fileId int, splitParams define.SplitParams, list d
 				Content: contents,
 				Images:  item.Images,
 			}
-			if err != nil && len(chatResp.Result) <= 0 {
+			if err != nil && len(chatResp.Result()) <= 0 {
 				logs.Error(err.Error())
 				if retryTimes <= 3 {
 					retryTimes++
@@ -1805,10 +1806,10 @@ func AISplitDocs(adminUserId, fileId int, splitParams define.SplitParams, list d
 			} else {
 				lock.Lock()
 				resp := []chunkResult{}
-				if err := tool.JsonDecode(chatResp.Result, &resp); err != nil {
+				if err := tool.JsonDecode(chatResp.Result(), &resp); err != nil {
 					docSplitItem.AiChunkErrMsg = fmt.Sprintf(`ai return format error:%s`, err.Error())
 				} else {
-					docSplitItem.Content = chatResp.Result
+					docSplitItem.Content = chatResp.Result()
 				}
 				contentMap[index] = docSplitItem
 				lock.Unlock()

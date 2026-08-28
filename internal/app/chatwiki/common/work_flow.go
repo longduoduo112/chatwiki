@@ -58,15 +58,16 @@ var TypArrays = [...]string{
 
 type SimpleFields map[string]SimpleField
 type SimpleField struct {
-	Sys      bool    `json:"sys"`
-	Key      string  `json:"key"`
-	Desc     *string `json:"desc,omitempty"`
-	Typ      string  `json:"typ"`
-	Vals     []Val   `json:"vals,omitempty"`
-	Required bool    `json:"required"`
-	Default  string  `json:"default,omitempty"`
-	Enum     string  `json:"enum,omitempty"` // Enum values
-	Lang     string  `json:"-"`              // Need to be manually set, do not use
+	Sys         bool    `json:"sys"`
+	Key         string  `json:"key"`
+	Desc        *string `json:"desc,omitempty"`
+	Typ         string  `json:"typ"`
+	Vals        []Val   `json:"vals,omitempty"`
+	Required    bool    `json:"required"`
+	Default     string  `json:"default,omitempty"`
+	Enum        string  `json:"enum,omitempty"` // Enum values
+	Lang        string  `json:"-"`              // Need to be manually set, do not use
+	AdminUserId int     `json:"-"`              // Tenant context for knowledge formatting, do not use
 }
 
 func (field SimpleField) SetVals(data any) SimpleField {
@@ -170,7 +171,7 @@ func (field SimpleField) ShowVals(specifyTyp ...string) string {
 		for _, val := range field.Vals {
 			list = append(list, val.Params)
 		}
-		_, libraryContent := FormatSystemPrompt(field.Lang, ``, list)
+		_, libraryContent := FormatSystemPrompt(field.Lang, field.AdminUserId, ``, list)
 		return libraryContent
 	}
 	// Get the vals values of the field

@@ -18,11 +18,12 @@ import (
 	"github.com/ArtisanCloud/PowerLibs/v3/object"
 	"github.com/ArtisanCloud/PowerWeChat/v3/src/kernel/power"
 	"github.com/ArtisanCloud/PowerWeChat/v3/src/officialAccount/broadcasting/request"
+	"github.com/alibabacloud-go/tea/tea"
 	"github.com/spf13/cast"
 	"github.com/zhimaAi/go_tools/logs"
 	"github.com/zhimaAi/go_tools/msql"
 	"github.com/zhimaAi/go_tools/tool"
-	"github.com/zhimaAi/llm_adaptor/adaptor"
+	"github.com/zhimaAi/llm_adaptor/v2/chat"
 
 	"chatwiki/internal/app/chatwiki/business/manage"
 	"chatwiki/internal/app/chatwiki/common"
@@ -201,6 +202,7 @@ func ConvertVector(msg string, _ ...string) error {
 		return nil
 	}
 	embedding, err := common.GetVector2000(
+		context.Background(),
 		define.LangEnUs,
 		cast.ToInt(info[`admin_user_id`]),
 		info[`admin_user_id`],
@@ -291,8 +293,9 @@ func ConvertGraph(msg string, _ ...string) error {
 		content = "question: " + info[`question`] + "\n\nanswer: " + info[`answer`]
 	}
 	prompt := strings.ReplaceAll(define.PromptDefaultGraphConstruct, `{{content}}`, content)
-	messages := []adaptor.ZhimaChatCompletionMessage{{Role: `user`, Content: prompt}}
+	messages := []chat.Message{{Role: chat.RoleUser, Content: chat.MessageContent{Text: tea.String(prompt)}}}
 	chatResp, _, err := common.RequestChat(
+		context.Background(),
 		define.LangEnUs,
 		cast.ToInt(info[`admin_user_id`]),
 		info[`admin_user_id`],
@@ -312,12 +315,11 @@ func ConvertGraph(msg string, _ ...string) error {
 		CheckFileGraphLearned(fileId)
 		return nil
 	}
-	chatResp.Result = strings.TrimPrefix(chatResp.Result, "```json")
-	chatResp.Result = strings.TrimSuffix(chatResp.Result, "```")
+	chatResp.NormalizeJSONResult()
 
-	var graphData []map[string]interface{}
-	if err := tool.JsonDecode(chatResp.Result, &graphData); err != nil {
-		logs.Error(`graph data parsing failure:%s/%s`, chatResp.Result, err.Error())
+	var graphData []map[string]any
+	if err := tool.JsonDecode(chatResp.Result(), &graphData); err != nil {
+		logs.Error(`graph data parsing failure:%s/%s`, chatResp.Result(), err.Error())
 		constructGraphFailed(fileId, id, err.Error())
 		CheckFileGraphLearned(fileId)
 		return nil
@@ -1466,19 +1468,19 @@ func OfficialAccountCommentAiCheck(msg string, _ ...string) error {
 func getAiCommentCheckRes(AdminUserId, userPrompt, use_model, model_config_id string) lib_define.OfficialAccountCommentAiCheckRes {
 
 	checkRes := lib_define.OfficialAccountCommentAiCheckRes{}
-	messages := []adaptor.ZhimaChatCompletionMessage{
-		{Role: `system`, Content: define.OfficialAccountCommentCheckPrompt},
-		{Role: `user`, Content: userPrompt},
+	messages := []chat.Message{
+		{Role: chat.RoleSystem, Content: chat.MessageContent{Text: tea.String(define.OfficialAccountCommentCheckPrompt)}},
+		{Role: chat.RoleUser, Content: chat.MessageContent{Text: tea.String(userPrompt)}},
 	}
 
-	chatResp, _, err := common.RequestChat(define.LangZhCn, cast.ToInt(AdminUserId), AdminUserId, nil, lib_define.AppYunPc,
+	chatResp, _, err := common.RequestChat(context.Background(), define.LangZhCn, cast.ToInt(AdminUserId), AdminUserId, nil, lib_define.AppYunPc,
 		cast.ToInt(model_config_id), use_model, messages, nil, 0.5, 2000, common.ThinkingDisabled)
 	if err != nil {
 		logs.Error(`AI detection failed:` + err.Error())
 		return checkRes
 	}
 
-	err = tool.JsonDecodeUseNumber(chatResp.Result, &checkRes)
+	err = tool.JsonDecodeUseNumber(chatResp.Result(), &checkRes)
 	if err != nil {
 		logs.Error(`AI detection result parsing failed:` + err.Error())
 	}

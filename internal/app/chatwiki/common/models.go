@@ -3,39 +3,50 @@
 package common
 
 import (
+	"bytes"
 	"chatwiki/internal/app/chatwiki/define"
 	"chatwiki/internal/app/chatwiki/i18n"
 	"chatwiki/internal/pkg/lib_define"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
+	"mime"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/alibabacloud-go/tea/tea"
 	"github.com/gin-contrib/sse"
 	"github.com/spf13/cast"
-	"github.com/zhimaAi/go_tools/curl"
 	"github.com/zhimaAi/go_tools/logs"
 	"github.com/zhimaAi/go_tools/msql"
 	"github.com/zhimaAi/go_tools/tool"
-	"github.com/zhimaAi/llm_adaptor/adaptor"
+	llm "github.com/zhimaAi/llm_adaptor/v2"
+	"github.com/zhimaAi/llm_adaptor/v2/chat"
+	"github.com/zhimaAi/llm_adaptor/v2/embedding"
+	"github.com/zhimaAi/llm_adaptor/v2/image"
+	"github.com/zhimaAi/llm_adaptor/v2/rerank"
+	"github.com/zhimaAi/llm_adaptor/v2/speech"
 )
 
 type SupplierHandler struct {
 	modelInfo *ModelInfo
-	adaptor.Meta
-	config msql.Params
+	Client    *llm.Client
+	config    msql.Params
 }
 
 type ModelCallHandler struct {
-	modelInfo *ModelInfo
-	adaptor.Meta
-	config msql.Params
+	modelInfo           *ModelInfo
+	Client              *llm.Client
+	Model               string
+	EmbeddingDimensions *int
+	ChoosableThinking   bool
+	config              msql.Params
 	// UseModel corresponding model type information
 	CurModelMap map[string]UseModelConfig
 }
@@ -159,6 +170,8 @@ const (
 	ModelOpenRouter      = "openrouter"
 )
 
+const DefaultOpenRouterEndpoint = `https://openrouter.ai/api`
+
 const (
 	Llm           = `LLM`
 	TextEmbedding = `TEXT EMBEDDING`
@@ -273,7 +286,7 @@ func getModelConfigList(lang string) []ModelInfo {
 			Introduce:               i18n.Show(lang, `model_302ai_introduce`),
 			SupportList:             []string{Llm, Image},
 			SupportedType:           []string{Llm, Image},
-			ConfigParams:            []string{`api_key`, `api_endpoint`},
+			ConfigParams:            []string{`api_key`},
 			HistoryConfigParams:     []string{},
 			HelpLinks:               `https://302.ai`,
 			CallHandlerFunc:         Get302AiHandle,
@@ -287,12 +300,12 @@ func getModelConfigList(lang string) []ModelInfo {
 			Introduce:               i18n.Show(lang, `model_openrouter_introduce`),
 			SupportList:             []string{Llm, Image},
 			SupportedType:           []string{Llm, Image},
-			ConfigParams:            []string{`api_key`, `api_endpoint`},
+			ConfigParams:            []string{`api_key`},
 			HistoryConfigParams:     []string{},
 			HelpLinks:               `https://openrouter.ai/`,
 			CallHandlerFunc:         GetOpenRouterHandle,
 			CallSupplierhandlerFunc: GetOpenRouterSupplierHandle,
-			ApiEndPoint:             `https://openrouter.ai/api`,
+			ApiEndPoint:             DefaultOpenRouterEndpoint,
 		},
 		{
 			ModelDefine:             ModelDeepseek,
@@ -301,7 +314,7 @@ func getModelConfigList(lang string) []ModelInfo {
 			Introduce:               i18n.Show(lang, `model_deepseek_introduce`),
 			SupportList:             []string{Llm},
 			SupportedType:           []string{Llm},
-			ConfigParams:            []string{`api_key`, `api_endpoint`},
+			ConfigParams:            []string{`api_key`},
 			HelpLinks:               `https://www.deepseek.com/`,
 			CallHandlerFunc:         GetDeepseekHandle,
 			CallSupplierhandlerFunc: GetDeepseekSupplierHandle,
@@ -314,7 +327,7 @@ func getModelConfigList(lang string) []ModelInfo {
 			Introduce:               i18n.Show(lang, `model_gemini_introduce`),
 			SupportList:             []string{Llm, TextEmbedding},
 			SupportedType:           []string{Llm, TextEmbedding},
-			ConfigParams:            []string{`api_key`, `api_endpoint`},
+			ConfigParams:            []string{`api_key`},
 			HelpLinks:               `https://ai.google.dev/`,
 			CallHandlerFunc:         GetGeminiHandler,
 			CallSupplierhandlerFunc: GetGeminiSupplierHandler,
@@ -327,7 +340,7 @@ func getModelConfigList(lang string) []ModelInfo {
 			Introduce:               i18n.Show(lang, `model_openai_introduce`),
 			SupportList:             []string{Llm, TextEmbedding},
 			SupportedType:           []string{Llm, TextEmbedding},
-			ConfigParams:            []string{`api_key`, `api_endpoint`},
+			ConfigParams:            []string{`api_key`},
 			HelpLinks:               `https://openai.com/`,
 			CallHandlerFunc:         GetOpenAIHandle,
 			CallSupplierhandlerFunc: GetOpenAISupplierHandle,
@@ -340,8 +353,7 @@ func getModelConfigList(lang string) []ModelInfo {
 			Introduce:               i18n.Show(lang, `model_doubao_introduce`),
 			SupportList:             []string{Llm, TextEmbedding, Image},
 			SupportedType:           []string{Llm, TextEmbedding, Image},
-			ConfigParams:            []string{`api_key`, `region`, `api_endpoint`},
-			HistoryConfigParams:     []string{`secret_key`},
+			ConfigParams:            []string{`api_key`},
 			HelpLinks:               `https://www.volcengine.com/product/doubao`,
 			CallHandlerFunc:         GetDoubaoHandle,
 			CallSupplierhandlerFunc: GetDoubaoSupplierHandle,
@@ -354,7 +366,7 @@ func getModelConfigList(lang string) []ModelInfo {
 			Introduce:               i18n.Show(lang, `model_siliconflow_introduce`),
 			SupportList:             []string{Llm, TextEmbedding, Rerank},
 			SupportedType:           []string{Llm, TextEmbedding, Rerank},
-			ConfigParams:            []string{`api_key`, `api_endpoint`},
+			ConfigParams:            []string{`api_key`},
 			HelpLinks:               `https://siliconflow.cn/zh-cn/`,
 			CallHandlerFunc:         GetSiliconFlowHandle,
 			CallSupplierhandlerFunc: GetSiliconFlowSupplierHandle,
@@ -367,7 +379,7 @@ func getModelConfigList(lang string) []ModelInfo {
 			Introduce:     i18n.Show(lang, `model_tongyi_introduce`),
 			SupportList:   []string{Llm, TextEmbedding, Tts, Rerank, Image},
 			SupportedType: []string{Llm, TextEmbedding, Rerank, Image},
-			ConfigParams:  []string{`api_key`, `api_endpoint`},
+			ConfigParams:  []string{`api_key`},
 			NetworkSearchModelList: []string{
 				`qwen-plus`,
 				`qwen-turbo`,
@@ -395,23 +407,13 @@ func getModelConfigList(lang string) []ModelInfo {
 			ApiEndPoint:             ``,
 		},
 		{
-			ModelDefine:   ModelAzureOpenAI,
-			ModelName:     `Azure OpenAI Service`,
-			ModelIconUrl:  define.LocalUploadPrefix + `model_icon/` + ModelAzureOpenAI + `.png`,
-			Introduce:     i18n.Show(lang, `model_azure_introduce`),
-			SupportList:   []string{Llm, TextEmbedding, Speech2Text, Tts},
-			SupportedType: []string{Llm, TextEmbedding},
-			ConfigParams:  []string{`api_endpoint`, `api_key`, `api_version`},
-			ApiVersions: []string{
-				`2023-05-15`,
-				`2023-06-01-preview`,
-				`2023-10-01-preview`,
-				`2024-02-15-preview`,
-				`2024-03-01-preview`,
-				`2024-04-01-preview`,
-				`2024-05-01-preview`,
-				`2024-02-01`,
-			},
+			ModelDefine:             ModelAzureOpenAI,
+			ModelName:               `Azure OpenAI Service`,
+			ModelIconUrl:            define.LocalUploadPrefix + `model_icon/` + ModelAzureOpenAI + `.png`,
+			Introduce:               i18n.Show(lang, `model_azure_introduce`),
+			SupportList:             []string{Llm, TextEmbedding, Speech2Text, Tts, Image},
+			SupportedType:           []string{Llm, TextEmbedding},
+			ConfigParams:            []string{`api_endpoint`, `api_key`},
 			HelpLinks:               `https://azure.microsoft.com/en-us/products/ai-services/openai-service`,
 			CallHandlerFunc:         GetAzureHandler,
 			CallSupplierhandlerFunc: GetAzureSupplierHandler,
@@ -424,21 +426,20 @@ func getModelConfigList(lang string) []ModelInfo {
 			Introduce:               i18n.Show(lang, `model_claude_introduce`),
 			SupportList:             []string{Llm},
 			SupportedType:           []string{Llm},
-			ConfigParams:            []string{`api_key`, `api_endpoint`},
+			ConfigParams:            []string{`api_key`},
 			HelpLinks:               `https://claude.ai/`,
 			CallHandlerFunc:         GetClaudeHandler,
 			CallSupplierhandlerFunc: GetClaudeSupplierHandler,
 			ApiEndPoint:             `https://api.anthropic.com`,
 		},
 		{
-			ModelDefine:         ModelBaiduYiyan,
-			ModelName:           i18n.Show(lang, `model_yiyan_name`),
-			ModelIconUrl:        define.LocalUploadPrefix + `model_icon/` + ModelBaiduYiyan + `.png`,
-			Introduce:           i18n.Show(lang, `model_yiyan_introduce`),
-			SupportList:         []string{Llm, TextEmbedding},
-			SupportedType:       []string{Llm, TextEmbedding},
-			ConfigParams:        []string{`api_key`},
-			HistoryConfigParams: []string{`secret_key`},
+			ModelDefine:   ModelBaiduYiyan,
+			ModelName:     i18n.Show(lang, `model_yiyan_name`),
+			ModelIconUrl:  define.LocalUploadPrefix + `model_icon/` + ModelBaiduYiyan + `.png`,
+			Introduce:     i18n.Show(lang, `model_yiyan_introduce`),
+			SupportList:   []string{Llm, TextEmbedding},
+			SupportedType: []string{Llm, TextEmbedding},
+			ConfigParams:  []string{`api_key`},
 			NetworkSearchModelList: []string{
 				`ernie-4.5-turbo-32k`,
 				`ernie-4.5-turbo-128k`,
@@ -470,7 +471,7 @@ func getModelConfigList(lang string) []ModelInfo {
 			Introduce:               i18n.Show(lang, `model_cohere_introduce`),
 			SupportList:             []string{Llm, TextEmbedding, Rerank},
 			SupportedType:           []string{Llm, TextEmbedding, Rerank},
-			ConfigParams:            []string{`api_key`, `api_endpoint`},
+			ConfigParams:            []string{`api_key`},
 			HelpLinks:               `https://cohere.com/`,
 			CallHandlerFunc:         GetCohereHandle,
 			CallSupplierhandlerFunc: GetCohereSupplierHandle,
@@ -511,7 +512,7 @@ func getModelConfigList(lang string) []ModelInfo {
 			Introduce:               i18n.Show(lang, `model_jina_introduce`),
 			SupportList:             []string{TextEmbedding, Rerank},
 			SupportedType:           []string{TextEmbedding, Rerank},
-			ConfigParams:            []string{`api_key`, `api_endpoint`},
+			ConfigParams:            []string{`api_key`},
 			HelpLinks:               `https://jina.ai/`,
 			CallHandlerFunc:         GetJinaHandle,
 			CallSupplierhandlerFunc: GetJinaSupplierHandle,
@@ -524,7 +525,7 @@ func getModelConfigList(lang string) []ModelInfo {
 			Introduce:               i18n.Show(lang, `model_lingyiwanwu_introduce`),
 			SupportList:             []string{Llm},
 			SupportedType:           []string{Llm},
-			ConfigParams:            []string{`api_key`, `api_endpoint`},
+			ConfigParams:            []string{`api_key`},
 			HelpLinks:               `https://platform.lingyiwanwu.com/`,
 			CallHandlerFunc:         GetLingYiWanWuHandle,
 			CallSupplierhandlerFunc: GetLingYiWanWuSupplierHandle,
@@ -537,7 +538,7 @@ func getModelConfigList(lang string) []ModelInfo {
 			Introduce:               i18n.Show(lang, `model_moonshot_introduce`),
 			SupportList:             []string{Llm},
 			SupportedType:           []string{Llm},
-			ConfigParams:            []string{`api_key`, `api_endpoint`},
+			ConfigParams:            []string{`api_key`},
 			HelpLinks:               `https://www.moonshot.cn/`,
 			CallHandlerFunc:         GetMoonShotHandle,
 			CallSupplierhandlerFunc: GetMoonShotSupplierHandle,
@@ -550,10 +551,11 @@ func getModelConfigList(lang string) []ModelInfo {
 			Introduce:               i18n.Show(lang, `model_spark_introduce`),
 			SupportList:             []string{Llm},
 			SupportedType:           []string{Llm},
-			ConfigParams:            []string{`app_id`, `api_key`, `secret_key`},
+			ConfigParams:            []string{`api_key`},
 			HelpLinks:               `https://xinghuo.xfyun.cn/sparkapi`,
 			CallHandlerFunc:         GetSparkHandle,
 			CallSupplierhandlerFunc: GetSparkSupplierHandle,
+			ApiEndPoint:             `https://spark-api-open.xf-yun.com/v1`,
 		},
 		{
 			ModelDefine:             ModelHunyuan,
@@ -562,10 +564,11 @@ func getModelConfigList(lang string) []ModelInfo {
 			Introduce:               i18n.Show(lang, `model_hunyuan_introduce`),
 			SupportList:             []string{Llm, TextEmbedding},
 			SupportedType:           []string{Llm, TextEmbedding},
-			ConfigParams:            []string{`api_key`, `secret_key`},
+			ConfigParams:            []string{`api_key`},
 			HelpLinks:               `https://cloud.tencent.com/product/hunyuan`,
 			CallHandlerFunc:         GetHunyuanHandle,
 			CallSupplierhandlerFunc: GetHunyuanSupplierHandle,
+			ApiEndPoint:             `https://tokenhub.tencentmaas.com/v1`,
 		},
 		{
 			ModelDefine:             ModelBaichuan,
@@ -574,7 +577,7 @@ func getModelConfigList(lang string) []ModelInfo {
 			Introduce:               i18n.Show(lang, `model_baichuan_introduce`),
 			SupportList:             []string{Llm, TextEmbedding},
 			SupportedType:           []string{Llm, TextEmbedding},
-			ConfigParams:            []string{`api_key`, `api_endpoint`},
+			ConfigParams:            []string{`api_key`},
 			HelpLinks:               `https://platform.baichuan-ai.com`,
 			CallHandlerFunc:         GetBaichuanHandle,
 			CallSupplierhandlerFunc: GetBaichuanSupplierHandle,
@@ -587,7 +590,7 @@ func getModelConfigList(lang string) []ModelInfo {
 			Introduce:               i18n.Show(lang, `model_zhipu_introduce`),
 			SupportList:             []string{Llm, TextEmbedding},
 			SupportedType:           []string{Llm, TextEmbedding},
-			ConfigParams:            []string{`api_key`, `api_endpoint`},
+			ConfigParams:            []string{`api_key`},
 			HelpLinks:               `https://open.bigmodel.cn/`,
 			CallHandlerFunc:         GetZhipuHandle,
 			CallSupplierhandlerFunc: GetZhipuSupplierHandle,
@@ -600,7 +603,7 @@ func getModelConfigList(lang string) []ModelInfo {
 			Introduce:               i18n.Show(lang, `model_minimax_introduce`),
 			SupportList:             []string{Llm, Tts},
 			SupportedType:           []string{Llm, Tts},
-			ConfigParams:            []string{`api_key`, `api_endpoint`},
+			ConfigParams:            []string{`api_key`},
 			HelpLinks:               `https://www.minimaxi.com/`,
 			CallHandlerFunc:         GetMinimaxHandle,
 			CallSupplierhandlerFunc: GetMinimaxSupplierHandle,
@@ -670,34 +673,38 @@ func GetModelCallHandler(lang string, adminUserId, modelConfigId int, useModel s
 	return handler, nil
 }
 
-func GetVector2000(lang string, adminUserId int, openid string, robot msql.Params, library msql.Params, file msql.Params, modelConfigId int, useModel, input string) (string, error) {
+func GetVector2000(ctx context.Context, lang string, adminUserId int, openid string, robot msql.Params, library msql.Params, file msql.Params, modelConfigId int, useModel, input string) (string, error) {
 	handler, err := GetModelCallHandler(lang, adminUserId, modelConfigId, useModel, robot)
 	if err != nil {
 		return ``, err
 	}
-	res, err := handler.GetVector2000(lang, adminUserId, openid, robot, library, file, input)
+	res, err := handler.GetVector2000(ctx, lang, adminUserId, openid, robot, library, file, input)
 	if err != nil {
 		return ``, err
 	}
 	if handler.modelInfo != nil && handler.modelInfo.TokenUseReport != nil { //token use report
-		handler.modelInfo.TokenUseReport(handler.config, useModel, res.PromptToken, res.CompletionToken, robot, 0)
+		handler.modelInfo.TokenUseReport(handler.config, useModel, res.Usage.PromptTokens, res.Usage.TotalTokens-res.Usage.PromptTokens, robot, 0)
 	}
-	return tool.JsonEncode(res.Result)
+	values, err := res.Data[0].Embedding.Float64s()
+	if err != nil {
+		return ``, err
+	}
+	return tool.JsonEncode(values)
 }
 
-func requestChatStreamWithState(ctx context.Context, lang string, adminUserId int, openid string, robot msql.Params, appType string, modelConfigId int, useModel string, messages []adaptor.ZhimaChatCompletionMessage, functionTools []adaptor.FunctionTool, chanStream chan sse.Event, temperature float32, maxToken int, enableThinking ThinkingSwitch) (adaptor.ZhimaChatCompletionResponse, int64, bool, ModelErrStage, error) {
+func requestChatStreamWithState(ctx context.Context, lang string, adminUserId int, openid string, robot msql.Params, appType string, modelConfigId int, useModel string, messages []chat.Message, functionTools []chat.Tool, chanStream chan sse.Event, temperature float32, maxToken int, enableThinking ThinkingSwitch) (ChatResponse, int64, bool, ModelErrStage, error) {
 	handler, err := GetModelCallHandler(lang, adminUserId, modelConfigId, useModel, robot)
 	if err != nil {
-		return adaptor.ZhimaChatCompletionResponse{}, 0, false, ModelErrPrecheck, err
+		return ChatResponse{}, 0, false, precheckErrStage(err), err
 	}
 	chatResp, requestTime, streamed, stage, err := handler.requestChatStreamWithState(ctx, lang, adminUserId, openid, robot, appType, messages, functionTools, chanStream, temperature, maxToken, enableThinking)
 	if err == nil && handler.modelInfo != nil && handler.modelInfo.TokenUseReport != nil { //token use report
-		handler.modelInfo.TokenUseReport(handler.config, useModel, chatResp.PromptToken, chatResp.CompletionToken, robot, 0)
+		handler.modelInfo.TokenUseReport(handler.config, useModel, chatResp.Usage.PromptTokens, chatResp.Usage.CompletionTokens, robot, 0)
 	}
 	return chatResp, requestTime, streamed, stage, err
 }
 
-func RequestChatStream(ctx context.Context, lang string, adminUserId int, openid string, robot msql.Params, appType string, modelConfigId int, useModel string, messages []adaptor.ZhimaChatCompletionMessage, functionTools []adaptor.FunctionTool, chanStream chan sse.Event, temperature float32, maxToken int, enableThinking ThinkingSwitch) (adaptor.ZhimaChatCompletionResponse, int64, error) {
+func RequestChatStream(ctx context.Context, lang string, adminUserId int, openid string, robot msql.Params, appType string, modelConfigId int, useModel string, messages []chat.Message, functionTools []chat.Tool, chanStream chan sse.Event, temperature float32, maxToken int, enableThinking ThinkingSwitch) (ChatResponse, int64, error) {
 	chatResp, requestTime, streamed, stage, err := requestChatStreamWithState(ctx, lang, adminUserId, openid, robot, appType, modelConfigId, useModel, messages, functionTools, chanStream, temperature, maxToken, enableThinking)
 	if err == nil {
 		return chatResp, requestTime, nil
@@ -709,7 +716,7 @@ func RequestChatStream(ctx context.Context, lang string, adminUserId int, openid
 		return chatResp, requestTime, err
 	}
 	logModelError(lang, adminUserId, modelConfigId, useModel, robot, err.Error())
-	if streamed || stage == ModelErrStreamRead {
+	if streamed {
 		return chatResp, requestTime, err
 	}
 	backupConfigId, backupUseModel, ok := getUsableBackupModel(lang, adminUserId, modelConfigId, useModel, messages, functionTools)
@@ -726,26 +733,26 @@ func RequestChatStream(ctx context.Context, lang string, adminUserId int, openid
 	return chatResp, requestTime, err
 }
 
-func RequestSearchStream(lang string, adminUserId int, modelConfigId int, useModel string, library msql.Params, messages []adaptor.ZhimaChatCompletionMessage, functionTools []adaptor.FunctionTool, chanStream chan sse.Event, temperature float32, maxToken int) (adaptor.ZhimaChatCompletionResponse, int64, error) {
+func RequestSearchStream(ctx context.Context, lang string, adminUserId int, modelConfigId int, useModel string, library msql.Params, messages []chat.Message, functionTools []chat.Tool, chanStream chan sse.Event, temperature float32, maxToken int) (ChatResponse, int64, error) {
 	handler, err := GetModelCallHandler(lang, adminUserId, modelConfigId, useModel, nil)
 	if err != nil {
-		return adaptor.ZhimaChatCompletionResponse{}, 0, err
+		return ChatResponse{}, 0, err
 	}
-	chatResp, requestTime, err := handler.RequestChatStream(context.Background(), lang, adminUserId, "", library, "", messages, functionTools, chanStream, temperature, maxToken, ThinkingDisabled)
+	chatResp, requestTime, err := handler.RequestChatStream(ctx, lang, adminUserId, "", library, "", messages, functionTools, chanStream, temperature, maxToken, ThinkingDisabled)
 	if err == nil && handler.modelInfo != nil && handler.modelInfo.TokenUseReport != nil { //token use report
-		handler.modelInfo.TokenUseReport(handler.config, useModel, chatResp.PromptToken, chatResp.CompletionToken, msql.Params{}, 0)
+		handler.modelInfo.TokenUseReport(handler.config, useModel, chatResp.Usage.PromptTokens, chatResp.Usage.CompletionTokens, msql.Params{}, 0)
 	}
 	return chatResp, requestTime, err
 }
 
-func requestChatWithState(lang string, adminUserId int, openid string, robot msql.Params, appType string, modelConfigId int, useModel string, messages []adaptor.ZhimaChatCompletionMessage, functionTools []adaptor.FunctionTool, temperature float32, maxToken int, enableThinking ThinkingSwitch) (adaptor.ZhimaChatCompletionResponse, int64, ModelErrStage, error) {
+func requestChatWithState(ctx context.Context, lang string, adminUserId int, openid string, robot msql.Params, appType string, modelConfigId int, useModel string, messages []chat.Message, functionTools []chat.Tool, temperature float32, maxToken int, enableThinking ThinkingSwitch) (ChatResponse, int64, ModelErrStage, error) {
 	handler, err := GetModelCallHandler(lang, adminUserId, modelConfigId, useModel, robot)
 	if err != nil {
-		return adaptor.ZhimaChatCompletionResponse{}, 0, ModelErrPrecheck, err
+		return ChatResponse{}, 0, precheckErrStage(err), err
 	}
-	chatResp, requestTime, err := handler.RequestChat(lang, adminUserId, openid, robot, appType, messages, functionTools, temperature, maxToken, enableThinking)
+	chatResp, requestTime, err := handler.RequestChat(ctx, lang, adminUserId, openid, robot, appType, messages, functionTools, temperature, maxToken, enableThinking)
 	if err == nil && handler.modelInfo != nil && handler.modelInfo.TokenUseReport != nil { //token use report
-		handler.modelInfo.TokenUseReport(handler.config, useModel, chatResp.PromptToken, chatResp.CompletionToken, robot, 0)
+		handler.modelInfo.TokenUseReport(handler.config, useModel, chatResp.Usage.PromptTokens, chatResp.Usage.CompletionTokens, robot, 0)
 	}
 	if err != nil {
 		return chatResp, requestTime, ModelErrProvider, err
@@ -753,10 +760,13 @@ func requestChatWithState(lang string, adminUserId int, openid string, robot msq
 	return chatResp, requestTime, ModelErrNone, nil
 }
 
-func RequestChat(lang string, adminUserId int, openid string, robot msql.Params, appType string, modelConfigId int, useModel string, messages []adaptor.ZhimaChatCompletionMessage, functionTools []adaptor.FunctionTool, temperature float32, maxToken int, enableThinking ThinkingSwitch) (adaptor.ZhimaChatCompletionResponse, int64, error) {
-	chatResp, requestTime, stage, err := requestChatWithState(lang, adminUserId, openid, robot, appType, modelConfigId, useModel, messages, functionTools, temperature, maxToken, enableThinking)
+func RequestChat(ctx context.Context, lang string, adminUserId int, openid string, robot msql.Params, appType string, modelConfigId int, useModel string, messages []chat.Message, functionTools []chat.Tool, temperature float32, maxToken int, enableThinking ThinkingSwitch) (ChatResponse, int64, error) {
+	chatResp, requestTime, stage, err := requestChatWithState(ctx, lang, adminUserId, openid, robot, appType, modelConfigId, useModel, messages, functionTools, temperature, maxToken, enableThinking)
 	if err == nil {
 		return chatResp, requestTime, nil
+	}
+	if ctx != nil && ctx.Err() != nil {
+		return chatResp, requestTime, err
 	}
 	if GetTokenAppType(robot) == define.TokenAppTypeOther || stage == ModelErrPrecheck {
 		return chatResp, requestTime, err
@@ -766,7 +776,7 @@ func RequestChat(lang string, adminUserId int, openid string, robot msql.Params,
 	if !ok {
 		return chatResp, requestTime, err
 	}
-	bResp, bTime, bStage, bErr := requestChatWithState(lang, adminUserId, openid, robot, appType, backupConfigId, backupUseModel, messages, functionTools, temperature, maxToken, enableThinking)
+	bResp, bTime, bStage, bErr := requestChatWithState(ctx, lang, adminUserId, openid, robot, appType, backupConfigId, backupUseModel, messages, functionTools, temperature, maxToken, enableThinking)
 	if bErr == nil {
 		return bResp, bTime, nil
 	}
@@ -776,18 +786,31 @@ func RequestChat(lang string, adminUserId int, openid string, robot msql.Params,
 	return chatResp, requestTime, err
 }
 
-func (h *ModelCallHandler) GetVector2000(lang string, adminUserId int, openid string, robot msql.Params, library msql.Params, fileInfo msql.Params, input string) (adaptor.ZhimaEmbeddingResponse, error) {
-	client := &adaptor.Adaptor{}
-	client.Init(h.Meta)
-	req := adaptor.ZhimaEmbeddingRequest{Input: input}
-	var res adaptor.ZhimaEmbeddingResponse
+func (h *ModelCallHandler) newEmbeddingRequest(input string) *embedding.CreateRequest {
+	return &embedding.CreateRequest{
+		Model:      h.Model,
+		Input:      embedding.Input{Text: tea.String(input)},
+		Dimensions: h.EmbeddingDimensions,
+	}
+}
+
+func (h *ModelCallHandler) GetVector2000(ctx context.Context, lang string, adminUserId int, openid string, robot msql.Params, library msql.Params, fileInfo msql.Params, input string) (*embedding.CreateResponse, error) {
+	if ctx == nil {
+		return nil, errors.New("context is nil")
+	}
+	req := h.newEmbeddingRequest(input)
+	var res *embedding.CreateResponse
 	var err error
 	maxTryCount := 3
 	for i := 0; i < maxTryCount; i++ {
-		res, err = client.CreateEmbeddings(req)
+		res, err = h.Client.Embeddings.Create(ctx, req)
 		if err != nil {
-			logs.Error(err.Error())
-			time.Sleep(time.Second * 1)
+			logLLMAdaptorError(llmAdaptorAPIEmbeddingCreate, req, res, err)
+			select {
+			case <-ctx.Done():
+				return res, ctx.Err()
+			case <-time.After(time.Second):
+			}
 		} else {
 			break
 		}
@@ -796,65 +819,66 @@ func (h *ModelCallHandler) GetVector2000(lang string, adminUserId int, openid st
 		return res, err
 	}
 
-	if res.Result == nil {
+	if res == nil || len(res.Data) == 0 {
 		return res, errors.New(`get vector return nil`)
 	}
-	if len(res.Result) < define.VectorDimension {
-		res.Result = append(res.Result, make([]float64, define.VectorDimension-len(res.Result))...)
-	}
-	//go func() {
-	err = LlmLogRequest(lang, TextEmbedding, adminUserId, openid, robot, library, h.config, lib_define.AppYunH5, fileInfo, h.Meta.Model, res.PromptToken, res.CompletionToken, req, res)
-	if err != nil {
-		logs.Error(err.Error())
-	}
-	//}()
-	return res, nil
-}
-
-func (h *ModelCallHandler) GetSimilarity(query []float64, inputs [][]float64) (string, error) {
-	client := &adaptor.Adaptor{}
-	client.Init(h.Meta)
-	req := adaptor.ZhimaSimilarityRequest{Model: h.Meta.Model, Query: query, Input: inputs}
-	res, err := client.CreateSimilarity(req)
-	if err != nil {
-		return ``, err
-	}
-	if res.Result == nil {
-		return ``, errors.New(`get vector return nil`)
-	}
-	return tool.JsonEncode(res.Result)
-}
-
-func (h *ModelCallHandler) RequestRerank(lang string, adminUserId int, openid, appType string, robot msql.Params, params *adaptor.ZhimaRerankReq) (adaptor.ZhimaRerankResp, error) {
-	client := &adaptor.Adaptor{}
-	client.Init(h.Meta)
-	req := &adaptor.ZhimaRerankReq{
-		Enable:   params.Enable,
-		Query:    params.Query,
-		Passages: params.Passages,
-		Data:     params.Data,
-		TopK:     params.TopK,
-	}
-	res, err := client.CreateRerank(req)
+	values, err := res.Data[0].Embedding.Float64s()
 	if err != nil {
 		return res, err
 	}
-	if res.Data == nil {
-		return res, errors.New(`get rerank return nil`)
+	if len(values) < define.VectorDimension {
+		values = append(values, make([]float64, define.VectorDimension-len(values))...)
 	}
-	result, _ := tool.JsonEncode(res.Data)
-	totalResponse := adaptor.ZhimaChatCompletionResponse{
-		Result:          result,
-		PromptToken:     res.InputToken,
-		CompletionToken: res.OutputToken,
-	}
+	res.Data[0].Embedding = embedding.FloatEmbedding(values)
 	//go func() {
-	err = LlmLogRequest(lang, Rerank, adminUserId, openid, robot, msql.Params{}, h.config, appType, msql.Params{}, h.Meta.Model, totalResponse.PromptToken, totalResponse.CompletionToken, req, totalResponse)
+	err = LlmLogRequest(lang, TextEmbedding, adminUserId, openid, robot, library, h.config, lib_define.AppYunH5, fileInfo, h.Model, res.Usage.PromptTokens, res.Usage.TotalTokens-res.Usage.PromptTokens, req, res)
 	if err != nil {
 		logs.Error(err.Error())
 	}
 	//}()
 	return res, nil
+}
+func (h *ModelCallHandler) RequestRerank(ctx context.Context, lang string, adminUserId int, openid, appType string, robot msql.Params, req *rerank.CreateRequest) (*rerank.CreateResponse, error) {
+	res, err := h.Client.Rerank.Create(ctx, req)
+	if err != nil {
+		logLLMAdaptorError(llmAdaptorAPIRerankCreate, req, res, err)
+		return res, err
+	}
+	if res == nil || res.Results == nil {
+		return res, errors.New(`get rerank return nil`)
+	}
+	inputToken, outputToken := rerankTokens(res)
+	//go func() {
+	err = LlmLogRequest(lang, Rerank, adminUserId, openid, robot, msql.Params{}, h.config, appType, msql.Params{}, h.Model, inputToken, outputToken, req, res)
+	if err != nil {
+		logs.Error(err.Error())
+	}
+	//}()
+	return res, nil
+}
+
+func rerankTokens(response *rerank.CreateResponse) (int, int) {
+	if response == nil || response.Meta == nil {
+		return 0, 0
+	}
+	inputToken, outputToken := 0, 0
+	if response.Meta.Tokens != nil {
+		if response.Meta.Tokens.InputTokens != nil {
+			inputToken = *response.Meta.Tokens.InputTokens
+		}
+		if response.Meta.Tokens.OutputTokens != nil {
+			outputToken = *response.Meta.Tokens.OutputTokens
+		}
+	}
+	if response.Meta.BilledUnits != nil {
+		if inputToken == 0 && response.Meta.BilledUnits.InputTokens != nil {
+			inputToken = *response.Meta.BilledUnits.InputTokens
+		}
+		if outputToken == 0 && response.Meta.BilledUnits.OutputTokens != nil {
+			outputToken = *response.Meta.BilledUnits.OutputTokens
+		}
+	}
+	return inputToken, outputToken
 }
 
 // AmendFuncToolsPropertiesType 修改函数工具的属性类型(string|number|boolean|object|array)
@@ -900,13 +924,13 @@ func (h *ModelCallHandler) RequestChatStream(
 	openid string,
 	robot msql.Params,
 	appType string,
-	messages []adaptor.ZhimaChatCompletionMessage,
-	functionTools []adaptor.FunctionTool,
+	messages []chat.Message,
+	functionTools []chat.Tool,
 	chanStream chan sse.Event,
 	temperature float32,
 	maxToken int,
 	enableThinking ThinkingSwitch,
-) (adaptor.ZhimaChatCompletionResponse, int64, error) {
+) (ChatResponse, int64, error) {
 	chatResp, requestTime, _, _, err := h.requestChatStreamWithState(ctx, lang, adminUserId, openid, robot, appType, messages, functionTools, chanStream, temperature, maxToken, enableThinking)
 	return chatResp, requestTime, err
 }
@@ -918,78 +942,46 @@ func (h *ModelCallHandler) requestChatStreamWithState(
 	openid string,
 	robot msql.Params,
 	appType string,
-	messages []adaptor.ZhimaChatCompletionMessage,
-	functionTools []adaptor.FunctionTool,
+	messages []chat.Message,
+	functionTools []chat.Tool,
 	chanStream chan sse.Event,
 	temperature float32,
 	maxToken int,
 	enableThinking ThinkingSwitch,
-) (adaptor.ZhimaChatCompletionResponse, int64, bool, ModelErrStage, error) {
-	client := &adaptor.Adaptor{}
-	if h.Meta.ChoosableThinking && bool(enableThinking) {
-		h.Meta.EnabledThinking = true
-	}
+) (ChatResponse, int64, bool, ModelErrStage, error) {
 	if (h.CurModelMap[Llm].InputImage > 0 || h.CurModelMap[Llm].InputVideo > 0 || h.CurModelMap[Llm].InputVoice > 0) && len(robot) > 0 && cast.ToBool(robot[`question_multiple_switch`]) {
 		messages = ConvertQuestionMultiple(messages) // Convert to multimodal input structure
 	}
-	client.Init(h.Meta)
-	req := adaptor.ZhimaChatCompletionRequest{
-		Messages:      messages,
-		MaxToken:      maxToken,
-		Temperature:   float64(temperature),
-		FunctionTools: functionTools,
-	}
-	stream, err := client.CreateChatCompletionStream(req)
+	req := h.chatRequest(messages, functionTools, temperature, maxToken, enableThinking)
+	streamRequest := &chat.StreamRequest{CreateRequest: *req}
+	stream, err := h.Client.Chat.Stream(ctx, streamRequest)
 	if err != nil {
-		return adaptor.ZhimaChatCompletionResponse{}, 0, false, ModelErrProvider, err
+		logLLMAdaptorError(llmAdaptorAPIChatStream, streamRequest, nil, err)
+		return ChatResponse{}, 0, false, ModelErrProvider, err
 	}
-	defer func(stream *adaptor.ZhimaChatCompletionStreamResponse) {
-		_ = stream.Close()
-	}(stream)
+	defer stream.Close()
 
-	// ctx watchdog: llm_adaptor builds its HTTP request without a cancelable
-	// context, so closing the stream is the only way to tear down the upstream
-	// connection. On client disconnect, close it here — severing the TCP conn
-	// (DisableKeepAlives is on) stops the provider generating and unblocks the
-	// stream.Read() below immediately. The read error is treated as cancel
-	// (not a real error) so partial content is still persisted.
-	watchdogDone := make(chan struct{})
-	defer close(watchdogDone)
-	if ctx != nil {
-		go func() {
-			select {
-			case <-ctx.Done():
-				_ = stream.Close()
-			case <-watchdogDone:
-			}
-		}()
-	}
-
-	var totalResponse adaptor.ZhimaChatCompletionResponse
-	var content string
-	var functionToolCall adaptor.FunctionToolCall
+	accumulator := chat.NewAccumulator()
 	requestTime := int64(0)
 	streamed := false
 	requestStartTime := time.Now()
 
 	for {
-		response, err := stream.Read()
+		response, err := stream.Recv()
 		if requestTime == 0 {
-			requestTime = time.Now().Sub(requestStartTime).Milliseconds()
+			requestTime = time.Since(requestStartTime).Milliseconds()
 			sendOrAbort(ctx, chanStream, sse.Event{Event: `request_time`, Data: requestTime})
 		}
-
-		totalResponse.PromptToken += response.PromptToken
-		totalResponse.CompletionToken += response.CompletionToken
-
 		if errors.Is(err, io.EOF) {
 			break
 		}
 		if err != nil {
-			if ctx != nil && ctx.Err() != nil {
-				break
-			}
-			return totalResponse, requestTime, streamed, ModelErrStreamRead, err
+			logLLMAdaptorError(llmAdaptorAPIChatStream, streamRequest, accumulator.Response(), err)
+			return NewChatResponse(accumulator.Response()), requestTime, streamed, ModelErrStreamRead, err
+		}
+		if err := accumulator.Add(response); err != nil {
+			logLLMAdaptorError(llmAdaptorAPIChatStream, streamRequest, accumulator.Response(), err)
+			return NewChatResponse(accumulator.Response()), requestTime, streamed, ModelErrStreamRead, err
 		}
 
 		// push stream raw events for clawbot and BTS (ChatClawClient) so callers
@@ -998,41 +990,33 @@ func (h *ModelCallHandler) requestChatStreamWithState(
 			sendOrAbort(ctx, chanStream, sse.Event{Event: `stream_raw`, Data: response})
 			streamed = true
 		}
-
-		if len(response.FunctionToolCalls) > 0 {
-			chunkFunc := response.FunctionToolCalls[0]
-			if len(functionToolCall.Name) == 0 {
-				functionToolCall.Name = chunkFunc.Name
-				functionToolCall.Arguments = chunkFunc.Arguments
-			} else {
-				functionToolCall.Arguments += chunkFunc.Arguments
-			}
-		}
-		if len(response.ReasoningContent) > 0 {
-			if cast.ToInt(robot[`think_switch`]) == define.SwitchOn {
-				sendOrAbort(ctx, chanStream, sse.Event{Event: `reasoning_content`, Data: response.ReasoningContent})
-				streamed = true
-			}
-			totalResponse.ReasoningContent += response.ReasoningContent
-		}
-		if len(response.Result) == 0 && len(functionToolCall.Arguments) == 0 {
+		if len(response.Choices) == 0 {
 			continue
 		}
-
-		totalResponse.Result += response.Result
-		content += response.Result
-		sendOrAbort(ctx, chanStream, sse.Event{Event: `sending`, Data: response.Result})
-		streamed = true
-
-		if ctx != nil && ctx.Err() != nil {
-			break
+		delta := response.Choices[0].Delta
+		if len(delta.ReasoningContent) > 0 {
+			if cast.ToInt(robot[`think_switch`]) == define.SwitchOn {
+				sendOrAbort(ctx, chanStream, sse.Event{Event: `reasoning_content`, Data: delta.ReasoningContent})
+				streamed = true
+			}
 		}
+		if delta.Content.Text == nil || *delta.Content.Text == `` {
+			continue
+		}
+		sendOrAbort(ctx, chanStream, sse.Event{Event: `sending`, Data: *delta.Content.Text})
+		streamed = true
 	}
 
-	if h.CheckFunctionArguments(functionToolCall, functionTools) && len(totalResponse.Result) == 0 { // only function call response
-		totalResponse.Result = `ok`
+	providerResponse := accumulator.Response()
+	totalResponse := NewChatResponse(providerResponse)
+	var functionToolCall chat.ToolCall
+	if len(totalResponse.ToolCalls()) > 0 {
+		functionToolCall = totalResponse.ToolCalls()[0]
+	}
+	if h.CheckFunctionArguments(functionToolCall, functionTools) && len(totalResponse.Result()) == 0 {
+		totalResponse.SetResult(`OK`)
 		totalResponse.IsValidFunctionCall = true
-		sendOrAbort(ctx, chanStream, sse.Event{Event: `sending`, Data: totalResponse.Result})
+		sendOrAbort(ctx, chanStream, sse.Event{Event: `sending`, Data: totalResponse.Result()})
 		streamed = true
 	}
 
@@ -1041,13 +1025,13 @@ func (h *ModelCallHandler) requestChatStreamWithState(
 	if appType == "" && openid == "" {
 		library, robot = robot, library
 	}
-	err = LlmLogRequest(lang, Llm, adminUserId, openid, robot, library, h.config, appType, msql.Params{}, h.Meta.Model, totalResponse.PromptToken, totalResponse.CompletionToken, req, totalResponse)
+	err = LlmLogRequest(lang, Llm, adminUserId, openid, robot, library, h.config, appType, msql.Params{}, h.Model, totalResponse.Usage.PromptTokens, totalResponse.Usage.CompletionTokens, req, providerResponse)
 	if err != nil {
 		logs.Error(err.Error())
 	}
 	//}()
-	if len(functionToolCall.Name) > 0 && len(functionToolCall.Arguments) > 0 {
-		go func(adminUserId, robotId int, functionToolCall adaptor.FunctionToolCall) {
+	if len(functionToolCall.Function.Name) > 0 && len(functionToolCall.Function.Arguments) > 0 {
+		go func(adminUserId, robotId int, functionToolCall chat.ToolCall) {
 			err := SaveFormData(adminUserId, robotId, functionToolCall)
 			if err != nil {
 				logs.Error(err.Error())
@@ -1055,27 +1039,30 @@ func (h *ModelCallHandler) requestChatStreamWithState(
 		}(adminUserId, cast.ToInt(robot[`id`]), functionToolCall)
 	}
 
-	if len(functionToolCall.Name) > 0 {
-		totalResponse.FunctionToolCalls = []adaptor.FunctionToolCall{functionToolCall}
-	}
-
 	return totalResponse, requestTime, streamed, ModelErrNone, nil
 }
 
-func (h *ModelCallHandler) CheckFunctionArguments(functionToolCall adaptor.FunctionToolCall, functionTools []adaptor.FunctionTool) bool {
-	if functionToolCall.Name == `` && functionToolCall.Arguments == `` {
+func (h *ModelCallHandler) CheckFunctionArguments(functionToolCall chat.ToolCall, functionTools []chat.Tool) bool {
+	if functionToolCall.Function.Name == `` && functionToolCall.Function.Arguments == `` {
 		return false // no functiontoolcall was returned
 	}
 	for _, functionTool := range functionTools {
 		arguments := make(map[string]any)
-		err := json.Unmarshal([]byte(functionToolCall.Arguments), &arguments)
+		err := json.Unmarshal([]byte(functionToolCall.Function.Arguments), &arguments)
 		if err != nil {
 			logs.Error(err.Error())
 			break
 		}
-		if functionTool.Name == functionToolCall.Name {
+		if functionTool.Function.Name == functionToolCall.Function.Name {
+			var parameters struct {
+				Required []string `json:"required"`
+			}
+			if err := json.Unmarshal(functionTool.Function.Parameters, &parameters); err != nil {
+				logs.Error(err.Error())
+				continue
+			}
 			allRequired := true
-			for _, requiredArgument := range functionTool.Parameters.Required {
+			for _, requiredArgument := range parameters.Required {
 				if _, ok := arguments[requiredArgument]; !ok {
 					allRequired = false
 					break
@@ -1089,54 +1076,66 @@ func (h *ModelCallHandler) CheckFunctionArguments(functionToolCall adaptor.Funct
 	return false
 }
 
+func (h *ModelCallHandler) chatRequest(messages []chat.Message, functionTools []chat.Tool, temperature float32, maxToken int, enableThinking ThinkingSwitch) *chat.CreateRequest {
+	request := &chat.CreateRequest{
+		Model:       h.Model,
+		Messages:    append([]chat.Message(nil), messages...),
+		Temperature: tea.Float64(float64(temperature)),
+		Tools:       append([]chat.Tool(nil), functionTools...),
+	}
+	if maxToken > 0 {
+		request.MaxTokens = tea.Int(maxToken)
+	}
+	if h.ChoosableThinking {
+		request.ReasoningEffort = chat.ReasoningEffortNone
+		if enableThinking == ThinkingEnabled {
+			request.ReasoningEffort = chat.ReasoningEffortMedium
+		}
+	}
+	return request
+}
+
 func (h *ModelCallHandler) RequestChat(
+	ctx context.Context,
 	lang string,
 	adminUserId int,
 	openid string,
 	robot msql.Params,
 	appType string,
-	messages []adaptor.ZhimaChatCompletionMessage,
-	functionTools []adaptor.FunctionTool,
+	messages []chat.Message,
+	functionTools []chat.Tool,
 	temperature float32,
 	maxToken int,
 	enableThinking ThinkingSwitch,
-) (adaptor.ZhimaChatCompletionResponse, int64, error) {
-	client := &adaptor.Adaptor{}
-	if h.Meta.ChoosableThinking && bool(enableThinking) {
-		h.Meta.EnabledThinking = true
-	}
+) (ChatResponse, int64, error) {
 	if (h.CurModelMap[Llm].InputImage > 0 || h.CurModelMap[Llm].InputVideo > 0 || h.CurModelMap[Llm].InputVoice > 0) && len(robot) > 0 && cast.ToBool(robot[`question_multiple_switch`]) {
 		messages = ConvertQuestionMultiple(messages) // Convert to multimodal input structure
 	}
-	client.Init(h.Meta)
-	req := adaptor.ZhimaChatCompletionRequest{
-		Messages:      messages,
-		MaxToken:      maxToken,
-		Temperature:   float64(temperature),
-		FunctionTools: functionTools,
-	}
-	var functionToolCall adaptor.FunctionToolCall
+	req := h.chatRequest(messages, functionTools, temperature, maxToken, enableThinking)
+	var functionToolCall chat.ToolCall
 	requestStartTime := time.Now()
-	resp, err := client.CreateChatCompletion(req)
+	providerResponse, err := h.Client.Chat.Create(ctx, req)
 	if err != nil {
-		return adaptor.ZhimaChatCompletionResponse{}, 0, err
+		logLLMAdaptorError(llmAdaptorAPIChatCreate, req, providerResponse, err)
+		return ChatResponse{}, 0, err
 	}
-	if len(resp.FunctionToolCalls) > 0 {
-		functionToolCall.Name = resp.FunctionToolCalls[0].Name
-		functionToolCall.Arguments = resp.FunctionToolCalls[0].Arguments
+	resp := NewChatResponse(providerResponse)
+	if len(resp.ToolCalls()) > 0 {
+		functionToolCall = resp.ToolCalls()[0]
 	}
-	requestTime := time.Now().Sub(requestStartTime).Milliseconds()
-	if h.CheckFunctionArguments(functionToolCall, functionTools) && len(resp.Result) == 0 {
-		resp.Result = `OK`
+	requestTime := time.Since(requestStartTime).Milliseconds()
+	if h.CheckFunctionArguments(functionToolCall, functionTools) && len(resp.Result()) == 0 {
+		resp.SetResult(`OK`)
+		resp.IsValidFunctionCall = true
 	}
 	//go func() {
-	err = LlmLogRequest(lang, Llm, adminUserId, openid, robot, msql.Params{}, h.config, appType, msql.Params{}, h.Meta.Model, resp.PromptToken, resp.CompletionToken, req, resp)
+	err = LlmLogRequest(lang, Llm, adminUserId, openid, robot, msql.Params{}, h.config, appType, msql.Params{}, h.Model, resp.Usage.PromptTokens, resp.Usage.CompletionTokens, req, providerResponse)
 	if err != nil {
 		logs.Error(err.Error())
 	}
 	//}()
-	if len(functionToolCall.Name) > 0 && len(functionToolCall.Arguments) > 0 {
-		go func(adminUserId, robotId int, functionToolCall adaptor.FunctionToolCall) {
+	if len(functionToolCall.Function.Name) > 0 && len(functionToolCall.Function.Arguments) > 0 {
+		go func(adminUserId, robotId int, functionToolCall chat.ToolCall) {
 			err := SaveFormData(adminUserId, robotId, functionToolCall)
 			if err != nil {
 				logs.Error(err.Error())
@@ -1147,7 +1146,7 @@ func (h *ModelCallHandler) RequestChat(
 	return resp, requestTime, nil
 }
 
-func CheckModelIsValid(userId, modelConfigId int, useModel, modelType string) bool {
+func CheckModelIsValid(userId, modelConfigId int, useModel, modelType string, runtime ...bool) bool {
 	modelInfo, exist := GetModelInfoByConfig(define.LangEnUs, userId, modelConfigId)
 	if !exist {
 		return false
@@ -1170,7 +1169,7 @@ func CheckModelIsDeepSeek(model string) bool {
 		strings.Contains(modelLower, `deepseek-reasoner`)
 }
 
-func CheckSupportFuncCall(lang string, adminUserId, modelConfigId int, useModel string) error {
+func CheckSupportFuncCall(lang string, adminUserId, modelConfigId int, useModel string, runtime ...bool) error {
 	modelInfo, exist := GetModelInfoByConfig(lang, adminUserId, modelConfigId)
 	if !exist {
 		return errors.New(i18n.Show(lang, `model_config_id_invalid`))
@@ -1235,42 +1234,34 @@ func GetModelConfigOption(adminUserId int, modelType, lang string) ([]ModelInfo,
 	return list, nil
 }
 
-func (h *ModelCallHandler) RequestImageGenerate(lang string, adminUserId int, openid, appType string, robot msql.Params, params *adaptor.ZhimaImageGenerationReq) (*adaptor.ZhimaImageGenerationResp, error) {
-	client := &adaptor.Adaptor{}
-	client.Init(h.Meta)
-	params.Stream = false
-	params.ResponseFormat = tea.String(`b64_json`)
-	formatImageGenerateParams(params, h.Meta.Model, h.modelInfo.UseModelConfigs)
-	res, err := client.CreateImageGenerate(params)
+func (h *ModelCallHandler) RequestImageGenerate(ctx context.Context, lang string, adminUserId int, openid, appType string, robot msql.Params, params *image.GenerateRequest, inputImages []string) (*image.GenerateResponse, error) {
+	params.Model = h.Model
+	params.ResponseFormat = `b64_json`
+	files, closers, err := prepareImageFiles(inputImages, h.Model, h.modelInfo.UseModelConfigs)
+	defer closeImageFiles(closers)
 	if err != nil {
 		return nil, err
 	}
-	if len(res.Datas) == 0 {
+	var res *image.GenerateResponse
+	api := llmAdaptorAPIImageGenerate
+	if len(files) == 0 {
+		res, err = h.Client.Images.Generate(ctx, params)
+	} else {
+		api = llmAdaptorAPIImageEdit
+		res, err = h.Client.Images.Edit(ctx, imageEditRequest(params, files))
+	}
+	if err != nil {
+		logLLMAdaptorError(api, imageRequestLog(params, files), res, err)
+		return nil, err
+	}
+	if len(res.Data) == 0 {
 		return res, errors.New(`image generate empty`)
 	}
-	datas := make([]*adaptor.ImageGenerationData, 0)
-	for _, data := range res.Datas {
-		fileData, err := tool.Base64Decode(data.B64Json)
-		if err != nil {
-			logs.Error(`image generate base64 decode failed : %s`, err.Error())
-			continue
-		}
-		objectKey := fmt.Sprintf(`chat_ai/%d/%s/%s/%s.%s`, adminUserId, `image_generation`, tool.Date(`Ym`), tool.MD5(fileData), data.Ext)
-		fileLink, err := WriteFileByString(objectKey, fileData)
-		if err != nil {
-			logs.Error(`image generate save file failed : %s`, err.Error())
-			continue
-		}
-		data.Url = fileLink
-		if !IsUrl(fileLink) {
-			data.Url = define.Config.WebService[`image_domain`] + fileLink
-		}
-		data.B64Json = ``
-		datas = append(datas, data)
+	if err := persistImageResponse(adminUserId, res); err != nil {
+		return res, err
 	}
-	res.Datas = datas
 	err = LlmLogRequest(lang, Image, adminUserId, openid, robot, msql.Params{}, h.config, appType,
-		msql.Params{}, h.Meta.Model, res.InputToken, res.OutputToken, params, res)
+		msql.Params{}, h.Model, res.Usage.InputTokens, res.Usage.OutputTokens, imageRequestLog(params, files), res)
 	if err != nil {
 		logs.Error(err.Error())
 	}
@@ -1278,55 +1269,70 @@ func (h *ModelCallHandler) RequestImageGenerate(lang string, adminUserId int, op
 }
 
 func (h *ModelCallHandler) RequestImageGenerateStream(
+	ctx context.Context,
 	lang string,
 	adminUserId int,
 	openid string,
 	robot msql.Params,
 	appType string,
-	params *adaptor.ZhimaImageGenerationReq,
+	params *image.GenerateRequest,
+	inputImages []string,
 	chanStream chan sse.Event,
-) (*adaptor.ZhimaImageGenerationResp, int64, error) {
-	client := &adaptor.Adaptor{}
-	client.Init(h.Meta)
-	params.Stream = true
-	params.ResponseFormat = tea.String(`b64_json`)
-	formatImageGenerateParams(params, h.Meta.Model, h.modelInfo.UseModelConfigs)
-	stream, err := client.CreateImageGenerateStream(params)
+) (*image.GenerateResponse, int64, error) {
+	params.Model = h.Model
+	params.ResponseFormat = `b64_json`
+	files, closers, err := prepareImageFiles(inputImages, h.Model, h.modelInfo.UseModelConfigs)
+	defer closeImageFiles(closers)
 	if err != nil {
-		return &adaptor.ZhimaImageGenerationResp{}, 0, err
+		return &image.GenerateResponse{}, 0, err
 	}
-	defer func(stream *adaptor.ZhimaImageGenerationStreamRes) {
+	var stream image.Stream
+	api := llmAdaptorAPIImageStream
+	if len(files) == 0 {
+		stream, err = h.Client.Images.Stream(ctx, &image.StreamRequest{GenerateRequest: *params})
+	} else {
+		api = llmAdaptorAPIImageEditStream
+		stream, err = h.Client.Images.EditStream(ctx, &image.EditStreamRequest{EditRequest: *imageEditRequest(params, files)})
+	}
+	if err != nil {
+		logLLMAdaptorError(api, imageRequestLog(params, files), nil, err)
+		return &image.GenerateResponse{}, 0, err
+	}
+	defer func(stream image.Stream) {
 		_ = stream.Close()
 	}(stream)
 
-	var totalResponse = &adaptor.ZhimaImageGenerationResp{}
+	var totalResponse = &image.GenerateResponse{OutputFormat: params.OutputFormat}
 	requestTime := int64(0)
 	requestStartTime := time.Now()
 
 	for {
-		response, err := stream.Read()
+		response, err := stream.Recv()
 		if requestTime == 0 {
 			requestTime = time.Now().Sub(requestStartTime).Milliseconds()
 			chanStream <- sse.Event{Event: `request_time`, Data: requestTime}
 		}
-		if err != nil {
-			logs.Error(`image generate failed:` + err.Error())
-			continue
-		}
-
-		totalResponse.InputToken += response.InputToken
-		totalResponse.OutputToken += response.OutputToken
-
 		if errors.Is(err, io.EOF) {
 			break
 		}
 		if err != nil {
-			return &adaptor.ZhimaImageGenerationResp{}, 0, err
+			logLLMAdaptorError(api, imageRequestLog(params, files), totalResponse, err)
+			return &image.GenerateResponse{}, 0, err
 		}
-		if len(response.Datas) > 0 {
-			totalResponse.Datas = append(totalResponse.Datas, response.Datas...)
+
+		totalResponse.Usage.InputTokens += response.Usage.InputTokens
+		totalResponse.Usage.OutputTokens += response.Usage.OutputTokens
+		if response.OutputFormat != `` {
+			totalResponse.OutputFormat = response.OutputFormat
 		}
-		chanStream <- sse.Event{Event: `sending`, Data: response.Datas}
+		if response.B64JSON != `` {
+			chunkResponse := &image.GenerateResponse{Data: []image.Data{{B64JSON: response.B64JSON}}, OutputFormat: totalResponse.OutputFormat}
+			if saveErr := persistImageResponse(adminUserId, chunkResponse); saveErr != nil {
+				return &image.GenerateResponse{}, 0, saveErr
+			}
+			totalResponse.Data = append(totalResponse.Data, chunkResponse.Data...)
+			chanStream <- sse.Event{Event: `sending`, Data: chunkResponse.Data}
+		}
 	}
 
 	//go func() {
@@ -1334,7 +1340,7 @@ func (h *ModelCallHandler) RequestImageGenerateStream(
 	if appType == "" && openid == "" {
 		library, robot = robot, library
 	}
-	err = LlmLogRequest(lang, Image, adminUserId, openid, robot, library, h.config, appType, msql.Params{}, h.Meta.Model, totalResponse.InputToken, totalResponse.OutputToken, params, totalResponse)
+	err = LlmLogRequest(lang, Image, adminUserId, openid, robot, library, h.config, appType, msql.Params{}, h.Model, totalResponse.Usage.InputTokens, totalResponse.Usage.OutputTokens, imageRequestLog(params, files), totalResponse)
 	if err != nil {
 		logs.Error(err.Error())
 	}
@@ -1342,260 +1348,351 @@ func (h *ModelCallHandler) RequestImageGenerateStream(
 	return totalResponse, requestTime, nil
 }
 
-func RequestImageGenerate(lang string, adminUserId int, openid string, robot msql.Params, appType string, modelConfigId int, useModel string, params *adaptor.ZhimaImageGenerationReq) (*adaptor.ZhimaImageGenerationResp, error) {
+func RequestImageGenerate(ctx context.Context, lang string, adminUserId int, openid string, robot msql.Params, appType string, modelConfigId int, useModel string, params *image.GenerateRequest, inputImages []string) (*image.GenerateResponse, error) {
 	handler, err := GetModelCallHandler(lang, adminUserId, modelConfigId, useModel, robot)
 	if err != nil {
-		return &adaptor.ZhimaImageGenerationResp{}, err
+		return &image.GenerateResponse{}, err
 	}
-	params.Stream = false
-	res, err := handler.RequestImageGenerate(lang, adminUserId, openid, appType, robot, params)
+	res, err := handler.RequestImageGenerate(ctx, lang, adminUserId, openid, appType, robot, params, inputImages)
 	if err == nil && handler.modelInfo != nil && handler.modelInfo.TokenUseReport != nil { //token use report
-		handler.modelInfo.TokenUseReport(handler.config, useModel, res.InputToken, res.OutputToken, robot, 0)
+		handler.modelInfo.TokenUseReport(handler.config, useModel, res.Usage.InputTokens, res.Usage.OutputTokens, robot, len(res.Data))
 	}
 	return res, err
 }
 
-func formatImageGenerateParams(params *adaptor.ZhimaImageGenerationReq, useModel string, useModelConfigs []UseModelConfig) {
-	if len(*params.Image) > 0 && len(useModelConfigs) > 0 {
-		for _, modelConfig := range useModelConfigs {
-			if modelConfig.UseModelName != useModel {
-				continue
-			}
-			imageGenerate := ImageGeneration{}
-			err := tool.JsonDecode(modelConfig.ImageGeneration, &imageGenerate)
-			if err != nil {
-				logs.Error(err.Error())
-				break
-			}
-			if modelConfig.InputImage != 1 {
-				*params.Image = []string{}
-				break
-			}
-			imageInputsMax := cast.ToInt(imageGenerate.ImageInputsImageMax)
-			if imageInputsMax > 0 && len(*params.Image) > imageInputsMax {
-				*params.Image = (*params.Image)[0:imageInputsMax]
-			}
-			if *params.Image != nil && len(*params.Image) > 0 {
-				base64s := make([]string, 0)
-				for _, imageUrl := range *params.Image {
-					ext := GetUrlExt(imageUrl)
-					if ext == `` {
-						logs.Warning(`get url ext failed: %s`, imageUrl)
-						continue
-					}
-					data, err := curl.Get(imageUrl).String()
-					if err != nil {
-						logs.Error(`get image(%s) failed: %s`, imageUrl, err.Error())
-						continue
-					}
-					base64s = append(base64s, fmt.Sprintf(`data:image/%s;base64,%s`, ext, tool.Base64Encode(data)))
-				}
-				*params.Image = base64s
-			}
-			break
+func imageFileExtension(format string) string {
+	switch strings.ToLower(strings.TrimSpace(format)) {
+	case `png`, `webp`:
+		return strings.ToLower(strings.TrimSpace(format))
+	default:
+		return `jpg`
+	}
+}
+
+func persistImageResponse(adminUserId int, response *image.GenerateResponse) error {
+	if response.OutputFormat == `` {
+		response.OutputFormat = `jpeg`
+	}
+	datas := make([]image.Data, 0, len(response.Data))
+	for _, data := range response.Data {
+		fileData, err := tool.Base64Decode(data.B64JSON)
+		if err != nil {
+			logs.Error(`image generate base64 decode failed : %s`, err.Error())
+			continue
+		}
+		ext := imageFileExtension(response.OutputFormat)
+		objectKey := fmt.Sprintf(`chat_ai/%d/%s/%s/%s.%s`, adminUserId, `image_generation`, tool.Date(`Ym`), tool.MD5(fileData), ext)
+		fileLink, err := WriteFileByString(objectKey, fileData)
+		if err != nil {
+			logs.Error(`image generate save file failed : %s`, err.Error())
+			continue
+		}
+		data.URL = fileLink
+		if !IsUrl(fileLink) {
+			data.URL = define.Config.WebService[`image_domain`] + fileLink
+		}
+		data.B64JSON = ``
+		datas = append(datas, data)
+	}
+	response.Data = datas
+	if len(response.Data) == 0 {
+		return errors.New(`image generate contains no valid data`)
+	}
+	return nil
+}
+
+func prepareImageFiles(inputImages []string, useModel string, useModelConfigs []UseModelConfig) ([]image.File, []io.Closer, error) {
+	links := append([]string(nil), inputImages...)
+	for _, modelConfig := range useModelConfigs {
+		if modelConfig.UseModelName != useModel {
+			continue
+		}
+		if modelConfig.InputImage != 1 {
+			return nil, nil, nil
+		}
+		imageGenerate := ImageGeneration{}
+		if err := tool.JsonDecode(modelConfig.ImageGeneration, &imageGenerate); err != nil {
+			return nil, nil, err
+		}
+		imageInputsMax := cast.ToInt(imageGenerate.ImageInputsImageMax)
+		if imageInputsMax > 0 && len(links) > imageInputsMax {
+			links = links[:imageInputsMax]
+		}
+		break
+	}
+	files := make([]image.File, 0, len(links))
+	closers := make([]io.Closer, 0, len(links))
+	for index, link := range links {
+		var file image.File
+		var closer io.Closer
+		var err error
+		if strings.HasPrefix(strings.TrimSpace(link), `data:`) {
+			file, err = imageFileFromDataURL(link, index)
+		} else {
+			file, closer, err = imageFileFromLink(link)
+		}
+		if err != nil {
+			logs.Error(`prepare input image(%s) failed: %s`, link, err.Error())
+			continue
+		}
+		files = append(files, file)
+		if closer != nil {
+			closers = append(closers, closer)
+		}
+	}
+	if len(links) > 0 && len(files) == 0 {
+		return nil, closers, errors.New(`image edit contains no valid input file`)
+	}
+	return files, closers, nil
+}
+
+func imageFileFromLink(link string) (image.File, io.Closer, error) {
+	filePath := GetFileByLink(link)
+	if filePath == `` {
+		return image.File{}, nil, fmt.Errorf(`get local file by link failed`)
+	}
+	file, err := os.Open(filePath)
+	if err != nil {
+		return image.File{}, nil, err
+	}
+	contentType := mime.TypeByExtension(strings.ToLower(filepath.Ext(filePath)))
+	if contentType == `` {
+		header := make([]byte, 512)
+		readSize, readErr := file.Read(header)
+		if readErr != nil && !errors.Is(readErr, io.EOF) {
+			_ = file.Close()
+			return image.File{}, nil, readErr
+		}
+		if _, seekErr := file.Seek(0, io.SeekStart); seekErr != nil {
+			_ = file.Close()
+			return image.File{}, nil, seekErr
+		}
+		contentType = http.DetectContentType(header[:readSize])
+	}
+	return image.File{Filename: filepath.Base(filePath), ContentType: contentType, Reader: file}, file, nil
+}
+
+func imageFileFromDataURL(value string, index int) (image.File, error) {
+	comma := strings.IndexByte(value, ',')
+	if comma < 0 {
+		return image.File{}, errors.New(`invalid image data URL`)
+	}
+	header := value[5:comma]
+	if !strings.Contains(header, `;base64`) {
+		return image.File{}, errors.New(`image data URL is not base64 encoded`)
+	}
+	contentType := strings.TrimSpace(strings.SplitN(header, `;`, 2)[0])
+	data, err := base64.StdEncoding.DecodeString(value[comma+1:])
+	if err != nil {
+		return image.File{}, err
+	}
+	if len(data) == 0 {
+		return image.File{}, errors.New(`image data URL is empty`)
+	}
+	extension := `.jpg`
+	if extensions, extErr := mime.ExtensionsByType(contentType); extErr == nil && len(extensions) > 0 {
+		extension = extensions[0]
+	}
+	filename := fmt.Sprintf(`image_%d%s`, index+1, extension)
+	return image.File{Filename: filename, ContentType: contentType, Reader: bytes.NewReader(data)}, nil
+}
+
+func imageEditRequest(params *image.GenerateRequest, files []image.File) *image.EditRequest {
+	return &image.EditRequest{
+		Model: params.Model, Images: append([]image.File(nil), files...), Prompt: params.Prompt, N: params.N,
+		Quality: params.Quality, ResponseFormat: params.ResponseFormat, Size: params.Size, User: params.User,
+		OutputFormat: params.OutputFormat, ExtraBody: params.ExtraBody,
+	}
+}
+
+func imageRequestLog(params *image.GenerateRequest, files []image.File) map[string]any {
+	fileLogs := make([]map[string]string, 0, len(files))
+	for _, file := range files {
+		fileLogs = append(fileLogs, map[string]string{`filename`: file.Filename, `content_type`: file.ContentType})
+	}
+	return map[string]any{
+		`model`: params.Model, `prompt`: params.Prompt, `n`: params.N, `quality`: params.Quality,
+		`response_format`: params.ResponseFormat, `size`: params.Size, `user`: params.User,
+		`output_format`: params.OutputFormat, `extra_body`: params.ExtraBody, `images`: fileLogs,
+	}
+}
+
+func closeImageFiles(closers []io.Closer) {
+	for _, closer := range closers {
+		if err := closer.Close(); err != nil {
+			logs.Error(`close image file failed: %s`, err.Error())
 		}
 	}
 }
 
-func (h *SupplierHandler) TtsGetVoiceList(adminUserId int) ([]map[string]any, error) {
+func (h *SupplierHandler) TtsGetVoiceList(ctx context.Context) ([]map[string]any, error) {
 	if h.modelInfo.ModelDefine != ModelMinimax {
 		return nil, fmt.Errorf("model not support")
 	}
-	url := "https://api.minimaxi.com/v1/get_voice"
-
-	var result map[string]any
-	var voiceList []map[string]any
-	request := curl.Post(url).
-		Header("Authorization", "Bearer "+h.APIKey).
-		Header("Content-Type", "application/json").
-		Param(`voice_type`, `all`)
-
-	if err := request.ToJSON(&result); err != nil {
-		return nil, fmt.Errorf("request failed: %w", err)
+	request := &speech.ListVoicesRequest{VoiceType: speech.VoiceTypeAll}
+	response, err := h.Client.Speech.ListVoices(ctx, request)
+	if err != nil {
+		logLLMAdaptorError(llmAdaptorAPISpeechListVoices, request, response, err)
+		return nil, err
 	}
-
-	// Check response status
-	if baseResp, ok := result["base_resp"].(map[string]any); ok {
-		if statusCode, ok := baseResp["status_code"].(float64); ok {
-			if statusCode != 0 {
-				statusMsg, _ := baseResp["status_msg"].(string)
-				return nil, fmt.Errorf("API error: %s", statusMsg)
+	voiceList := make([]map[string]any, 0, len(response.SystemVoices)+len(response.ClonedVoices)+len(response.GeneratedVoices))
+	appendVoices := func(voices []speech.Voice, voiceType string) {
+		for _, voice := range voices {
+			item, convertErr := speechResponseMap(voice)
+			if convertErr != nil {
+				continue
 			}
+			item["type"] = voiceType
+			voiceList = append(voiceList, item)
 		}
 	}
-
-	if systemVoice, ok := result["system_voice"].([]any); ok {
-		for _, v := range systemVoice {
-			if voiceMap, ok := v.(map[string]any); ok {
-				voiceMap["type"] = "system"
-				voiceList = append(voiceList, voiceMap)
-			}
-		}
-	}
-	if voiceCloning, ok := result["voice_cloning"].([]any); ok {
-		for _, v := range voiceCloning {
-			if voiceMap, ok := v.(map[string]any); ok {
-				voiceMap["type"] = "voice_cloning"
-				voiceList = append(voiceList, voiceMap)
-			}
-		}
-	}
-	if voiceGeneration, ok := result["voice_generation"].([]any); ok {
-		for _, v := range voiceGeneration {
-			if voiceMap, ok := v.(map[string]any); ok {
-				voiceMap["type"] = "voice_generation"
-				voiceList = append(voiceList, voiceMap)
-			}
-		}
-	}
-
+	appendVoices(response.SystemVoices, "system")
+	appendVoices(response.ClonedVoices, "voice_cloning")
+	appendVoices(response.GeneratedVoices, "voice_generation")
 	return voiceList, nil
 }
 
-func (h *SupplierHandler) TtsUploadVoiceFile(purpose, filePath string) (map[string]any, error) {
+func (h *SupplierHandler) TtsUploadVoiceFile(ctx context.Context, purpose, filePath string) (*speech.UploadVoiceFileResponse, error) {
 	if h.modelInfo.ModelDefine != ModelMinimax {
 		return nil, fmt.Errorf("model not support")
 	}
-
-	url := "https://api.minimaxi.com/v1/files/upload"
-
-	// Verify if file exists
-	if _, err := os.Stat(filePath); os.IsNotExist(err) {
-		return nil, errors.New("file not found: " + filePath)
-	}
-
-	// Check file size
-	fileInfo, err := os.Stat(filePath)
+	request := &speech.UploadVoiceFileRequest{Purpose: speech.VoiceFilePurpose(purpose), FilePath: filePath}
+	response, err := h.Client.Speech.UploadVoiceFile(ctx, request)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get file info: %w", err)
+		logLLMAdaptorError(llmAdaptorAPISpeechUploadVoice, request, response, err)
+		return nil, err
 	}
-	if fileInfo.Size() > 20*1024*1024 { // 20MB
-		return nil, errors.New("file size exceeds 20MB limit")
-	}
-
-	var result map[string]any
-	request := curl.Post(url).
-		Header("Authorization", "Bearer "+h.APIKey).
-		PostFile("file", filePath).
-		Param("purpose", purpose)
-
-	if resp, err := request.Response(); err != nil {
-		return nil, fmt.Errorf("request failed: %w", err)
-	} else if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("HTTP error: %d", resp.StatusCode)
-	}
-
-	if err := request.ToJSON(&result); err != nil {
-		return nil, fmt.Errorf("failed to parse response: %w", err)
-	}
-
-	// Check response status
-	if baseResp, ok := result["base_resp"].(map[string]any); ok {
-		if statusCode, ok := baseResp["status_code"].(float64); ok {
-			if statusCode != 0 {
-				statusMsg, _ := baseResp["status_msg"].(string)
-				return nil, fmt.Errorf("API error: %s", statusMsg)
-			}
-		}
-	}
-
-	return result, nil
+	return response, nil
 }
 
-func (h *SupplierHandler) TtsCloneVoice(params map[string]any) (map[string]any, error) {
+func (h *SupplierHandler) TtsCloneVoice(ctx context.Context, params map[string]any) (map[string]any, error) {
 	if h.modelInfo.ModelDefine != ModelMinimax {
 		return nil, fmt.Errorf("model not support")
 	}
-
-	url := "https://api.minimaxi.com/v1/voice_clone"
-
-	var result map[string]any
-	request := curl.Post(url).
-		Header("Authorization", "Bearer "+h.APIKey).
-		Header("Content-Type", "application/json")
-
-	request, err := request.JSONBody(params)
+	request, err := decodeCloneVoiceRequest(params)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create request body: %w", err)
+		return nil, err
 	}
-	if err = request.ToJSON(&result); err != nil {
-		return nil, fmt.Errorf("request failed: %w", err)
+	response, err := h.Client.Speech.CloneVoice(ctx, request)
+	if err != nil {
+		logLLMAdaptorError(llmAdaptorAPISpeechCloneVoice, request, response, err)
+		return nil, err
 	}
-
-	// Check response status
-	if baseResp, ok := result["base_resp"].(map[string]any); ok {
-		if statusCode, ok := baseResp["status_code"].(float64); ok {
-			if statusCode != 0 {
-				statusMsg, _ := baseResp["status_msg"].(string)
-				return nil, fmt.Errorf("API error: %s", statusMsg)
-			}
-		}
-	}
-
-	return result, nil
+	return speechResponseMap(response)
 }
 
-func (h *ModelCallHandler) TtsSpeechT2A(params map[string]any) (map[string]any, error) {
+func (h *SupplierHandler) TtsCloneVoiceFromFiles(ctx context.Context, sourceFilePath, promptFilePath string, params map[string]any) (map[string]any, error) {
 	if h.modelInfo.ModelDefine != ModelMinimax {
 		return nil, fmt.Errorf("model not support")
 	}
-
-	url := "https://api.minimaxi.com/v1/t2a_v2"
-
-	var result map[string]any
-	request := curl.Post(url).
-		Header("Authorization", "Bearer "+h.APIKey).
-		Header("Content-Type", "application/json")
-
-	request, err := request.JSONBody(params)
+	cloneRequest, err := decodeCloneVoiceRequest(params)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create request body: %w", err)
+		return nil, err
 	}
-	if err := request.ToJSON(&result); err != nil {
-		return nil, fmt.Errorf("request failed: %w", err)
+	request := &speech.CloneVoiceFromFilesRequest{
+		SourceFilePath: sourceFilePath,
+		PromptFilePath: promptFilePath,
+		CloneRequest:   *cloneRequest,
 	}
+	response, err := h.Client.Speech.CloneVoiceFromFiles(ctx, request)
+	if err != nil {
+		logLLMAdaptorError(llmAdaptorAPISpeechCloneFromFiles, request, response, err)
+		return nil, err
+	}
+	return speechResponseMap(response.Clone)
+}
 
-	// Check response status
-	if baseResp, ok := result["base_resp"].(map[string]any); ok {
-		if statusCode, ok := baseResp["status_code"].(float64); ok {
-			if statusCode != 0 {
-				statusMsg, _ := baseResp["status_msg"].(string)
-				return nil, fmt.Errorf("API error: %s", statusMsg)
-			}
-		}
+func decodeCloneVoiceRequest(params map[string]any) (*speech.CloneVoiceRequest, error) {
+	raw, err := tool.JsonEncode(params)
+	if err != nil {
+		return nil, fmt.Errorf("encode clone voice request: %w", err)
 	}
+	request := &speech.CloneVoiceRequest{}
+	if err := tool.JsonDecodeUseNumber(raw, request); err != nil {
+		return nil, fmt.Errorf("decode clone voice request: %w", err)
+	}
+	return request, nil
+}
 
+func speechResponseMap(response any) (map[string]any, error) {
+	raw, err := tool.JsonEncode(response)
+	if err != nil {
+		return nil, fmt.Errorf("encode speech response: %w", err)
+	}
+	result := make(map[string]any)
+	if err := tool.JsonDecodeUseNumber(raw, &result); err != nil {
+		return nil, fmt.Errorf("decode speech response: %w", err)
+	}
 	return result, nil
 }
 
-func TtsGetVoiceList(lang string, adminUserId, modelConfigId int) ([]map[string]any, error) {
+func (h *ModelCallHandler) TtsSpeechT2A(ctx context.Context, params map[string]any) (map[string]any, error) {
+	if h.modelInfo.ModelDefine != ModelMinimax {
+		return nil, fmt.Errorf("model not support")
+	}
+	raw, err := json.Marshal(params)
+	if err != nil {
+		return nil, fmt.Errorf("encode speech request: %w", err)
+	}
+	request := &speech.CreateRequest{}
+	if err := json.Unmarshal(raw, request); err != nil {
+		return nil, fmt.Errorf("decode speech request: %w", err)
+	}
+	if request.Model == "" {
+		request.Model = h.Model
+	}
+	response, err := h.Client.Speech.Create(ctx, request)
+	if err != nil {
+		logLLMAdaptorError(llmAdaptorAPISpeechCreate, request, response, err)
+		return nil, err
+	}
+	responseRaw, err := json.Marshal(response)
+	if err != nil {
+		return nil, fmt.Errorf("encode speech response: %w", err)
+	}
+	result := make(map[string]any)
+	if err := json.Unmarshal(responseRaw, &result); err != nil {
+		return nil, fmt.Errorf("decode speech response: %w", err)
+	}
+	return result, nil
+}
+
+func TtsGetVoiceList(ctx context.Context, lang string, adminUserId, modelConfigId int) ([]map[string]any, error) {
 	handler, err := GetSupplierCallHandler(lang, adminUserId, modelConfigId)
 	if err != nil {
 		return nil, err
 	}
-	return handler.TtsGetVoiceList(adminUserId)
+	return handler.TtsGetVoiceList(ctx)
 }
 
-func TtsUploadVoiceFile(lang string, adminUserId, modelConfigId int, perpose, filePath string) (map[string]any, error) {
+func TtsUploadVoiceFile(ctx context.Context, lang string, adminUserId, modelConfigId int, perpose, filePath string) (*speech.UploadVoiceFileResponse, error) {
 	handler, err := GetSupplierCallHandler(lang, adminUserId, modelConfigId)
 	if err != nil {
 		return nil, err
 	}
-	return handler.TtsUploadVoiceFile(perpose, filePath)
+	return handler.TtsUploadVoiceFile(ctx, perpose, filePath)
 }
 
-func TtsCloneVoice(lang string, adminUserId, modelConfigId int, params map[string]any) (map[string]any, error) {
+func TtsCloneVoice(ctx context.Context, lang string, adminUserId, modelConfigId int, params map[string]any) (map[string]any, error) {
 	handler, err := GetSupplierCallHandler(lang, adminUserId, modelConfigId)
 	if err != nil {
 		return nil, err
 	}
-	return handler.TtsCloneVoice(params)
+	return handler.TtsCloneVoice(ctx, params)
 }
 
-func TtsSpeechT2A(lang string, adminUserId, modelConfigId int, useModel string, params map[string]any) (map[string]any, error) {
+func TtsCloneVoiceFromFiles(ctx context.Context, lang string, adminUserId, modelConfigId int, sourceFilePath, promptFilePath string, params map[string]any) (map[string]any, error) {
+	handler, err := GetSupplierCallHandler(lang, adminUserId, modelConfigId)
+	if err != nil {
+		return nil, err
+	}
+	return handler.TtsCloneVoiceFromFiles(ctx, sourceFilePath, promptFilePath, params)
+}
+
+func TtsSpeechT2A(ctx context.Context, lang string, adminUserId, modelConfigId int, useModel string, params map[string]any) (map[string]any, error) {
 	handler, err := GetModelCallHandler(lang, adminUserId, modelConfigId, useModel, nil)
 	if err != nil {
 		return nil, err
 	}
-	return handler.TtsSpeechT2A(params)
+	return handler.TtsSpeechT2A(ctx, params)
 }

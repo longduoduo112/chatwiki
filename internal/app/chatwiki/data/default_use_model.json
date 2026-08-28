@@ -122,12 +122,7 @@
   {"model_define":"spark","model_name":"讯飞星火","model_type":"LLM","use_model_name":"Spark V2.0","show_model_name":"Spark V2.0","input_text":1,"output_text":1},
   {"model_define":"spark","model_name":"讯飞星火","model_type":"LLM","use_model_name":"Spark Lite","show_model_name":"Spark Lite","input_text":1,"output_text":1},
 
-  {"model_define":"hunyuan","model_name":"腾讯混元","model_type":"LLM","use_model_name":"hunyuan-pro","show_model_name":"hunyuan-pro","function_call":1,"input_text":1,"output_text":1},
-  {"model_define":"hunyuan","model_name":"腾讯混元","model_type":"LLM","use_model_name":"hunyuan-standard-256K","show_model_name":"hunyuan-standard-256K","input_text":1,"output_text":1},
-  {"model_define":"hunyuan","model_name":"腾讯混元","model_type":"LLM","use_model_name":"hunyuan-functioncall","show_model_name":"hunyuan-functioncall","function_call":1,"input_text":1,"output_text":1},
-  {"model_define":"hunyuan","model_name":"腾讯混元","model_type":"LLM","use_model_name":"hunyuan-standard","show_model_name":"hunyuan-standard","input_text":1,"output_text":1},
-  {"model_define":"hunyuan","model_name":"腾讯混元","model_type":"LLM","use_model_name":"hunyuan-lite","show_model_name":"hunyuan-lite","input_text":1,"output_text":1},
-  {"model_define":"hunyuan","model_name":"腾讯混元","model_type":"TEXT EMBEDDING","use_model_name":"默认","show_model_name":"默认","input_text":1},
+  {"model_define":"hunyuan","model_name":"腾讯混元","model_type":"LLM","use_model_name":"hy3","show_model_name":"hy3","thinking_type":2,"function_call":1,"input_text":1,"output_text":1},
 
   {"model_define":"baichuan","model_name":"百川智能","model_type":"LLM","use_model_name":"Baichuan4","show_model_name":"Baichuan4","function_call":1,"input_text":1,"output_text":1},
   {"model_define":"baichuan","model_name":"百川智能","model_type":"LLM","use_model_name":"Baichuan3-Turbo-128k","show_model_name":"Baichuan3-Turbo-128k","function_call":1,"input_text":1,"output_text":1},

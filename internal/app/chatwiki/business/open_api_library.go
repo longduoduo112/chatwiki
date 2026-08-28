@@ -587,7 +587,7 @@ func OpenLibraryRecall(c *gin.Context) {
 		}
 	}
 
-	list, _, err := common.GetMatchLibraryParagraphList(common.GetLang(c), cast.ToString(userId), lib_define.AppYunH5, "", question, []string{}, libraryIds, size, similarity, searchType, robot)
+	list, _, err := common.GetMatchLibraryParagraphList(c.Request.Context(), common.GetLang(c), cast.ToString(userId), lib_define.AppYunH5, "", question, []string{}, libraryIds, size, similarity, searchType, robot)
 	for _, item := range list {
 		library, err := common.GetLibraryInfo(cast.ToInt(item[`library_id`]), userId)
 		if err != nil {

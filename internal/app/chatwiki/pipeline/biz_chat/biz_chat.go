@@ -13,7 +13,7 @@ import (
 	"github.com/spf13/cast"
 	"github.com/zhimaAi/go_tools/msql"
 	"github.com/zhimaAi/go_tools/tool"
-	"github.com/zhimaAi/llm_adaptor/adaptor"
+	"github.com/zhimaAi/llm_adaptor/v2/chat"
 )
 
 type ChatInParam struct {
@@ -68,21 +68,23 @@ type ChatOutParam struct {
 	AiMessage msql.Params
 	Error     error
 	// runtime parameters
-	cMsgId           int64                                // client message id
-	cMessage         msql.Params                          // client message
-	debugLog         []any                                // prompt log
-	messages         []adaptor.ZhimaChatCompletionMessage // llm context
-	functionTools    []adaptor.FunctionTool               // function tool
-	list             []msql.Params                        // knowledge segment recall
-	replyContentList []common.ReplyContent                // non ai extra reply content list
-	quoteFileJson    string                               // quote knowledge base file storage json
-	chatResp         adaptor.ZhimaChatCompletionResponse  // llm response structure
-	reasoningContent string                               // ai reasoning process
-	content          string                               // ai reply content
-	msgType          int                                  // reply message type
-	menuJson         string                               // unknown question reply menu
-	requestTime      int64                                // llm start return answer time
-	aiMsgId          int64                                // AiMessage.id
+	cMsgId           int64                    // client message id
+	cMessage         msql.Params              // client message
+	debugLog         []any                    // prompt log
+	messages         []chat.Message           // llm context
+	functionTools    []chat.Tool              // function tool
+	list             []msql.Params            // knowledge segment recall
+	replyContentList []common.ReplyContent    // non ai extra reply content list
+	goodsWechatCards []define.GoodsWechatCard // cards from the latest successful goods recommendation
+	answerList       []string                 // QA direct reply multiple answers list (each answer contains image/video markdown)
+	quoteFileJson    string                   // quote knowledge base file storage json
+	chatResp         common.ChatResponse      // llm response structure
+	reasoningContent string                   // ai reasoning process
+	content          string                   // ai reply content
+	msgType          int                      // reply message type
+	menuJson         string                   // unknown question reply menu
+	requestTime      int64                    // llm start return answer time
+	aiMsgId          int64                    // AiMessage.id
 }
 
 func DoChatRequest(params *define.ChatRequestParam, useStream bool, chanStream chan sse.Event) (out *ChatOutParam) {
@@ -94,7 +96,7 @@ func DoChatRequest(params *define.ChatRequestParam, useStream bool, chanStream c
 	}
 	out = &ChatOutParam{
 		debugLog:         make([]any, 0), // debug log
-		messages:         make([]adaptor.ZhimaChatCompletionMessage, 0),
+		messages:         make([]chat.Message, 0),
 		list:             make([]msql.Params, 0),
 		replyContentList: make([]common.ReplyContent, 0),
 		quoteFileJson:    `[]`,               // default value

@@ -3,663 +3,293 @@
 package common
 
 import (
+	"github.com/alibabacloud-go/tea/tea"
 	"github.com/zhimaAi/go_tools/msql"
 	"github.com/zhimaAi/go_tools/tool"
-	"github.com/zhimaAi/llm_adaptor/adaptor"
+	llm "github.com/zhimaAi/llm_adaptor/v2"
 )
 
-func GetAzureHandler(modelInfo ModelInfo, config msql.Params, useModel string) (*ModelCallHandler, error) {
-	handler := &ModelCallHandler{
-		Meta: adaptor.Meta{
-			Corp:              `azure`,
-			EndPoint:          config[`api_endpoint`],
-			APIVersion:        config[`api_version`],
-			APIKey:            config[`api_key`],
-			Model:             useModel,
-			ChoosableThinking: tool.InArrayString(useModel, modelInfo.GetChoosableThinkingModels()),
-		},
-		config: config,
+const (
+	legacyOpenAIEmbeddingModelLarge = "text-embedding-3-large"
+	legacyAliEmbeddingModelV3       = "text-embedding-v3"
+	legacyEmbeddingDimension1024    = 1024
+	legacyEmbeddingDimension1536    = 1536
+)
+
+func legacyEmbeddingDimensions(provider llm.Provider, useModel string) *int {
+	switch provider {
+	case llm.ProviderAli:
+		if useModel == legacyAliEmbeddingModelV3 {
+			return tea.Int(legacyEmbeddingDimension1024)
+		}
+		return tea.Int(legacyEmbeddingDimension1536)
+	case llm.ProviderOpenAI, llm.ProviderOpenAIAgent, llm.ProviderBaichuan, llm.ProviderZhipu:
+		if useModel == legacyOpenAIEmbeddingModelLarge {
+			return tea.Int(legacyEmbeddingDimension1536)
+		}
 	}
-	return handler, nil
+	return nil
 }
 
-func GetAzureSupplierHandler(modelInfo ModelInfo, config msql.Params) (*SupplierHandler, error) {
-	handler := &SupplierHandler{
-		Meta: adaptor.Meta{
-			Corp:       `azure`,
-			EndPoint:   config[`api_endpoint`],
-			APIVersion: config[`api_version`],
-			APIKey:     config[`api_key`],
-		},
-		config: config,
+func newModelCallHandler(modelInfo ModelInfo, config msql.Params, useModel string, clientConfig llm.ClientConfig) (*ModelCallHandler, error) {
+	client, err := llm.NewClient(clientConfig)
+	if err != nil {
+		return nil, err
 	}
-	return handler, nil
-}
-
-func GetClaudeHandler(modelInfo ModelInfo, config msql.Params, useModel string) (*ModelCallHandler, error) {
-	handler := &ModelCallHandler{
-		Meta: adaptor.Meta{
-			Corp:              `claude`,
-			EndPoint:          config[`api_endpoint`],
-			APIKey:            config[`api_key`],
-			Model:             useModel,
-			ChoosableThinking: tool.InArrayString(useModel, modelInfo.GetChoosableThinkingModels()),
-		},
-		config: config,
-	}
-	return handler, nil
-}
-
-func GetClaudeSupplierHandler(modelInfo ModelInfo, config msql.Params) (*SupplierHandler, error) {
-	handler := &SupplierHandler{
-		Meta: adaptor.Meta{
-			Corp:     `claude`,
-			EndPoint: config[`api_endpoint`],
-			APIKey:   config[`api_key`],
-		},
-		config: config,
-	}
-	return handler, nil
-}
-
-func GetGeminiHandler(modelInfo ModelInfo, config msql.Params, useModel string) (*ModelCallHandler, error) {
-	handler := &ModelCallHandler{
-		Meta: adaptor.Meta{
-			Corp:              `gemini`,
-			EndPoint:          config[`api_endpoint`],
-			APIKey:            config[`api_key`],
-			Model:             useModel,
-			ChoosableThinking: tool.InArrayString(useModel, modelInfo.GetChoosableThinkingModels()),
-		},
-		config: config,
-	}
-	return handler, nil
-}
-
-func GetGeminiSupplierHandler(modelInfo ModelInfo, config msql.Params) (*SupplierHandler, error) {
-	handler := &SupplierHandler{
-		Meta: adaptor.Meta{
-			Corp:     `gemini`,
-			EndPoint: config[`api_endpoint`],
-			APIKey:   config[`api_key`],
-		},
-		config: config,
-	}
-	return handler, nil
-}
-
-func GetYiyanHandler(modelInfo ModelInfo, config msql.Params, useModel string) (*ModelCallHandler, error) {
-	handler := &ModelCallHandler{
-		Meta: adaptor.Meta{
-			Corp:              `baidu`,
-			EndPoint:          config[`api_endpoint`],
-			APIKey:            config[`api_key`],
-			SecretKey:         config[`secret_key`],
-			Model:             useModel,
-			ChoosableThinking: tool.InArrayString(useModel, modelInfo.GetChoosableThinkingModels()),
-		},
-		config: config,
-	}
-	return handler, nil
-}
-
-func GetYiyanSupplierHandler(modelInfo ModelInfo, config msql.Params) (*SupplierHandler, error) {
-	handler := &SupplierHandler{
-		Meta: adaptor.Meta{
-			Corp:      `baidu`,
-			EndPoint:  config[`api_endpoint`],
-			APIKey:    config[`api_key`],
-			SecretKey: config[`secret_key`],
-		},
-		config: config,
-	}
-	return handler, nil
-}
-
-func GetTongyiHandler(modelInfo ModelInfo, config msql.Params, useModel string) (*ModelCallHandler, error) {
-	handler := &ModelCallHandler{
-		Meta: adaptor.Meta{
-			Corp:              `ali`,
-			EndPoint:          config[`api_endpoint`],
-			APIKey:            config[`api_key`],
-			Model:             useModel,
-			ChoosableThinking: tool.InArrayString(useModel, modelInfo.GetChoosableThinkingModels()),
-		},
-		config: config,
-	}
-	return handler, nil
-}
-
-func GetTongyiSupplierHandler(modelInfo ModelInfo, config msql.Params) (*SupplierHandler, error) {
-	handler := &SupplierHandler{
-		Meta: adaptor.Meta{
-			Corp:     `ali`,
-			EndPoint: config[`api_endpoint`],
-			APIKey:   config[`api_key`],
-		},
-		config: config,
-	}
-	return handler, nil
-}
-
-func GetBaaiHandle(modelInfo ModelInfo, config msql.Params, useModel string) (*ModelCallHandler, error) {
-	handler := &ModelCallHandler{
-		Meta: adaptor.Meta{
-			Corp:              `baai`,
-			EndPoint:          config[`api_endpoint`],
-			APIKey:            config[`api_key`],
-			Model:             useModel,
-			ChoosableThinking: tool.InArrayString(useModel, modelInfo.GetChoosableThinkingModels()),
-		},
-		config: config,
-	}
-	return handler, nil
-}
-
-func GetBaaiSupplierHandle(modelInfo ModelInfo, config msql.Params) (*SupplierHandler, error) {
-	handler := &SupplierHandler{
-		Meta: adaptor.Meta{
-			Corp:     `baai`,
-			EndPoint: config[`api_endpoint`],
-			APIKey:   config[`api_key`],
-		},
-		config: config,
-	}
-	return handler, nil
-}
-
-func GetCohereHandle(modelInfo ModelInfo, config msql.Params, useModel string) (*ModelCallHandler, error) {
-	handler := &ModelCallHandler{
-		Meta: adaptor.Meta{
-			Corp:              `cohere`,
-			EndPoint:          config[`api_endpoint`],
-			APIKey:            config[`api_key`],
-			Model:             useModel,
-			ChoosableThinking: tool.InArrayString(useModel, modelInfo.GetChoosableThinkingModels()),
-		},
-		config: config,
-	}
-	return handler, nil
-}
-
-func GetCohereSupplierHandle(modelInfo ModelInfo, config msql.Params) (*SupplierHandler, error) {
-	handler := &SupplierHandler{
-		Meta: adaptor.Meta{
-			Corp:     `cohere`,
-			EndPoint: config[`api_endpoint`],
-			APIKey:   config[`api_key`],
-		},
-		config: config,
-	}
-	return handler, nil
-}
-
-func GetOllamaHandle(modelInfo ModelInfo, config msql.Params, useModel string) (*ModelCallHandler, error) {
-	handler := &ModelCallHandler{
-		Meta: adaptor.Meta{
-			Corp:              `ollama`,
-			EndPoint:          config[`api_endpoint`],
-			APIKey:            config[`api_key`],
-			Model:             useModel,
-			ChoosableThinking: tool.InArrayString(useModel, modelInfo.GetChoosableThinkingModels()),
-		},
-		config: config,
-	}
-	return handler, nil
-}
-
-func GetOllamaSupplierHandle(modelInfo ModelInfo, config msql.Params) (*SupplierHandler, error) {
-	handler := &SupplierHandler{
-		Meta: adaptor.Meta{
-			Corp:     `ollama`,
-			EndPoint: config[`api_endpoint`],
-			APIKey:   config[`api_key`],
-		},
-		config: config,
-	}
-	return handler, nil
-}
-
-func GetXinferenceHandle(modelInfo ModelInfo, config msql.Params, useModel string) (*ModelCallHandler, error) {
-	handler := &ModelCallHandler{
-		Meta: adaptor.Meta{
-			Corp:              `xinference`,
-			EndPoint:          config[`api_endpoint`],
-			APIKey:            config[`api_key`],
-			APIVersion:        config["api_version"],
-			Model:             useModel,
-			ChoosableThinking: tool.InArrayString(useModel, modelInfo.GetChoosableThinkingModels()),
-		},
-	}
-	return handler, nil
-}
-
-func GetXinferenceSupplierHandle(modelInfo ModelInfo, config msql.Params) (*SupplierHandler, error) {
-	handler := &SupplierHandler{
-		Meta: adaptor.Meta{
-			Corp:       `xinference`,
-			EndPoint:   config[`api_endpoint`],
-			APIKey:     config[`api_key`],
-			APIVersion: config["api_version"],
-		},
-	}
-	return handler, nil
-}
-
-func GetDeepseekHandle(modelInfo ModelInfo, config msql.Params, useModel string) (*ModelCallHandler, error) {
-	handler := &ModelCallHandler{
-		Meta: adaptor.Meta{
-			Corp:              `deepseek`,
-			EndPoint:          config[`api_endpoint`],
-			APIKey:            config[`api_key`],
-			Model:             useModel,
-			ChoosableThinking: tool.InArrayString(useModel, modelInfo.GetChoosableThinkingModels()),
-		},
-		config: config,
-	}
-	return handler, nil
-}
-
-func GetDeepseekSupplierHandle(modelInfo ModelInfo, config msql.Params) (*SupplierHandler, error) {
-	handler := &SupplierHandler{
-		Meta: adaptor.Meta{
-			Corp:     `deepseek`,
-			EndPoint: config[`api_endpoint`],
-			APIKey:   config[`api_key`],
-		},
-		config: config,
-	}
-	return handler, nil
-}
-
-func GetJinaHandle(modelInfo ModelInfo, config msql.Params, useModel string) (*ModelCallHandler, error) {
-	handler := &ModelCallHandler{
-		Meta: adaptor.Meta{
-			Corp:              `jina`,
-			EndPoint:          config[`api_endpoint`],
-			APIKey:            config[`api_key`],
-			Model:             useModel,
-			ChoosableThinking: tool.InArrayString(useModel, modelInfo.GetChoosableThinkingModels()),
-		},
-		config: config,
-	}
-	return handler, nil
-}
-
-func GetJinaSupplierHandle(modelInfo ModelInfo, config msql.Params) (*SupplierHandler, error) {
-	handler := &SupplierHandler{
-		Meta: adaptor.Meta{
-			Corp:     `jina`,
-			EndPoint: config[`api_endpoint`],
-			APIKey:   config[`api_key`],
-		},
-		config: config,
-	}
-	return handler, nil
-}
-
-func GetLingYiWanWuHandle(modelInfo ModelInfo, config msql.Params, useModel string) (*ModelCallHandler, error) {
-	handler := &ModelCallHandler{
-		Meta: adaptor.Meta{
-			Corp:              `lingyiwanwu`,
-			EndPoint:          config[`api_endpoint`],
-			APIKey:            config[`api_key`],
-			Model:             useModel,
-			ChoosableThinking: tool.InArrayString(useModel, modelInfo.GetChoosableThinkingModels()),
-		},
-		config: config,
-	}
-	return handler, nil
-}
-
-func GetLingYiWanWuSupplierHandle(modelInfo ModelInfo, config msql.Params) (*SupplierHandler, error) {
-	handler := &SupplierHandler{
-		Meta: adaptor.Meta{
-			Corp:     `lingyiwanwu`,
-			EndPoint: config[`api_endpoint`],
-			APIKey:   config[`api_key`],
-		},
-		config: config,
-	}
-	return handler, nil
-}
-
-func GetMoonShotHandle(modelInfo ModelInfo, config msql.Params, useModel string) (*ModelCallHandler, error) {
-	handler := &ModelCallHandler{
-		Meta: adaptor.Meta{
-			Corp:              `moonshot`,
-			EndPoint:          config[`api_endpoint`],
-			APIKey:            config[`api_key`],
-			Model:             useModel,
-			ChoosableThinking: tool.InArrayString(useModel, modelInfo.GetChoosableThinkingModels()),
-		},
-		config: config,
-	}
-	return handler, nil
-}
-
-func GetMoonShotSupplierHandle(modelInfo ModelInfo, config msql.Params) (*SupplierHandler, error) {
-	handler := &SupplierHandler{
-		Meta: adaptor.Meta{
-			Corp:     `moonshot`,
-			EndPoint: config[`api_endpoint`],
-			APIKey:   config[`api_key`],
-		},
-		config: config,
-	}
-	return handler, nil
-}
-
-func GetBaichuanHandle(modelInfo ModelInfo, config msql.Params, useModel string) (*ModelCallHandler, error) {
-	handler := &ModelCallHandler{
-		Meta: adaptor.Meta{
-			Corp:              `baichuan`,
-			EndPoint:          config[`api_endpoint`],
-			APIKey:            config[`api_key`],
-			Model:             useModel,
-			ChoosableThinking: tool.InArrayString(useModel, modelInfo.GetChoosableThinkingModels()),
-		},
-		config: config,
-	}
-	return handler, nil
-}
-
-func GetBaichuanSupplierHandle(modelInfo ModelInfo, config msql.Params) (*SupplierHandler, error) {
-	handler := &SupplierHandler{
-		Meta: adaptor.Meta{
-			Corp:     `baichuan`,
-			EndPoint: config[`api_endpoint`],
-			APIKey:   config[`api_key`],
-		},
-		config: config,
-	}
-	return handler, nil
-}
-
-func GetZhipuHandle(modelInfo ModelInfo, config msql.Params, useModel string) (*ModelCallHandler, error) {
-	handler := &ModelCallHandler{
-		Meta: adaptor.Meta{
-			Corp:              `zhipu`,
-			EndPoint:          config[`api_endpoint`],
-			APIKey:            config[`api_key`],
-			Model:             useModel,
-			ChoosableThinking: tool.InArrayString(useModel, modelInfo.GetChoosableThinkingModels()),
-		},
-		config: config,
-	}
-	return handler, nil
-}
-
-func GetZhipuSupplierHandle(modelInfo ModelInfo, config msql.Params) (*SupplierHandler, error) {
-	handler := &SupplierHandler{
-		Meta: adaptor.Meta{
-			Corp:     `zhipu`,
-			EndPoint: config[`api_endpoint`],
-			APIKey:   config[`api_key`],
-		},
-		config: config,
-	}
-	return handler, nil
-}
-
-func GetOpenAIHandle(modelInfo ModelInfo, config msql.Params, useModel string) (*ModelCallHandler, error) {
-	handler := &ModelCallHandler{
-		Meta: adaptor.Meta{
-			Corp:              `openai`,
-			EndPoint:          config[`api_endpoint`],
-			APIKey:            config[`api_key`],
-			Model:             useModel,
-			ChoosableThinking: tool.InArrayString(useModel, modelInfo.GetChoosableThinkingModels()),
-		},
-		config: config,
-	}
-	return handler, nil
-}
-
-func GetOpenAISupplierHandle(modelInfo ModelInfo, config msql.Params) (*SupplierHandler, error) {
-	handler := &SupplierHandler{
-		Meta: adaptor.Meta{
-			Corp:     `openai`,
-			EndPoint: config[`api_endpoint`],
-			APIKey:   config[`api_key`],
-		},
-		config: config,
-	}
-	return handler, nil
-}
-
-func GetOpenAIAgentHandle(modelInfo ModelInfo, config msql.Params, useModel string) (*ModelCallHandler, error) {
-	handler := &ModelCallHandler{
-		Meta: adaptor.Meta{
-			Corp:              `openaiAgent`,
-			APIKey:            config[`api_key`],
-			EndPoint:          config[`api_endpoint`],
-			APIVersion:        config["api_version"],
-			Model:             useModel,
-			ChoosableThinking: tool.InArrayString(useModel, modelInfo.GetChoosableThinkingModels()),
-		},
-		config: config,
-	}
-	return handler, nil
-}
-
-func GetOpenAIAgentSupplierHandle(modelInfo ModelInfo, config msql.Params) (*SupplierHandler, error) {
-	handler := &SupplierHandler{
-		Meta: adaptor.Meta{
-			Corp:       `openaiAgent`,
-			APIKey:     config[`api_key`],
-			EndPoint:   config[`api_endpoint`],
-			APIVersion: config["api_version"],
-		},
-		config: config,
-	}
-	return handler, nil
-}
-
-func GetSparkHandle(modelInfo ModelInfo, config msql.Params, useModel string) (*ModelCallHandler, error) {
-	handler := &ModelCallHandler{
-		Meta: adaptor.Meta{
-			Corp:              `spark`,
-			EndPoint:          config[`api_endpoint`],
-			APIKey:            config[`api_key`],
-			SecretKey:         config[`secret_key`],
-			APPID:             config[`app_id`],
-			Model:             useModel,
-			ChoosableThinking: tool.InArrayString(useModel, modelInfo.GetChoosableThinkingModels()),
-		},
-		config: config,
-	}
-	return handler, nil
-}
-
-func GetSparkSupplierHandle(modelInfo ModelInfo, config msql.Params) (*SupplierHandler, error) {
-	handler := &SupplierHandler{
-		Meta: adaptor.Meta{
-			Corp:      `spark`,
-			EndPoint:  config[`api_endpoint`],
-			APIKey:    config[`api_key`],
-			SecretKey: config[`secret_key`],
-			APPID:     config[`app_id`],
-		},
-		config: config,
-	}
-	return handler, nil
-}
-
-func GetHunyuanHandle(modelInfo ModelInfo, config msql.Params, useModel string) (*ModelCallHandler, error) {
-	handler := &ModelCallHandler{
-		Meta: adaptor.Meta{
-			Corp:              `hunyuan`,
-			EndPoint:          config[`api_endpoint`],
-			APIKey:            config[`api_key`],
-			SecretKey:         config[`secret_key`],
-			Region:            config[`region`],
-			Model:             useModel,
-			ChoosableThinking: tool.InArrayString(useModel, modelInfo.GetChoosableThinkingModels()),
-		},
-		config: config,
-	}
-	return handler, nil
-}
-
-func GetHunyuanSupplierHandle(modelInfo ModelInfo, config msql.Params) (*SupplierHandler, error) {
-	handler := &SupplierHandler{
-		Meta: adaptor.Meta{
-			Corp:      `hunyuan`,
-			EndPoint:  config[`api_endpoint`],
-			APIKey:    config[`api_key`],
-			SecretKey: config[`secret_key`],
-			Region:    config[`region`],
-		},
-		config: config,
-	}
-	return handler, nil
-}
-
-func GetDoubaoHandle(modelInfo ModelInfo, config msql.Params, useModel string) (*ModelCallHandler, error) {
-	handler := &ModelCallHandler{
-		Meta: adaptor.Meta{
-			Corp:              `doubao`,
-			EndPoint:          config[`api_endpoint`],
-			APIKey:            config[`api_key`],
-			SecretKey:         config[`secret_key`],
-			Region:            config[`region`],
-			Model:             useModel,
-			ChoosableThinking: tool.InArrayString(useModel, modelInfo.GetChoosableThinkingModels()),
-		},
-		config: config,
-	}
-	return handler, nil
-}
-
-func GetDoubaoSupplierHandle(modelInfo ModelInfo, config msql.Params) (*SupplierHandler, error) {
-	handler := &SupplierHandler{
-		Meta: adaptor.Meta{
-			Corp:      `doubao`,
-			EndPoint:  config[`api_endpoint`],
-			APIKey:    config[`api_key`],
-			SecretKey: config[`secret_key`],
-			Region:    config[`region`],
-		},
-		config: config,
-	}
-	return handler, nil
-}
-
-func GetMinimaxHandle(modelInfo ModelInfo, config msql.Params, useModel string) (*ModelCallHandler, error) {
-	handler := &ModelCallHandler{
-		Meta: adaptor.Meta{
-			Corp:              `minimax`,
-			EndPoint:          config[`api_endpoint`],
-			APIKey:            config[`api_key`],
-			Model:             useModel,
-			ChoosableThinking: tool.InArrayString(useModel, modelInfo.GetChoosableThinkingModels()),
-		},
-		config: config,
-	}
-	return handler, nil
-}
-
-func GetMinimaxSupplierHandle(modelInfo ModelInfo, config msql.Params) (*SupplierHandler, error) {
-	handler := &SupplierHandler{
-		Meta: adaptor.Meta{
-			Corp:     `minimax`,
-			EndPoint: config[`api_endpoint`],
-			APIKey:   config[`api_key`],
-		},
-		config: config,
-	}
-	return handler, nil
-}
-
-func GetSiliconFlowHandle(modelInfo ModelInfo, config msql.Params, useModel string) (*ModelCallHandler, error) {
-	endpoint := config[`api_endpoint`]
-	if len(endpoint) == 0 {
-		endpoint = `https://api.siliconflow.cn`
-	}
-	handler := &ModelCallHandler{
-		Meta: adaptor.Meta{
-			EndPoint:          endpoint,
-			Corp:              ModelSiliconFlow,
-			APIKey:            config[`api_key`],
-			APIVersion:        `v1`,
-			Model:             useModel,
-			ChoosableThinking: tool.InArrayString(useModel, modelInfo.GetChoosableThinkingModels()),
-		},
-		config: config,
-	}
-	return handler, nil
-}
-
-func GetSiliconFlowSupplierHandle(modelInfo ModelInfo, config msql.Params) (*SupplierHandler, error) {
-	endpoint := config[`api_endpoint`]
-	if len(endpoint) == 0 {
-		endpoint = `https://api.siliconflow.cn`
-	}
-	handler := &SupplierHandler{
-		Meta: adaptor.Meta{
-			EndPoint:   endpoint,
-			Corp:       ModelSiliconFlow,
-			APIKey:     config[`api_key`],
-			APIVersion: `v1`,
-		},
-		config: config,
-	}
-	return handler, nil
+	return &ModelCallHandler{
+		Client:              client,
+		Model:               useModel,
+		EmbeddingDimensions: legacyEmbeddingDimensions(clientConfig.Provider, useModel),
+		ChoosableThinking:   tool.InArrayString(useModel, modelInfo.GetChoosableThinkingModels()),
+		config:              config,
+	}, nil
 }
 
 func Get302AiHandle(modelInfo ModelInfo, config msql.Params, useModel string) (*ModelCallHandler, error) {
-	handler := &ModelCallHandler{
-		Meta: adaptor.Meta{
-			Corp:              `302ai`,
-			APIKey:            config[`api_key`],
-			SecretKey:         config[`secret_key`],
-			Region:            config[`region`],
-			Model:             useModel,
-			ChoosableThinking: tool.InArrayString(useModel, modelInfo.GetChoosableThinkingModels()),
+	clientConfig := llm.ClientConfig{
+		Provider: llm.Provider302AI,
+		Credentials: llm.CredentialConfig{
+			APIKeys: config[`api_key`],
 		},
-		config: config,
 	}
-	return handler, nil
-}
-
-func Get302AiSupplierHandle(modelInfo ModelInfo, config msql.Params) (*SupplierHandler, error) {
-	handler := &SupplierHandler{
-		Meta: adaptor.Meta{
-			Corp:      `302ai`,
-			APIKey:    config[`api_key`],
-			SecretKey: config[`secret_key`],
-			Region:    config[`region`],
-		},
-		config: config,
-	}
-	return handler, nil
+	return newModelCallHandler(modelInfo, config, useModel, clientConfig)
 }
 
 func GetOpenRouterHandle(modelInfo ModelInfo, config msql.Params, useModel string) (*ModelCallHandler, error) {
-	handler := &ModelCallHandler{
-		Meta: adaptor.Meta{
-			EndPoint:          config[`api_endpoint`],
-			Corp:              `openrouter`,
-			APIKey:            config[`api_key`],
-			APIVersion:        `v1`,
-			Model:             useModel,
-			ChoosableThinking: tool.InArrayString(useModel, modelInfo.GetChoosableThinkingModels()),
+	clientConfig := llm.ClientConfig{
+		Provider: llm.ProviderOpenRouter,
+		BaseURL:  ResolveOpenRouterEndpoint(),
+		Credentials: llm.CredentialConfig{
+			APIKeys: config[`api_key`],
 		},
-		config: config,
 	}
-	return handler, nil
+	return newModelCallHandler(modelInfo, config, useModel, clientConfig)
 }
 
-func GetOpenRouterSupplierHandle(modelInfo ModelInfo, config msql.Params) (*SupplierHandler, error) {
-	handler := &SupplierHandler{
-		Meta: adaptor.Meta{
-			EndPoint:   config[`api_endpoint`],
-			Corp:       `openrouter`,
-			APIKey:     config[`api_key`],
-			APIVersion: `v1`,
+func GetDeepseekHandle(modelInfo ModelInfo, config msql.Params, useModel string) (*ModelCallHandler, error) {
+	clientConfig := llm.ClientConfig{
+		Provider: llm.ProviderDeepSeek,
+		Credentials: llm.CredentialConfig{
+			APIKeys: config[`api_key`],
 		},
-		config: config,
 	}
-	return handler, nil
+	return newModelCallHandler(modelInfo, config, useModel, clientConfig)
+}
+
+func GetGeminiHandler(modelInfo ModelInfo, config msql.Params, useModel string) (*ModelCallHandler, error) {
+	clientConfig := llm.ClientConfig{
+		Provider: llm.ProviderGemini,
+		Credentials: llm.CredentialConfig{
+			APIKeys: config[`api_key`],
+		},
+	}
+	return newModelCallHandler(modelInfo, config, useModel, clientConfig)
+}
+
+func GetOpenAIHandle(modelInfo ModelInfo, config msql.Params, useModel string) (*ModelCallHandler, error) {
+	clientConfig := llm.ClientConfig{
+		Provider: llm.ProviderOpenAI,
+		Credentials: llm.CredentialConfig{
+			APIKeys: config[`api_key`],
+		},
+	}
+	return newModelCallHandler(modelInfo, config, useModel, clientConfig)
+}
+
+func GetDoubaoHandle(modelInfo ModelInfo, config msql.Params, useModel string) (*ModelCallHandler, error) {
+	clientConfig := llm.ClientConfig{
+		Provider: llm.ProviderDoubao,
+		Credentials: llm.CredentialConfig{
+			APIKeys: config[`api_key`],
+		},
+	}
+	return newModelCallHandler(modelInfo, config, useModel, clientConfig)
+}
+
+func GetSiliconFlowHandle(modelInfo ModelInfo, config msql.Params, useModel string) (*ModelCallHandler, error) {
+	clientConfig := llm.ClientConfig{
+		Provider: llm.ProviderSiliconFlow,
+		Credentials: llm.CredentialConfig{
+			APIKeys: config[`api_key`],
+		},
+	}
+	return newModelCallHandler(modelInfo, config, useModel, clientConfig)
+}
+
+func GetTongyiHandler(modelInfo ModelInfo, config msql.Params, useModel string) (*ModelCallHandler, error) {
+	clientConfig := llm.ClientConfig{
+		Provider: llm.ProviderAli,
+		Credentials: llm.CredentialConfig{
+			APIKeys: config[`api_key`],
+		},
+	}
+	return newModelCallHandler(modelInfo, config, useModel, clientConfig)
+}
+
+func GetOpenAIAgentHandle(modelInfo ModelInfo, config msql.Params, useModel string) (*ModelCallHandler, error) {
+	clientConfig := llm.ClientConfig{
+		Provider:   llm.ProviderOpenAIAgent,
+		BaseURL:    config[`api_endpoint`],
+		APIVersion: config[`api_version`],
+		Credentials: llm.CredentialConfig{
+			APIKeys: config[`api_key`],
+		},
+	}
+	return newModelCallHandler(modelInfo, config, useModel, clientConfig)
+}
+
+func GetAzureHandler(modelInfo ModelInfo, config msql.Params, useModel string) (*ModelCallHandler, error) {
+	clientConfig := llm.ClientConfig{
+		Provider: llm.ProviderAzure,
+		BaseURL:  config[`api_endpoint`],
+		Credentials: llm.CredentialConfig{
+			APIKeys: config[`api_key`],
+		},
+	}
+	return newModelCallHandler(modelInfo, config, useModel, clientConfig)
+}
+
+func GetClaudeHandler(modelInfo ModelInfo, config msql.Params, useModel string) (*ModelCallHandler, error) {
+	clientConfig := llm.ClientConfig{
+		Provider: llm.ProviderClaude,
+		Credentials: llm.CredentialConfig{
+			APIKeys: config[`api_key`],
+		},
+	}
+	return newModelCallHandler(modelInfo, config, useModel, clientConfig)
+}
+
+func GetYiyanHandler(modelInfo ModelInfo, config msql.Params, useModel string) (*ModelCallHandler, error) {
+	clientConfig := llm.ClientConfig{
+		Provider: llm.ProviderBaidu,
+		Credentials: llm.CredentialConfig{
+			APIKeys: config[`api_key`],
+		},
+	}
+	return newModelCallHandler(modelInfo, config, useModel, clientConfig)
+}
+
+func GetBaaiHandle(modelInfo ModelInfo, config msql.Params, useModel string) (*ModelCallHandler, error) {
+	clientConfig := llm.ClientConfig{
+		Provider: llm.ProviderBAAI,
+		BaseURL:  config[`api_endpoint`],
+	}
+	return newModelCallHandler(modelInfo, config, useModel, clientConfig)
+}
+
+func GetCohereHandle(modelInfo ModelInfo, config msql.Params, useModel string) (*ModelCallHandler, error) {
+	clientConfig := llm.ClientConfig{
+		Provider: llm.ProviderCohere,
+		Credentials: llm.CredentialConfig{
+			APIKeys: config[`api_key`],
+		},
+	}
+	return newModelCallHandler(modelInfo, config, useModel, clientConfig)
+}
+
+func GetOllamaHandle(modelInfo ModelInfo, config msql.Params, useModel string) (*ModelCallHandler, error) {
+	clientConfig := llm.ClientConfig{
+		Provider: llm.ProviderOllama,
+		BaseURL:  config[`api_endpoint`],
+		Credentials: llm.CredentialConfig{
+			APIKeys: config[`api_key`],
+		},
+	}
+	return newModelCallHandler(modelInfo, config, useModel, clientConfig)
+}
+
+func GetXinferenceHandle(modelInfo ModelInfo, config msql.Params, useModel string) (*ModelCallHandler, error) {
+	clientConfig := llm.ClientConfig{
+		Provider:   llm.ProviderXinference,
+		BaseURL:    config[`api_endpoint`],
+		APIVersion: config[`api_version`],
+		Credentials: llm.CredentialConfig{
+			APIKeys: config[`api_key`],
+		},
+	}
+	return newModelCallHandler(modelInfo, config, useModel, clientConfig)
+}
+
+func GetJinaHandle(modelInfo ModelInfo, config msql.Params, useModel string) (*ModelCallHandler, error) {
+	clientConfig := llm.ClientConfig{
+		Provider: llm.ProviderJina,
+		Credentials: llm.CredentialConfig{
+			APIKeys: config[`api_key`],
+		},
+	}
+	return newModelCallHandler(modelInfo, config, useModel, clientConfig)
+}
+
+func GetLingYiWanWuHandle(modelInfo ModelInfo, config msql.Params, useModel string) (*ModelCallHandler, error) {
+	clientConfig := llm.ClientConfig{
+		Provider: llm.ProviderLingYiWanWu,
+		Credentials: llm.CredentialConfig{
+			APIKeys: config[`api_key`],
+		},
+	}
+	return newModelCallHandler(modelInfo, config, useModel, clientConfig)
+}
+
+func GetMoonShotHandle(modelInfo ModelInfo, config msql.Params, useModel string) (*ModelCallHandler, error) {
+	clientConfig := llm.ClientConfig{
+		Provider: llm.ProviderMoonshot,
+		Credentials: llm.CredentialConfig{
+			APIKeys: config[`api_key`],
+		},
+	}
+	return newModelCallHandler(modelInfo, config, useModel, clientConfig)
+}
+
+func GetSparkHandle(modelInfo ModelInfo, config msql.Params, useModel string) (*ModelCallHandler, error) {
+	clientConfig := llm.ClientConfig{
+		Provider: llm.ProviderSpark,
+		Credentials: llm.CredentialConfig{
+			APIKeys: config[`api_key`],
+		},
+	}
+	return newModelCallHandler(modelInfo, config, useModel, clientConfig)
+}
+
+func GetHunyuanHandle(modelInfo ModelInfo, config msql.Params, useModel string) (*ModelCallHandler, error) {
+	clientConfig := llm.ClientConfig{
+		Provider: llm.ProviderHunyuan,
+		Credentials: llm.CredentialConfig{
+			APIKeys: config[`api_key`],
+		},
+	}
+	return newModelCallHandler(modelInfo, config, useModel, clientConfig)
+}
+
+func GetBaichuanHandle(modelInfo ModelInfo, config msql.Params, useModel string) (*ModelCallHandler, error) {
+	clientConfig := llm.ClientConfig{
+		Provider: llm.ProviderBaichuan,
+		Credentials: llm.CredentialConfig{
+			APIKeys: config[`api_key`],
+		},
+	}
+	return newModelCallHandler(modelInfo, config, useModel, clientConfig)
+}
+
+func GetZhipuHandle(modelInfo ModelInfo, config msql.Params, useModel string) (*ModelCallHandler, error) {
+	clientConfig := llm.ClientConfig{
+		Provider: llm.ProviderZhipu,
+		Credentials: llm.CredentialConfig{
+			APIKeys: config[`api_key`],
+		},
+	}
+	return newModelCallHandler(modelInfo, config, useModel, clientConfig)
+}
+
+func GetMinimaxHandle(modelInfo ModelInfo, config msql.Params, useModel string) (*ModelCallHandler, error) {
+	clientConfig := llm.ClientConfig{
+		Provider: llm.ProviderMiniMax,
+		Credentials: llm.CredentialConfig{
+			APIKeys: config[`api_key`],
+		},
+	}
+	return newModelCallHandler(modelInfo, config, useModel, clientConfig)
+}
+
+func ResolveOpenRouterEndpoint() string {
+	return ``
 }

@@ -686,6 +686,7 @@ func ChatClawLibraryRecall(c *gin.Context) {
 	}
 
 	list, _, err := common.GetMatchLibraryParagraphList(
+		c.Request.Context(),
 		common.GetLang(c),
 		cast.ToString(adminUserId),
 		lib_define.ChatClawClient,

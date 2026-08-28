@@ -6,17 +6,19 @@ import (
 	"chatwiki/internal/app/chatwiki/define"
 	"chatwiki/internal/app/chatwiki/i18n"
 	"chatwiki/internal/pkg/lib_define"
+	"context"
 	"errors"
 	"fmt"
 	"path/filepath"
 	"regexp"
 	"strings"
 
+	"github.com/alibabacloud-go/tea/tea"
 	"github.com/spf13/cast"
 	"github.com/zhimaAi/go_tools/logs"
 	"github.com/zhimaAi/go_tools/msql"
 	"github.com/zhimaAi/go_tools/tool"
-	"github.com/zhimaAi/llm_adaptor/adaptor"
+	"github.com/zhimaAi/llm_adaptor/v2/chat"
 )
 
 type PromptItem struct {
@@ -132,7 +134,61 @@ func BuildPromptStruct(lang string, promptType int, prompt, promptStruct string)
 	}
 }
 
-func FormatSystemPrompt(lang string, prompt string, list []msql.Params) (string, string) {
+func FormatSystemPrompt(lang string, adminUserId int, prompt string, list []msql.Params) (string, string) {
+	paragraphMiniCards, qaMiniCards := getLibraryPromptMiniCards(adminUserId, list)
+	return formatSystemPrompt(lang, prompt, list, paragraphMiniCards, qaMiniCards)
+}
+
+func getLibraryPromptMiniCards(adminUserId int, list []msql.Params) (map[int][]map[string]any, map[int][]map[string]any) {
+	paragraphMiniCards := make(map[int][]map[string]any)
+	qaMiniCards := make(map[int][]map[string]any)
+	if adminUserId <= 0 || len(list) == 0 {
+		return paragraphMiniCards, qaMiniCards
+	}
+
+	paragraphIDs := make([]int, 0, len(list))
+	qaIDs := make([]int, 0, len(list))
+	paragraphIDMap := make(map[int]struct{}, len(list))
+	qaIDMap := make(map[int]struct{}, len(list))
+	for _, item := range list {
+		targetID := cast.ToInt(item[`id`])
+		if targetID <= 0 {
+			continue
+		}
+		if cast.ToInt(item[`type`]) == define.ParagraphTypeNormal {
+			if _, ok := paragraphIDMap[targetID]; ok {
+				continue
+			}
+			paragraphIDMap[targetID] = struct{}{}
+			paragraphIDs = append(paragraphIDs, targetID)
+			continue
+		}
+		if _, ok := qaIDMap[targetID]; ok {
+			continue
+		}
+		qaIDMap[targetID] = struct{}{}
+		qaIDs = append(qaIDs, targetID)
+	}
+
+	var err error
+	if len(paragraphIDs) > 0 {
+		paragraphMiniCards, err = GetAdminMiniCardsByTargets(adminUserId, AdminMiniCardTargetLibraryParagraph, paragraphIDs)
+		if err != nil {
+			logs.Error(`GetAdminMiniCardsByTargets error:%s`, err.Error())
+			paragraphMiniCards = make(map[int][]map[string]any)
+		}
+	}
+	if len(qaIDs) > 0 {
+		qaMiniCards, err = GetAdminMiniCardsByTargets(adminUserId, AdminMiniCardTargetLibraryQA, qaIDs)
+		if err != nil {
+			logs.Error(`GetAdminMiniCardsByTargets error:%s`, err.Error())
+			qaMiniCards = make(map[int][]map[string]any)
+		}
+	}
+	return paragraphMiniCards, qaMiniCards
+}
+
+func formatSystemPrompt(lang string, prompt string, list []msql.Params, paragraphMiniCards, qaMiniCards map[int][]map[string]any) (string, string) {
 	output := fmt.Sprintf("# %s\n%s", i18n.Show(lang, `prompt_system`), prompt)
 	knowledges := make([]string, 0)
 	for idx, one := range list {
@@ -153,7 +209,8 @@ func FormatSystemPrompt(lang string, prompt string, list []msql.Params) (string,
 			}
 		}
 		if cast.ToInt(one[`type`]) == define.ParagraphTypeNormal {
-			knowledges = append(knowledges, fmt.Sprintf("## %s\n%s%s", i18n.Show(lang, `prompt_library_section`, idx+1), one[`content`], imgs))
+			miniCards := buildLibraryPromptMiniCardTags(paragraphMiniCards[cast.ToInt(one[`id`])])
+			knowledges = append(knowledges, fmt.Sprintf("## %s\n%s%s%s", i18n.Show(lang, `prompt_library_section`, idx+1), one[`content`], imgs, miniCards))
 		} else {
 			var similarQuestions []string
 			if err := tool.JsonDecode(one[`similar_questions`], &similarQuestions); err != nil {
@@ -163,8 +220,9 @@ func FormatSystemPrompt(lang string, prompt string, list []msql.Params) (string,
 			if len(similarQuestions) > 0 {
 				similar = fmt.Sprintf("\n%s：%s", i18n.Show(lang, `prompt_similar_questions`), strings.Join(similarQuestions, `/`))
 			}
-			knowledges = append(knowledges, fmt.Sprintf("## %s\n%s:%s%s\n%s:%s%s", i18n.Show(lang, `prompt_library_section`, idx+1),
-				i18n.Show(lang, `prompt_question`), one[`question`], similar, i18n.Show(lang, `prompt_answer`), one[`answer`], imgs))
+			miniCards := buildLibraryPromptMiniCardTags(qaMiniCards[cast.ToInt(one[`id`])])
+			knowledges = append(knowledges, fmt.Sprintf("## %s\n%s:%s%s\n%s:%s%s%s", i18n.Show(lang, `prompt_library_section`, idx+1),
+				i18n.Show(lang, `prompt_question`), one[`question`], similar, i18n.Show(lang, `prompt_answer`), one[`answer`], imgs, miniCards))
 		}
 	}
 	var libraryOutput string
@@ -175,6 +233,17 @@ func FormatSystemPrompt(lang string, prompt string, list []msql.Params) (string,
 	return UnifyLineBreak(output), UnifyLineBreak(libraryOutput) // Unify line break processing
 }
 
+func buildLibraryPromptMiniCardTags(miniCards []map[string]any) string {
+	if len(miniCards) == 0 {
+		return ``
+	}
+	tags := make([]string, 0, len(miniCards))
+	for _, miniCard := range miniCards {
+		tags = append(tags, buildMiniCardTag(miniCard))
+	}
+	return "\n" + strings.Join(tags, "\n")
+}
+
 func UnifyLineBreak(content string) string {
 	content = strings.ReplaceAll(content, "\r\n", "\n")
 	content = strings.ReplaceAll(content, "\r", "\n")
@@ -182,22 +251,21 @@ func UnifyLineBreak(content string) string {
 	return content
 }
 
-func CreatePromptByAi(lang string, demand string, adminUserId, modelConfigId int, useModel string, enableThinking ThinkingSwitch) (string, error) {
-	messages := []adaptor.ZhimaChatCompletionMessage{
-		{Role: `system`, Content: define.PromptDefaultCreatePrompt},
-		{Role: `user`, Content: demand},
+func CreatePromptByAi(ctx context.Context, lang string, demand string, adminUserId, modelConfigId int, useModel string, enableThinking ThinkingSwitch) (string, error) {
+	messages := []chat.Message{
+		{Role: chat.RoleSystem, Content: chat.MessageContent{Text: tea.String(define.PromptDefaultCreatePrompt)}},
+		{Role: chat.RoleUser, Content: chat.MessageContent{Text: tea.String(demand)}},
 	}
-	chatResp, _, err := RequestChat(lang, adminUserId, cast.ToString(adminUserId), nil, lib_define.AppYunPc,
+	chatResp, _, err := RequestChat(ctx, lang, adminUserId, cast.ToString(adminUserId), nil, lib_define.AppYunPc,
 		modelConfigId, useModel, messages, nil, 0.5, 2000, enableThinking)
 	if err != nil {
 		logs.Error(err.Error())
 		return ``, err
 	}
-	chatResp.Result, _ = strings.CutPrefix(chatResp.Result, "```json")
-	chatResp.Result, _ = strings.CutSuffix(chatResp.Result, "```")
-	promptStruct, err := CheckPromptConfig(lang, define.PromptTypeStruct, chatResp.Result)
+	chatResp.NormalizeJSONResult()
+	promptStruct, err := CheckPromptConfig(lang, define.PromptTypeStruct, chatResp.Result())
 	if err != nil {
-		return ``, fmt.Errorf(`%s`, chatResp.Result)
+		return ``, fmt.Errorf(`%s`, chatResp.Result())
 	}
 	return promptStruct, nil
 }
