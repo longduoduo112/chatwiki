@@ -16,7 +16,7 @@
   height: 100vh;
   flex: 1;
   overflow: hidden;
-  background: #f0f2f5;
+  background: #fff;
 
   .chat-page-body {
     position: relative;
@@ -28,6 +28,8 @@
     flex-flow: column nowrap;
 
     .messages-list-wrap {
+      width: 100%;
+      margin: 0 auto;
       flex: 1;
       overflow: hidden;
     }
@@ -40,6 +42,7 @@
       justify-content: center;
       right: 12px;
       top: 12px;
+      z-index: 2;
       background: #fff;
       border-radius: 8px;
       font-size: 24px;
@@ -50,7 +53,13 @@
     position: relative;
     padding-top: 5px;
     z-index: 2;
-    background-color: #f0f2f5;
+    padding: 0 12px;
+    overflow: hidden;
+    background-color: #fff;
+
+    :deep(.fast-comand-container) {
+      max-width: 900px;
+    }
   }
   .technical-support-text {
     line-height: 20px;
@@ -76,8 +85,8 @@
   transform: translateY(-50%) translateX(84px); /* 露出20px (104px - 20px) */
 }
 .form-banner-top{
-  max-width: 736px;
-  width: calc(100% - 24px);
+  max-width: 900px;
+  width: calc(100% - 32px);
   margin: 0 auto;
   margin-top: 12px;
   padding: 16px;
@@ -111,6 +120,11 @@
       border-radius: 6px;
     }
   }
+}
+
+.chat-page-footer {
+  flex: 0 0 auto;
+  background: #fff;
 }
 </style>
 
@@ -170,22 +184,10 @@
       </div>
       <div class="chat-page-footer">
         <MessageInput
-          v-if="isMobileDevice"
           ref="messageInputRef"
           :show-upload="showUpload"
           v-model:value="message"
           v-model:fileList="fileList"
-          @showLogin="onShowLogin"
-          @send="onSendMesage"
-          @stop="onStopMessage"
-          :loading="sendLoading"
-        />
-        <MessageInputPc
-          v-else
-          ref="messageInputRef"
-          v-model:value="message"
-          v-model:fileList="fileList"
-          :show-upload="showUpload"
           @showLogin="onShowLogin"
           @send="onSendMesage"
           @stop="onStopMessage"
@@ -238,7 +240,6 @@ import MessageItem from './components/messages/message-item.vue'
 import FastComand from './components/fast-comand/index.vue'
 import LogOut from './components/log-out.vue'
 import LoginModal from './components/login-modal.vue'
-import MessageInputPc from './components/message-input-pc.vue'
 import LeftSideBar from '@/views/chat/components/left-side-bar/index.vue'
 import VariableModal from './components/variable-modal/index.vue'
 import CookieModal from './components/cookie-modal.vue'

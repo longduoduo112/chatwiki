@@ -137,6 +137,13 @@ Feel free to contact us for help or to provide suggestions to improve ChatWiki. 
 ---
 For the complete changelog, please click 👉️👉️[UpdateLog.md](./UpdateLog.md)
 
+**2026/09/04**
+
+1.[STD]Q&A knowledge base recycle bin: Added one-click emptying<br/>
+2.External Service: Updated the page design for PC and H5 based on Alibaba Cloud<br/>
+3.Increased the sensitive word limit to 20,000<br/>
+4.Fixed an issue where Context was not passed in some embedding scenarios<br/>
+
 **2026/08/28**
 
 1.Product library: Added support for adding and replying with product cards<br/>
@@ -154,20 +161,6 @@ SSO configuration found" message<br/>
 3.Bot prompts: Added support for inserting the current time system variable<br/>
 4.[STD] Added the Agent official website (https://chatwikiagent.xiaokefu.com.cn)<br/>
 5.Thinking is disabled by default for all models with optional thinking unless explicitly enabled by the user<br/>
-
-**2026/08/07**
-
-1.External Service: Bot supports LINE app<br/>
-2.Agent: My Skills interface interaction adjustments and logic optimization<br/>
-3.Temporarily disabled DeepSeek official API thinking mode<br/>
-4.Agent: Local document reading skill now supports docx, csv, and pdf files<br/>
-5.Fixed issue where customer messages were not displayed in unknown question session context<br/>
-6.Fixed issue where Alibaba Cloud OCR document parsing results were not using pagination query logic<br/>
-7.Alibaba Cloud OCR document parsing: Enabled FormulaEnhancement logic<br/>
-8.Fixed time field error in Alibaba Cloud OCR document parsing task status query<br/>
-9.[STD] Added Alibaba Cloud OCR document parsing open API and credit validation<br/>
-10.Agent skill generation tool: Web to Skill now supports skill updates<br/>
-11.Knowledge base: Added validity period settings (permanent, specified date, specified days)<br/>
 
 ## License
 

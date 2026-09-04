@@ -93,6 +93,7 @@ func ChatMessages(c *gin.Context) {
 		return
 	}
 	chanStream := make(chan sse.Event)
+	params.StopCtx = c.Request.Context()
 	if req.Stream {
 		c.Header(`Content-Type`, `text/event-stream`)
 		c.Header(`Cache-Control`, `no-cache`)
@@ -100,7 +101,6 @@ func ChatMessages(c *gin.Context) {
 		if define.IsDev {
 			c.Header(`Access-Control-Allow-Origin`, `*`)
 		}
-		params.StopCtx = c.Request.Context()
 		go func() {
 			_, _ = DoChatRequest(params, req.Stream, chanStream)
 		}()

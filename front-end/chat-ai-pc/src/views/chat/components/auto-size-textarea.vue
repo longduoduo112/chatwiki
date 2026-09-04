@@ -1,10 +1,10 @@
 <style scoped>
 .text-input {
-  line-height: 22px;
-  height: 22px;
+  line-height: 24px;
+  height: 24px;
   width: 100%;
   padding: 0;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 400;
   color: rgb(26, 26, 26);
   overflow: hidden;
@@ -15,9 +15,9 @@
   transition: height 0.1s ease-in-out;
 
   &::placeholder {
-    font-size: 14px;
+    font-size: 16px;
     font-weight: 400;
-    color: rgb(191, 191, 191);
+    color: #8c8c8c;
   }
 }
 
@@ -86,7 +86,7 @@ const props = defineProps({
 
 const emit = defineEmits(['update:value', 'change', 'focus', 'blur', 'enter', 'shiftEnter'])
 
-const inputHeight = ref("22px")
+const inputHeight = ref("24px")
 
 const textareaRef = ref<HTMLTextAreaElement | null>(null)
 
@@ -152,7 +152,7 @@ watch(
   () => {
     if (!props.value && textareaRef.value) {
       // 消息清空后输入框回到最初的高度
-      inputHeight.value = '22px'
+      inputHeight.value = '24px'
       // 回车后输入框失去焦点
       // textareaRef.value.blur()
     }

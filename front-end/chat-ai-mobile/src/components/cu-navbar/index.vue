@@ -6,7 +6,7 @@
     height: 44px;
     color: #fff;
     background: linear-gradient(270deg, #2475FC 0%, #2497FC 100%);
-    max-width: 738px;
+    max-width: 900px;
     min-width: 350px;
     margin: 0 auto;
 

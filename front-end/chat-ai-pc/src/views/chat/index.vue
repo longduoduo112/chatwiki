@@ -40,6 +40,7 @@
       justify-content: center;
       right: 12px;
       top: 12px;
+      z-index: 2;
       background: #fff;
       border-radius: 8px;
       font-size: 24px;
@@ -50,7 +51,25 @@
     position: relative;
     padding-top: 5px;
     z-index: 2;
+    padding: 0 12px;
+    overflow: hidden;
     background-color: #fff;
+
+    :deep(.fast-comand-container) {
+      max-width: 900px;
+    }
+  }
+
+  .chat-page-footer {
+    flex: 0 0 auto;
+    background: #fff;
+
+    :deep(.message-input-box) {
+      width: calc(100% - 24px);
+      max-width: 900px;
+      margin: 12px auto;
+      box-sizing: border-box;
+    }
   }
 
   .technical-support-text {
@@ -65,7 +84,7 @@
 
 
 .form-banner-top{
-  max-width: 736px;
+  max-width: 900px;
   width: calc(100% - 24px);
   margin: 0 auto;
   margin-top: 12px;

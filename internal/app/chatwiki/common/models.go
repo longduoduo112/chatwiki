@@ -795,9 +795,7 @@ func (h *ModelCallHandler) newEmbeddingRequest(input string) *embedding.CreateRe
 }
 
 func (h *ModelCallHandler) GetVector2000(ctx context.Context, lang string, adminUserId int, openid string, robot msql.Params, library msql.Params, fileInfo msql.Params, input string) (*embedding.CreateResponse, error) {
-	if ctx == nil {
-		return nil, errors.New("context is nil")
-	}
+	ctx = llm.NormalizeContext(ctx)
 	req := h.newEmbeddingRequest(input)
 	var res *embedding.CreateResponse
 	var err error

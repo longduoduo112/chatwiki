@@ -3,7 +3,7 @@
   .text-message {
     font-size: 14px;
     line-height: 22px;
-    color: #fff;
+    color: #333;
     text-align: left;
   }
   .file-message-wrapper {

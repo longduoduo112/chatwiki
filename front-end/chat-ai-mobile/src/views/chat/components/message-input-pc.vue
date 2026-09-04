@@ -1,11 +1,11 @@
 <template>
-  <div class="message-input-wrapper"  :class="{ 'is-set': props.value }">
+  <div class="message-input-wrapper" :class="{ 'is-set': props.value || fileList.length }">
     <FileToolbar :file-list="fileList" @delete="deleteFile" v-if="fileList.length > 0" />
     <div class="message-input-box">
       <ATextarea
         class="message-input"
         :value="props.value"
-        :auto-size="{ minRows: 2, maxRows: 5 }"
+        :auto-size="{ minRows: 1, maxRows: 5 }"
         :placeholder="t('ph_input_message_with_shift')"
         @change="onChange"
         @keydown="handleKeydown"
@@ -29,7 +29,7 @@
         :disabled="disabled"
         @click="sendMessage"
       >
-        <svg-icon class="paper-airplane" name="paper-airplane-new-active" />
+        <svg-icon class="paper-airplane" name="send-message" width="28px" height="28px" />
       </button>
     </div>
   </div>
@@ -141,72 +141,84 @@ defineExpose({
 <style lang="less" scoped>
 .message-input-wrapper {
   position: relative;
-  max-width: 736px;
+  max-width: 900px;
   margin: 0 auto;
-  padding: 12px;
-  border-radius: 20px;
-  border: 1px solid #d9d9d9;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 2px solid #e5e7eb;
   overflow: hidden;
   background-color: #fff;
+  box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.08);
   transition: all 0.2s;
+  box-sizing: border-box;
 
-  &.is-set {
-    border: 1px solid #2475fc;
+  &.is-set,
+  &:focus-within {
+    border-color: #5694fc;
+    box-shadow: 0 4px 16px 0 rgba(0, 149, 255, 0.18);
   }
 
   .message-input-box {
-    padding: 0 0 12px 0;
+    padding: 0;
+    margin-bottom: 16px;
   }
 
   .message-input {
     width: 100%;
-    padding: 0 12px;
+    padding: 0;
+    color: #262626;
+    font-size: 16px;
     line-height: 24px;
     border: none !important;
     outline: none !important;
     resize: none !important;
     box-shadow: none !important;
+
+    &::placeholder {
+      color: #8c8c8c;
+      font-size: 16px;
+    }
   }
 
   .message-action {
     display: flex;
     align-items: center;
-    justify-content: flex-end;
-    padding: 0 12px 12px 12px;
+    justify-content: space-between;
+    padding: 0;
   }
 
   .send-msg-btn {
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 32px;
-    height: 32px;
+    width: 28px;
+    height: 28px;
     padding: 0;
+    margin-left: auto;
     font-size: 14px;
     font-weight: 400;
-    border-radius: 4px;
+    border-radius: 6px;
     border: none;
     cursor: pointer;
     transition: all 0.2s;
     color: #2475fc;
-    border-radius: 50%;
     background: none;
 
     &:hover {
       opacity: 0.8;
     }
     &:disabled {
-      opacity: 0.5;
+      opacity: 0.3;
     }
     .paper-airplane {
-      font-size: 32px;
+      font-size: 28px;
     }
 
     &.loading {
       color: #2475fc;
     }
     .send-pause {
-      font-size: 32px;
+      font-size: 28px;
     }
     
   }
@@ -219,13 +231,18 @@ defineExpose({
     width: 32px;
     height: 32px;
     padding: 0;
-    margin-right: 8px;
-    border-radius: 50%;
+    margin-right: auto;
+    border-radius: 6px;
     border: none;
     background: #fff;
     cursor: pointer;
     transition: all 0.2s;
-    border: 1px solid #f0f0f0;
+    border: 0;
+
+    .is-set &,
+    .message-input-wrapper:focus-within & {
+      background: #e4e6eb;
+    }
 
     &:hover {
       background: #e4e6eb;

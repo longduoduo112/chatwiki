@@ -1,36 +1,37 @@
 <style lang="less" scoped>
 .message-input-box {
   margin: 12px;
-  padding: 10px;
-  border-radius: 16px;
-  border: 1px solid #ddd;
-  box-shadow: 0 2px 6px 0 rgba(0, 0, 0, 0.08);
-  transition: all 0.2s;
+  padding: 7px 12px;
+  overflow: hidden;
   background: #fff;
+  border: 2px solid #e5e7eb;
+  border-radius: 12px;
+  box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.08);
+  transition: all 0.2s;
 
-  &.is-focus {
-    border: 1px solid #2475fc;
+  &.is-active {
+    border-color: #5694fc;
+    box-shadow: 0 4px 16px 0 rgba(0, 149, 255, 0.18);
   }
 
   .message-input-body {
     display: flex;
-    justify-content: center;
-    align-items: flex-end;
+    flex-direction: column;
+    gap: 8px;
   }
 
   .message-input {
+    display: flex;
     position: relative;
-    flex: 1;
-    padding: 4px 4px 4px 0;
+    width: 100%;
     overflow: hidden;
   }
 
-  
-
-  .message-action{
+  .message-action {
     display: flex;
     align-items: center;
-    
+    justify-content: space-between;
+
     .send-btn {
       display: flex;
       align-items: center;
@@ -38,8 +39,8 @@
       width: 32px;
       height: 32px;
       padding: 0;
-      margin: 0;
-      font-size: 32px;
+      margin: 0 0 0 auto;
+      font-size: 28px;
       border: none;
       outline: none;
       background: none;
@@ -52,39 +53,45 @@
       }
 
       &:disabled {
-        opacity: 0.5;
+        opacity: 0.3;
       }
 
       .send-pause {
-        font-size: 32px;
+        font-size: 28px;
       }
     }
 
-    .file-action{
+    .file-action {
       position: relative;
       display: flex;
       align-items: center;
       height: 32px;
-      padding: 0 8px;
-      margin-right: 8px;
-      border-radius: 32px;
-      border: 1px solid #F0F0F0;
+      padding: 0;
 
-      .line{
+      .line {
         width: 1px;
         height: 14px;
         margin: 0 8px;
         background: #D9D9D9;
       }
 
-      .action-btn{
-        width: 16px;
-        height: 16px;
+      .action-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 28px;
+        height: 28px;
+        padding: 6px;
         font-size: 16px;
         color: #595959;
+        background: #fff;
+        border-radius: 6px;
+        box-sizing: border-box;
         cursor: pointer;
-        &:hover{
-          color: #2475FC;
+
+        &:hover {
+          color: #2475fc;
+          background: #e4e6eb;
         }
       }
 
@@ -123,7 +130,7 @@
 </style>
 
 <template>
-  <div class="message-input-box" :class="{ 'is-focus': isFocus }">
+  <div class="message-input-box" :class="{ 'is-active': isFocus || value || fileList.length }">
     <FileToolbar :file-list="props.fileList" @delete="deleteFile" v-if="props.fileList.length > 0 && showFiletoolbar" />
     <div class="message-input-body">
       <div class="message-input">
@@ -139,8 +146,12 @@
         <div class="file-action" v-if="props.showUpload">
           <span class="file-number" :class="{ big: fileList.length > 9 }" v-if="fileList.length > 0">{{ fileList.length }}</span>
           <svg-icon class="action-btn select-file" name="circularNeedle" @click="openFileDialog"></svg-icon>
-          <i class="line"></i>
-          <Tippy :content="showFiletoolbar ? t('msg_hide_images') : t('msg_show_images')" placement="top">
+          <i class="line" v-if="fileList.length > 0"></i>
+          <Tippy
+            :content="showFiletoolbar ? t('msg_hide_images') : t('msg_show_images')"
+            placement="top"
+            v-if="fileList.length > 0"
+          >
             <svg-icon class="action-btn show-file" name="eye-open" v-if="showFiletoolbar" @click="showFiletoolbar = false"></svg-icon>
             <svg-icon class="action-btn hide-file" name="eye-close" v-else @click="showFiletoolbar = true"></svg-icon>
           </Tippy>
@@ -152,7 +163,7 @@
           </button>
         </Tippy>
         <button class="send-btn" v-else @click="sendMessage" :disabled="disabled">
-          <svg-icon name="paper-airplane-new-active" />
+          <svg-icon name="send-message" width="28px" height="28px" />
         </button>
       </div>
     </div>

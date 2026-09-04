@@ -55,7 +55,7 @@ func SaveSensitiveWords(c *gin.Context) {
 		common.FmtError(c, `param_err`, middlewares.GetValidateErr(req, err, common.GetLang(c)).Error())
 		return
 	}
-	if len(strings.Split(strings.ReplaceAll(strings.ReplaceAll(req.Words, "\r\n", "\n"), "\r", "\n"), "\n")) > 1000 {
+	if len(strings.Split(strings.ReplaceAll(strings.ReplaceAll(req.Words, "\r\n", "\n"), "\r", "\n"), "\n")) > 20000 {
 		common.FmtError(c, `file_data_limits`)
 		return
 	}

@@ -1,13 +1,18 @@
 <template>
-  <div class="process-timeline" v-if="showTimeline">
+  <div
+    class="process-timeline"
+    :class="{ 'is-running': isTimelineRunning, 'is-completed': !isTimelineRunning }"
+    v-if="showTimeline"
+  >
     <div class="process-timeline-header" @click="toggleTimeline">
       <van-loading
         class="timeline-loading"
         color="#2475fc"
         size="16px"
         type="spinner"
-        v-if="showHeaderLoading"
+        v-if="isTimelineRunning"
       />
+      <van-icon class="timeline-completed-icon" name="passed" v-else />
       <span>{{ timelineTitle }}</span>
       <svg-icon
         name="down-arrow"
@@ -17,70 +22,74 @@
       ></svg-icon>
     </div>
 
-    <div class="process-timeline-body" v-if="timelineExpanded && displaySteps.length">
-      <div class="process-step" v-for="step in displaySteps" :key="step.id">
-        <div
-          class="process-step-header"
-          :class="{ 'is-expandable': canExpandStep(step) }"
-          @click="toggleStep(step)"
-        >
-          <span class="process-step-status">
-            <van-loading
-              class="status-icon is-running"
-              color="#2475fc"
-              size="16px"
-              type="spinner"
-              v-if="step.status === 'running'"
-            />
-            <van-icon class="is-done" name="passed" v-else />
-          </span>
-          <div class="process-step-title">
-            <span
-              class="process-step-thinking-summary"
-              v-if="step.type === 'thinking' && !isStepExpanded(step)"
-            >
-              {{ getStepText(step) }}
+    <div
+      class="process-timeline-body"
+      v-if="timelineExpanded && displaySteps.length"
+    >
+      <div
+        class="process-step"
+        :class="{ 'is-thinking': step.type === 'thinking' }"
+        v-for="step in displaySteps"
+        :key="step.id"
+      >
+        <CherryMarkdown
+          v-if="step.type === 'thinking'"
+          class="process-step-thinking-content"
+          :content="getStepText(step)"
+        />
+        <template v-else>
+          <div
+            class="process-step-header"
+            :class="{ 'is-expandable': canExpandStep(step) }"
+            @click="toggleStep(step)"
+          >
+            <span class="process-step-status">
+              <van-loading
+                class="status-icon is-running"
+                color="#2475fc"
+                size="16px"
+                type="spinner"
+                v-if="step.status === 'running'"
+              />
+              <van-icon class="is-done" name="passed" v-else />
             </span>
-            <CherryMarkdown
-              v-else-if="step.type === 'thinking'"
-              class="process-step-thinking-content"
-              :content="getStepText(step)"
-            />
-            <template v-else>{{ getStepTitle(step) }}</template>
-          </div>
-          <svg-icon
-            v-if="canExpandStep(step)"
-            name="down-arrow"
-            class="process-step-arrow"
-            :class="{ expanded: isStepExpanded(step) }"
-          ></svg-icon>
-        </div>
-
-        <div
-          class="process-step-detail"
-          v-if="isStepExpanded(step) && step.type === 'tool'"
-        >
-          <div class="process-step-section" v-if="step.type === 'tool' && step.paramsText">
-            <span class="process-step-label">{{ t('label_input') }}</span>
-            <div class="process-step-scroll">
-              <code class="process-step-code">{{ step.paramsText }}</code>
+            <div class="process-step-title">
+              {{ getStepTitle(step) }}
             </div>
+            <svg-icon
+              v-if="canExpandStep(step)"
+              name="down-arrow"
+              class="process-step-arrow"
+              :class="{ expanded: isStepExpanded(step) }"
+            ></svg-icon>
           </div>
 
-          <div class="process-step-section" v-if="step.resultText">
-            <span class="process-step-label">{{ t('label_output') }}</span>
-            <div class="process-step-scroll">
-              <CherryMarkdown :content="step.resultText" />
+          <div
+            class="process-step-detail"
+            v-if="isStepExpanded(step) && step.type === 'tool'"
+          >
+            <div class="process-step-section" v-if="step.type === 'tool' && step.paramsText">
+              <span class="process-step-label">{{ t('label_input') }}</span>
+              <div class="process-step-scroll">
+                <code class="process-step-code">{{ step.paramsText }}</code>
+              </div>
+            </div>
+
+            <div class="process-step-section" v-if="step.resultText">
+              <span class="process-step-label">{{ t('label_output') }}</span>
+              <div class="process-step-scroll">
+                <CherryMarkdown :content="step.resultText" />
+              </div>
             </div>
           </div>
-        </div>
+        </template>
       </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import CherryMarkdown from '@/components/cherry-markdown/index.vue'
 import { useI18n } from '@/hooks/web/useI18n'
 
@@ -121,21 +130,43 @@ const displaySteps = computed(() => {
 })
 
 const hasRunningStep = computed(() => displaySteps.value.some((step) => step?.status === 'running'))
-const isWaitingForAnswer = computed(() => !!props.item?.startLoading && !props.item?.is_stopped)
-const showTimeline = computed(() => displaySteps.value.length > 0 || isWaitingForAnswer.value)
-const showHeaderLoading = computed(() => {
-  return isWaitingForAnswer.value && !hasRunningStep.value && !props.quoteLoadingVisible
+const hasCompletedThinkingStep = computed(() => {
+  return displaySteps.value.some((step) => {
+    return step?.type === 'thinking' &&
+      step?.status !== 'running' &&
+      !!(step?.contentText || step?.resultText)
+  })
 })
-const timelineExpanded = ref(props.item?.process_expanded !== false)
+const isWaitingForAnswer = computed(() => !!props.item?.startLoading && !props.item?.is_stopped)
+const showTimeline = computed(() => {
+  return displaySteps.value.length > 0 || (isWaitingForAnswer.value && !props.quoteLoadingVisible)
+})
+const isTimelineRunning = computed(() => {
+  return !props.item?.is_stopped && (
+    hasRunningStep.value || (isWaitingForAnswer.value && !hasCompletedThinkingStep.value)
+  )
+})
+const hasStreamingThinkingContent = computed(() => {
+  return displaySteps.value.some((step) => {
+    return step?.type === 'thinking' &&
+      step?.status === 'running' &&
+      !!(step?.contentText || step?.resultText)
+  })
+})
+const hasAnswerStartedOrFinished = computed(() => {
+  return displaySteps.value.length > 0 && (!props.item?.startLoading || props.item?.is_stopped)
+})
+const timelineExpanded = ref(false)
+const timelineManuallyToggled = ref(false)
 const stepExpandedOverrides = ref<Record<string, boolean>>({})
 const timelineTitle = computed(() => {
   if (props.item?.is_stopped) {
     return t('label_stopped')
   }
-  if (isWaitingForAnswer.value || hasRunningStep.value) {
-    return props.runningLabel || t('label_thinking')
+  if (isTimelineRunning.value) {
+    return props.runningLabel || t('title_deep_thinking')
   }
-  return t('label_thinking_completed')
+  return t('title_deep_thinking_completed')
 })
 
 const toggleTimeline = () => {
@@ -143,24 +174,31 @@ const toggleTimeline = () => {
     return
   }
   timelineExpanded.value = !timelineExpanded.value
+  timelineManuallyToggled.value = true
 }
+
+watch(hasStreamingThinkingContent, (hasContent) => {
+  if (hasContent && !timelineManuallyToggled.value) {
+    timelineExpanded.value = true
+  }
+}, { immediate: true })
+
+watch(hasAnswerStartedOrFinished, (hasFinished, wasFinished) => {
+  if (hasFinished && !wasFinished) {
+    timelineExpanded.value = false
+    timelineManuallyToggled.value = false
+  }
+})
 
 const isStepExpanded = (step: any) => {
   const stepId = step?.id
   if (stepId && Object.prototype.hasOwnProperty.call(stepExpandedOverrides.value, stepId)) {
     return stepExpandedOverrides.value[stepId]
   }
-  // 完成后的思考默认收起，用户手动选择展开后不再被流式状态覆盖。
-  if (step?.type === 'thinking' && step?.status === 'done') {
-    return false
-  }
   return step?.expanded === true
 }
 
 const canExpandStep = (step: any) => {
-  if (step?.type === 'thinking') {
-    return true
-  }
   return step?.type === 'tool' && (!!step.paramsText || !!step.resultText)
 }
 
@@ -194,26 +232,57 @@ const getStepText = (step: any) => {
   line-height: 22px;
 }
 
+.process-timeline.is-running {
+  color: #2475fc;
+
+  .process-timeline-header {
+    font-size: 14px;
+    font-weight: 400;
+    line-height: 22px;
+  }
+}
+
+.process-timeline.is-completed {
+  padding: 12px;
+  background: #f8f9fc;
+  border-radius: 12px;
+
+  .process-timeline-header {
+    color: #262626;
+    font-size: 16px;
+    font-weight: 500;
+    line-height: 24px;
+  }
+}
+
 .process-timeline-header {
   display: flex;
   align-items: center;
   gap: 6px;
   width: 100%;
-  padding: 8px 0;
-  color: #595959;
-  border-bottom: 1px solid #d9d9d9;
+  padding: 0;
+  color: inherit;
   cursor: pointer;
   user-select: none;
 }
 
 .timeline-loading {
   flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  transform: translateY(-2px);
+}
+
+.timeline-completed-icon {
+  flex: 0 0 auto;
+  color: #2475fc;
+  font-size: 16px;
 }
 
 .timeline-arrow,
 .process-step-arrow {
   flex: 0 0 auto;
-  font-size: 14px;
+  font-size: 16px;
   color: #8c8c8c;
   transform: rotate(-90deg);
   transition: transform 0.2s;
@@ -224,11 +293,31 @@ const getStepText = (step: any) => {
 }
 
 .process-timeline-body {
-  padding-top: 8px;
+  padding-top: 12px;
+}
+
+.timeline-arrow {
+  margin-left: auto;
 }
 
 .process-step {
   width: 100%;
+
+  &.is-thinking {
+    position: relative;
+    padding-left: 20px;
+
+    &::before {
+      position: absolute;
+      top: 4px;
+      bottom: 4px;
+      left: 0;
+      width: 4px;
+      background: #d8dde5;
+      border-radius: 8px;
+      content: '';
+    }
+  }
 }
 
 .process-step-header {
@@ -270,13 +359,6 @@ const getStepText = (step: any) => {
   word-break: break-word;
 }
 
-.process-step-thinking-summary {
-  display: block;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .process-step-arrow {
   margin-top: 12px;
 }
@@ -310,6 +392,19 @@ const getStepText = (step: any) => {
 
     > :last-child {
       margin-bottom: 0 !important;
+    }
+  }
+}
+
+.process-step-thinking-content {
+  color: #3a4559;
+
+  :deep(.cherry-markdown) {
+    word-break: break-word;
+
+    * {
+      font-size: 16px;
+      line-height: 24px;
     }
   }
 }
