@@ -1,6 +1,6 @@
 <style lang="less" scoped>
 .ignore-message-item {
-  max-width: 760px;
+  max-width: 900px;
   display: flex;
   padding: 48px 12px 0px;
   margin: 0 auto;
@@ -73,11 +73,6 @@
       border-bottom: 6px solid transparent;
       border-right: 6px solid white;
     }
-    &:hover {
-      .hover-copy-tool-block {
-        opacity: 1;
-      }
-    }
   }
 
   &.process-message-item {
@@ -142,14 +137,10 @@
     .triangle {
       left: -5px;
     }
-    .hover-copy-tool-block {
-      bottom: -26px;
-      left: 8px;
-    }
   }
 
   &.user-message-item {
-    max-width: 760px;
+    max-width: 900px;
     flex-direction: row-reverse;
 
     .message-item-body {
@@ -162,8 +153,8 @@
       border-radius: 16px 4px 16px 16px;
       margin-left: 50px;
       margin-right: 0;
-      background-color: #2475fc;
-      color: white;
+      background-color: #e6eefc;
+      color: #333;
     }
 
     .triangle {
@@ -173,27 +164,33 @@
     }
 
     .text-message {
-      color: #f5f9ff;
+      color: #333;
     }
-    .hover-copy-tool-block {
-      left: -30px;
-      width: 36px;
-      bottom: 0px;
-      height: 38px;
-      display: flex;
+  }
+
+  &.welcome-message-item {
+    .message-content {
+      background-color: #edeff2;
+    }
+
+    .text-message {
+      width: 100%;
+      border-radius: 4px 16px 16px 16px;
+      color: #1a1a1a;
     }
   }
 
   .copy-block {
     display: flex;
     align-items: center;
+    justify-content: center;
     color: #7a8699;
     font-size: 14px;
     cursor: pointer;
-    width: fit-content;
+    width: 26px;
     transition: all 0.5s ease;
-    padding: 0 8px;
-    height: 24px;
+    padding: 0;
+    height: 26px;
     border-radius: 6px;
     span {
       display: flex;
@@ -213,8 +210,16 @@
   .operation {
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    justify-content: flex-end;
     margin-top: 12px;
+
+    .operation-divider {
+      width: 1px;
+      height: 12px;
+      margin: 0 4px;
+      background: #d9d9d9;
+    }
+
     .operation-right {
       display: flex;
       gap: 5px;
@@ -273,55 +278,6 @@
     }
   }
 
-  .hover-copy-tool-block {
-    padding: 0;
-    opacity: 0;
-    position: absolute;
-    max-width: 90px;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.5s ease;
-
-    .copy-block {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 0;
-      width: 26px;
-    }
-
-    .operation-right {
-      display: flex;
-      gap: 5px;
-      align-items: center;
-      justify-content: space-between;
-    }
-  }
-
-  .answer-reference-box {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 12px 24px;
-    line-height: 22px;
-    font-weight: 400;
-    color: #164799;
-    font-size: 14px;
-    padding-bottom: 12px;
-    border-bottom: 1px solid #edeff2;
-    margin-bottom: 12px;
-    .list-item {
-      cursor: pointer;
-      display: flex;
-      align-items: baseline;
-      gap: 4px;
-      color: #164799;
-      position: relative;
-      .svg-action {
-        position: relative;
-        top: 2px;
-      }
-    }
-  }
 }
 .ignore-message-item:last-child {
   padding-bottom: 24px;
@@ -386,55 +342,6 @@
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
-}
-.thinking-label-wrapper {
-  display: flex;
-  align-items: center;
-  margin-bottom: 8px;
-
-  .thinking-label {
-    display: flex;
-    align-items: center;
-    height: auto;
-    padding: 8px 16px;
-    border-radius: 8px;
-    background: #e4e6eb;
-    cursor: pointer;
-    transition: all 0.2s;
-
-    &:hover {
-      background: #d8dde6;
-    }
-    .think-icon,
-    .loading {
-      margin-right: 8px;
-      font-size: 16px;
-      color: #262626;
-    }
-    .label-text {
-      font-size: 14px;
-      font-weight: 400;
-      color: #262626;
-    }
-    .arrow-down {
-      margin-left: 8px;
-      font-size: 16px;
-      color: #262626;
-      cursor: pointer;
-    }
-  }
-  .tip {
-    margin-left: 8px;
-    font-size: 16px;
-    color: #8c8c8c;
-    cursor: pointer;
-  }
-
-  &.reasoning_open {
-    .down-arrow {
-      transform: rotate(180deg);
-    }
-  }
 }
 .stopped-label {
   display: flex;
@@ -584,6 +491,291 @@
     }
   }
 }
+
+.knowledge-progress {
+  width: 100%;
+  padding: 12px;
+  margin-bottom: 12px;
+  color: #595959;
+  background: #f8f9fc;
+  border-radius: 12px;
+  box-sizing: border-box;
+
+  &.is-loading {
+    padding: 0;
+    color: #2475fc;
+    background: transparent;
+
+    .knowledge-progress-header {
+      color: #2475fc;
+      font-size: 14px;
+      font-weight: 400;
+      line-height: 22px;
+    }
+  }
+}
+
+.knowledge-progress-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  font-size: 16px;
+  line-height: 24px;
+  user-select: none;
+
+  &.is-clickable {
+    cursor: pointer;
+  }
+}
+
+.knowledge-loading,
+.knowledge-icon,
+.knowledge-arrow,
+.knowledge-rest,
+.knowledge-mobile-count,
+.knowledge-summary-separator {
+  flex: 0 0 auto;
+}
+
+.knowledge-loading {
+  width: 16px;
+  height: 16px;
+  transform: translateY(-2px);
+}
+
+.knowledge-icon {
+  color: #2475fc;
+  font-size: 16px;
+}
+
+.knowledge-count {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  color: #262626;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.knowledge-first-title {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 320px;
+  overflow: hidden;
+  margin-left: 2px;
+  color: #2475fc;
+  font-size: 14px;
+  line-height: 22px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.knowledge-rest {
+  color: #2475fc;
+  font-size: 14px;
+  line-height: 22px;
+}
+
+.knowledge-mobile-count {
+  display: none;
+  color: #2475fc;
+  font-size: 14px;
+  line-height: 22px;
+}
+
+.knowledge-summary-separator {
+  width: 1px;
+  height: 12px;
+  background: #2475fc;
+  border-radius: 1px;
+}
+
+.knowledge-arrow {
+  margin-left: auto;
+  color: #8c8c8c;
+  font-size: 16px;
+  transform: rotate(-90deg);
+  transition: transform 0.2s;
+
+  &.expanded {
+    transform: rotate(0deg);
+  }
+}
+
+.knowledge-list {
+  padding-top: 12px;
+}
+
+.knowledge-item {
+  display: flex;
+  align-items: center;
+  min-height: 30px;
+  color: #1366ec;
+  font-size: 16px;
+  line-height: 24px;
+  cursor: pointer;
+
+  &:first-child {
+    min-height: 38px;
+  }
+
+  & + & {
+    margin-top: 2px;
+  }
+}
+
+.knowledge-item-number {
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  margin-right: 12px;
+  color: #1366ec;
+  font-size: 12px;
+  line-height: 16px;
+  text-align: center;
+  background: #e6eefc;
+  border-radius: 4px;
+}
+
+.knowledge-item-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ignore-message-item.socket-message-item {
+  .message-content {
+    margin-right: 0;
+  }
+
+  &.socket-text-message {
+    .message-content {
+      background-color: #edeff2;
+    }
+
+    .text-message {
+      width: 100%;
+      color: #1a1a1a;
+      border-radius: 4px 16px 16px 16px;
+    }
+
+    .operation {
+      position: absolute;
+      right: 0;
+      bottom: -38px;
+    }
+  }
+
+  &.socket-menu-message {
+    .message-content {
+      width: 100%;
+      padding: 0;
+      overflow: hidden;
+      background: #f8f9fc;
+      border-radius: 12px;
+      box-sizing: border-box;
+    }
+
+    .text-message {
+      display: block;
+      min-height: auto;
+      padding: 12px 16px;
+      color: #262626;
+    }
+
+    .question-list {
+      padding: 0;
+      border-top: 1px solid #edeff2;
+
+      .question-item {
+        padding: 9px 16px;
+        margin-top: 0;
+        background: transparent;
+        border-bottom: 1px solid #edeff2;
+        border-radius: 0;
+
+        &:last-child {
+          border-bottom: 0;
+        }
+
+        &:hover {
+          background: #f2f4f7;
+        }
+      }
+    }
+  }
+
+  &.socket-image-message {
+    .message-content {
+      padding: 0;
+      overflow: hidden;
+      background: transparent;
+      border-radius: 8px;
+    }
+
+    .msg-img {
+      display: block;
+      object-fit: contain;
+    }
+  }
+}
+
+@media (max-width: 600px) {
+  .ignore-message-item {
+    width: 100%;
+    max-width: none;
+    padding: 24px 16px 0;
+    box-sizing: border-box;
+
+    .avatar {
+      width: 32px;
+      height: 32px;
+    }
+
+    .message-item-body {
+      padding-left: 8px;
+    }
+
+    .message-content {
+      margin-right: 0;
+    }
+
+    &.process-message-item {
+      .message-content {
+        padding: 0 0 16px;
+      }
+
+      &.robot-message-item .text-message {
+        padding: 0;
+        background: transparent;
+        border-radius: 0;
+      }
+    }
+  }
+
+  .knowledge-progress {
+    padding: 12px;
+  }
+
+  .knowledge-progress.is-loading {
+    padding: 0;
+  }
+
+  .knowledge-progress:not(.is-expanded) {
+    .knowledge-first-title,
+    .knowledge-rest,
+    .knowledge-summary-separator {
+      display: none;
+    }
+
+    .knowledge-mobile-count {
+      display: inline;
+    }
+  }
+}
 </style>
 
 <template>
@@ -647,51 +839,56 @@
           </template>
         </div>
       </template>
-      <!-- 检索知识库 -->
-      <div class="label-flex-block" v-if="props.msg.is_stopped && !shouldShowProcessTimeline(props.msg)">
-        <div class="stopped-label">已停止</div>
-      </div>
-      <div class="label-flex-block" v-else-if="!props.msg.is_stopped">
-        <div
-          class="thinking-label-wrapper"
-          :class="{ reasoning_open: props.msg.show_quote_file }"
-          v-if="props.msg.is_customer == 0 && props.msg.msg_type == 1 && isShowQuoteFileProgress"
-        >
-          <div class="thinking-label" @click="toggleQuoteFiel()">
-            <template v-if="props.msg.quote_loading">
-              <van-loading class="loading" color="#262626" size="16px" type="spinner" />
-              <span class="label-text">{{ t('searching_knowledge_base') }}</span>
-            </template>
-            <template v-if="!props.msg.quote_loading">
-              <svg-icon class="think-icon" name="quote-file"></svg-icon>
-              <span class="label-text">{{ t('found_documents', { count: props.msg.quote_file.length }) }}</span>
-            </template>
-            <svg-icon
-              name="down-arrow"
-              class="down-arrow"
-              v-if="props.msg.quote_file.length"
-            ></svg-icon>
-          </div>
-        </div>
+      <div
+        class="label-flex-block"
+        v-if="props.msg.is_stopped && !shouldShowProcessTimeline(props.msg) && !shouldShowQuoteProgress"
+      >
+        <div class="stopped-label">{{ t('label_stopped') }}</div>
       </div>
       <div class="message-content" :data-msg-type="props.msg.msg_type" v-if="isShowMessageBody(props.msg)">
-        <!-- <span class="triangle"></span> -->
         <div
-          class="answer-reference-box"
-          v-if="
-            isShowQuoteFileProgress &&
-            props.msg.show_quote_file &&
-            props.msg.is_customer != 1 &&
-            props.msg.quote_file &&
-            props.msg.quote_file.length
-          "
+          class="knowledge-progress"
+          :class="{
+            'is-loading': props.msg.quote_loading,
+            'is-expanded': props.msg.show_quote_file
+          }"
+          v-if="shouldShowQuoteProgress"
         >
-          <div class="list-item" v-for="(item, index) in props.msg.quote_file" :key="index">
-            <svg-icon name="quote-file" />
-            <span @click="handleToLink(item)">
-              <span v-if="item.file_name">{{ item.file_name }}</span>
-              <span v-else>{{ item.library_name }}-{{ t('featured') }}</span>
-            </span>
+          <div
+            class="knowledge-progress-header"
+            :class="{ 'is-clickable': !props.msg.quote_loading && quoteCount > 0 }"
+            @click="toggleQuoteFileList"
+          >
+            <template v-if="props.msg.quote_loading">
+              <van-loading class="knowledge-loading" color="#2475fc" size="16px" type="spinner" />
+              <span>{{ t('searching_knowledge_base') }}</span>
+            </template>
+            <template v-else>
+              <van-icon class="knowledge-icon" name="passed" />
+              <span class="knowledge-count">{{ t(quoteCount === 1 ? 'found_document' : 'found_documents', { count: quoteCount }) }}</span>
+              <template v-if="!props.msg.show_quote_file">
+                <span class="knowledge-first-title" :title="firstQuoteTitle">{{ firstQuoteTitle }}</span>
+                <span class="knowledge-summary-separator" v-if="remainingQuoteCount > 0"></span>
+                <span class="knowledge-rest" v-if="remainingQuoteCount > 0">+{{ remainingQuoteCount }}</span>
+                <span class="knowledge-mobile-count">+{{ quoteCount }}</span>
+              </template>
+              <svg-icon
+                name="down-arrow"
+                class="knowledge-arrow"
+                :class="{ expanded: props.msg.show_quote_file }"
+              />
+            </template>
+          </div>
+          <div class="knowledge-list" v-if="!props.msg.quote_loading && props.msg.show_quote_file">
+            <div
+              class="knowledge-item"
+              v-for="(item, index) in quoteFiles"
+              :key="item.id || index"
+              @click="handleToLink(item)"
+            >
+              <span class="knowledge-item-number">{{ index + 1 }}</span>
+              <span class="knowledge-item-title">{{ getQuoteTitle(item) }}</span>
+            </div>
           </div>
         </div>
         <ProcessTimeline
@@ -727,13 +924,10 @@
           <div class="operation" v-if="isShowCopy">
             <div @click="handleCopy" class="copy-block">
               <div class="copy-icon"></div>
-              <span> {{ t('copy') }}</span>
             </div>
-            <div
-              ref="operationRef"
-              class="operation-right"
-              v-if="!isCustomerMessage && !isWelcomeMessage && robot.feedback_switch"
-            >
+            <template v-if="!isCustomerMessage && !isWelcomeMessage && robot.feedback_switch">
+              <div class="operation-divider"></div>
+              <div ref="operationRef" class="operation-right">
               <div
                 v-tooltip="t('like')"
                 @click="handlePraise(props.msg)"
@@ -777,69 +971,14 @@
               >
                 <div class="trample-icon"></div>
               </div>
-            </div>
-          </div>
-          <div class="hover-copy-tool-block" v-if="isShowHoverCopy">
-            <div ref="operationRef" class="operation-right">
-              <div v-tooltip="t('copy')" @click="handleCopy" class="copy-block">
-                <div class="copy-icon"></div>
               </div>
-              <template v-if="!isCustomerMessage && !isWelcomeMessage && robot.feedback_switch">
-                <div
-                  v-tooltip="t('like')"
-                  @click="handlePraise(props.msg)"
-                  class="praise-block"
-                  :class="{ 'praise-active': !isTrampleClick && isPraiseActive }"
-                >
-                  <div class="praise-icon"></div>
-                </div>
-                <van-popover placement="top-end" v-if="!isTrampleActive" @close="onCancel">
-                  <div ref="feedbackModal" class="feedback-modal">
-                    <div class="modal-title">{{ t('feedback_title') }}</div>
-                    <div class="content">
-                      <textarea
-                        class="text-input"
-                        v-model="feedbackContent"
-                        :placeholder="t('feedback_placeholder')"
-                      ></textarea>
-                    </div>
-                    <div class="btn-box">
-                      <van-button class="model-btn cancel-btn" type="default" @click="onCancel">
-                        {{ t('cancel') }}
-                      </van-button>
-                      <van-button class="model-btn submit-btn" type="primary" @click="onSubmit">
-                        {{ t('submit') }}
-                      </van-button>
-                    </div>
-                  </div>
-                  <template #reference>
-                    <div
-                      v-tooltip="t('dislike')"
-                      @click="handleTrample(props.msg, 2)"
-                      class="trample-block"
-                      :class="{ 'trample-active': isTrampleClick }"
-                    >
-                      <div class="trample-icon"></div>
-                    </div>
-                  </template>
-                </van-popover>
-                <div
-                  v-else
-                  v-tooltip="t('dislike')"
-                  @click="handleTrample(props.msg, 1)"
-                  class="trample-block"
-                  :class="{ 'trample-active': isTrampleActive }"
-                >
-                  <div class="trample-icon"></div>
-                </div>
-              </template>
-            </div>
+            </template>
           </div>
         </template>
 
         <template v-else-if="props.msg.msg_type == 2">
           <!-- 欢迎语使用 Markdown 渲染 -->
-          <cherry-markdown class="markdown-content" :class="{'is-question-title': props.msg.menu_json && props.msg.menu_json.question.length }" :content="props.msg.menu_json.content" v-if="props.msg.isWelcome" />
+          <cherry-markdown class="text-message markdown-content" :class="{'is-question-title': props.msg.menu_json && props.msg.menu_json.question.length }" :content="props.msg.menu_json.content" v-if="props.msg.isWelcome" />
           <div class="text-message" v-html="escapeHTML(props.msg.menu_json.content)" v-else></div>
           <div
             class="question-list"
@@ -942,18 +1081,12 @@ const isTrampleActive = ref(props.msg.feedback_type == '2' ? true : false)
 const msgId = computed(() => props.msg.message_id || props.msg.id)
 
 const isShowCopy = computed(() => {
-  // 最后一条消息 机器人的消息 消息类型为1 不是正在发送
   return (
-    props.index === props.messageLength - 1 &&
     props.msg.msg_type == 1 &&
-    !robot.is_sending &&
-    !isCustomerMessage.value && 
-    !props.msg.is_stopped
+    !isCustomerMessage.value &&
+    !!props.msg.content &&
+    !props.msg.loading
   )
-})
-
-const isShowHoverCopy = computed(() => {
-  return !isShowCopy.value && props.index !== props.messageLength - 1
 })
 
 const handleCopy = async () => {
@@ -1060,9 +1193,25 @@ const processRunningLabel = computed(() => {
   return tips_before_answer_content.value?.trim() || ''
 })
 
+const quoteFiles = computed<any[]>(() => {
+  return Array.isArray(props.msg.quote_file) ? props.msg.quote_file : []
+})
+const quoteCount = computed(() => quoteFiles.value.length)
+const remainingQuoteCount = computed(() => Math.max(quoteCount.value - 1, 0))
+const getQuoteTitle = (item: any) => {
+  return item?.file_name || (item?.library_name ? `${item.library_name}-${t('featured')}` : t('featured'))
+}
+const firstQuoteTitle = computed(() => getQuoteTitle(quoteFiles.value[0]))
+const shouldShowQuoteProgress = computed(() => {
+  return props.msg.is_customer == 0 &&
+    props.msg.msg_type == 1 &&
+    isShowQuoteFileProgress.value &&
+    (props.msg.quote_loading || quoteCount.value > 0)
+})
+
 // 是否显示引用
 const isShowQuoteFileProgress = computed(() => {
-  return (robot.chat_type == 1 || robot.chat_type == 3) && robot.answer_source_switch && robot.application_type == '0' && (!props.msg.startLoading || !tips_before_answer_switch.value)
+  return (robot.chat_type == 1 || robot.chat_type == 3) && robot.answer_source_switch && robot.application_type == '0'
 })
 
 
@@ -1077,7 +1226,11 @@ const messageItemClasses = computed(() => ({
   'user-message-item': isCustomerMessage.value === true,
   'robot-message-item': isCustomerMessage.value === false,
   'welcome-message-item': props.msg.menu_json && props.msg.menu_json.question,
-  'process-message-item': shouldShowProcessTimeline(props.msg),
+  'process-message-item': shouldShowProcessTimeline(props.msg) || shouldShowQuoteProgress.value,
+  'socket-message-item': props.msg.is_socket_message === true,
+  'socket-text-message': props.msg.is_socket_message === true && props.msg.msg_type == 1,
+  'socket-menu-message': props.msg.is_socket_message === true && props.msg.msg_type == 2,
+  'socket-image-message': props.msg.is_socket_message === true && props.msg.msg_type == 3,
   'hide-avatar-message-item': !isShowAvatar.value
 }))
 
@@ -1086,6 +1239,19 @@ const sendTextMessage = (text: string) => {
 }
 
 const quoteModalRef = ref<any>(null)
+const parseAnswerSourceData = (value: any) => {
+  if (value && typeof value === 'object') {
+    return value
+  }
+  if (!value || typeof value !== 'string') {
+    return null
+  }
+  try {
+    return JSON.parse(value)
+  } catch (_error) {
+    return null
+  }
+}
 const handleToLink = (item: any) => {
   if(quoteModalRef.value){
     quoteModalRef.value.showPopup({
@@ -1093,14 +1259,20 @@ const handleToLink = (item: any) => {
       file_id: item.id,
       robot_key: robot.robot_key,
       openid: robot.openid,
-      file_name: item.file_name || item.library_name + '-精选',
-      answer_source_data: item.answer_source_data ? JSON.parse(item.answer_source_data) : null
+      file_name: getQuoteTitle(item),
+      answer_source_data: parseAnswerSourceData(item.answer_source_data)
     })
   } 
 }
 
 const toggleQuoteFiel = () => {
   emit('toggleQuoteFiel', msgId.value)
+}
+
+const toggleQuoteFileList = () => {
+  if (!props.msg.quote_loading && quoteCount.value > 0) {
+    toggleQuoteFiel()
+  }
 }
 
 function parseReplyList(val) {
@@ -1174,7 +1346,7 @@ function onClickSmartMenuKeyword(text: string) {
 }
 
 const isShowMessageBody = (item: any) => {
-  if (shouldShowProcessTimeline(item)) {
+  if (shouldShowProcessTimeline(item) || shouldShowQuoteProgress.value) {
     return true
   }
   if(parseReplyList(item.reply_content_list).length && item.content == ''){

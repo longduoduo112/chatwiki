@@ -13,6 +13,7 @@ import (
 	"github.com/spf13/cast"
 	"github.com/zhimaAi/go_tools/msql"
 	"github.com/zhimaAi/go_tools/tool"
+	llm "github.com/zhimaAi/llm_adaptor/v2"
 	"github.com/zhimaAi/llm_adaptor/v2/chat"
 )
 
@@ -88,6 +89,7 @@ type ChatOutParam struct {
 }
 
 func DoChatRequest(params *define.ChatRequestParam, useStream bool, chanStream chan sse.Event) (out *ChatOutParam) {
+	params.StopCtx = llm.NormalizeContext(params.StopCtx)
 	// builder
 	in := &ChatInParam{
 		params: params, useStream: useStream, chanStream: chanStream,

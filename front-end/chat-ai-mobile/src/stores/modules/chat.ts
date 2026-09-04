@@ -57,6 +57,7 @@ export interface Message {
   voice_content: any
   startLoading: boolean
   is_stopped?: boolean
+  is_socket_message?: boolean
   event?: string
   prevent_auto_scroll?: boolean
 }
@@ -432,7 +433,8 @@ export const useChatStore = defineStore('chat', () => {
     if (msg && msg.dialogue_id == dialogue_id.value) {
       msg.uid = getUuid(32)
       msg.loading = false
-      msg.isWelcome = true
+      msg.isWelcome = false
+      msg.is_socket_message = true
       msg.name = msg.name || msg.nickname
       if (msg.is_customer == 1) {
         msg.name = msg.name || user.name
@@ -895,7 +897,7 @@ export const useChatStore = defineStore('chat', () => {
 
     if (type == 'quote_file') {
       currentMessage.quote_file = content.length > 0 ? content : []
-      currentMessage.show_quote_file = true
+      currentMessage.show_quote_file = false
       currentMessage.quote_loading = false
     }
 
@@ -1000,10 +1002,10 @@ export const useChatStore = defineStore('chat', () => {
       is_customer: 0,
       debug: [],
       quote_loading: false,
-      show_quote_file: true,
+      show_quote_file: false,
       voice_content: [],
       is_stopped: false,
-      process_expanded: true,
+      process_expanded: false,
       process_steps: [],
       current_round_index: 0,
       active_thinking_step_id: '',
@@ -1348,7 +1350,7 @@ export const useChatStore = defineStore('chat', () => {
         item.loading = false
         item.uid = getUuid(32)
         item.process_steps = normalizeHistoricalProcessSteps(item)
-        item.process_expanded = typeof item.process_expanded === 'boolean' ? item.process_expanded : true
+        item.process_expanded = typeof item.process_expanded === 'boolean' ? item.process_expanded : false
         item.current_round_index = Number(item.current_round_index || 0)
         item.active_thinking_step_id = item.active_thinking_step_id || ''
 

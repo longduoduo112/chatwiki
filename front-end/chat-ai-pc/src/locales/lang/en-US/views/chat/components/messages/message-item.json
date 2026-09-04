@@ -1,6 +1,6 @@
 {
   "msg_querying_kb": "Querying knowledge base...",
-  "title_deep_thinking": "Deep thinking...",
+  "title_deep_thinking": "Thinking deeply...",
   "title_deep_thinking_completed": "Deep thinking completed",
   "process_thinking_step": "Thinking process",
   "process_thinking_again": "Thinking again",
@@ -22,7 +22,8 @@
   "ph_feedback": "Please feedback what you think is unsatisfactory",
   "btn_cancel": "Cancel",
   "btn_submit": "Submit",
-  "msg_found_documents_in_kb": "Found {count} document(s) in knowledge base",
+  "msg_found_document_in_kb": "Found {count} document in knowledge base",
+  "msg_found_documents_in_kb": "Found {count} documents in knowledge base",
   "label_featured": "Featured",
   "msg_copied_successfully": "Copied",
   "msg_operation_success": "Operation successful",

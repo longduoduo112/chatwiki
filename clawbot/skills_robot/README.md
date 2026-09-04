@@ -5,6 +5,6 @@
 2.目录结构
 
 ```
-skills_robot/:robot_key/skills/:skill_name/SKILL.md
-skills_robot/:robot_key/skills/:skill_name/reference/xxx.md(非必须)
+skills_robot/:robot_key/:skill_name/SKILL.md
+skills_robot/:robot_key/:skill_name/reference/xxx.md(非必须)
 ```

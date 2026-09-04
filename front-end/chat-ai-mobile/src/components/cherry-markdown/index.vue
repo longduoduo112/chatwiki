@@ -54,7 +54,9 @@
     padding-inline-start: 40px;
     unicode-bidi: isolate;
   }
-
+  p:last-child {
+    margin-bottom: 0;
+  }
   img{
     width: auto;
     height: auto;

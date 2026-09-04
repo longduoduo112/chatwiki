@@ -1,7 +1,8 @@
 {
   "searching_knowledge_base": "Querying knowledge base...",
+  "found_document": "Found {count} document in knowledge base",
   "found_documents": "Found {count} documents in knowledge base",
-  "deep_thinking": "Deep thinking...",
+  "deep_thinking": "Thinking deeply...",
   "deep_thinking_completed": "Deep thinking completed",
   "process_thinking_step": "Thinking process",
   "process_thinking_again": "Thinking again",

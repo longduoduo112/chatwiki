@@ -1,42 +1,41 @@
 <style lang="less" scoped>
-.message-input-wrapper {
-  margin: 0 12px;
-}
-.message-input-container {
-  position: relative;
-  width: 100%;
-  padding: 10px;
-  margin-bottom: 0px;
-  border-radius: 12px;
-  transition: all 0.2s;
+.message-input-box {
+  width: calc(100% - 24px);
+  max-width: 900px;
+  box-sizing: border-box;
+  margin: 12px auto;
+  padding: 7px 12px;
+  overflow: hidden;
   background: #fff;
-  border: 1px solid #d9d9d9;
+  border: 2px solid #e5e7eb;
+  border-radius: 12px;
   box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.08);
+  transition: all 0.2s;
 
-  &.is-set {
-    border: 1px solid #2475fc;
+  &.is-active {
+    border-color: #5694fc;
+    box-shadow: 0 4px 16px 0 rgba(0, 149, 255, 0.18);
   }
 
   .message-input-body {
     display: flex;
-    justify-content: center;
-    align-items: flex-end;
+    flex-direction: column;
+    gap: 8px;
   }
 
   .message-input {
-    flex: 1;
     display: flex;
     position: relative;
-    line-height: 22px;
-    padding: 5px 8px 5px 0;
+    width: 100%;
+    overflow: hidden;
+    padding: 0;
 
     .text-input {
-      line-height: 22px;
-      height: 22px;
+      line-height: 24px;
+      height: 24px;
+      width: 100%;
       padding: 0;
-      flex: 1;
-      margin: 0;
-      font-size: 14px;
+      font-size: 16px;
       font-weight: 400;
       color: rgb(26, 26, 26);
       background: none;
@@ -50,7 +49,7 @@
       &::placeholder {
         font-size: 16px;
         font-weight: 400;
-        color: rgb(191, 191, 191);
+        color: #8c8c8c;
       }
     }
 
@@ -83,69 +82,66 @@
   .message-action {
     display: flex;
     align-items: center;
-    justify-content: center;
+    justify-content: space-between;
+
     .send-btn {
-      padding: 0;
-      width: 32px;
-      height: 32px;
-      padding: 0;
-      border-radius: 50%;
-      font-size: 32px;
-      color: #b3b3b3;
-      background: none;
-      border: none;
-      transition: all 0.2s;
-      &.send-btn-active {
-        color: #2475fc;
-        cursor: pointer;
-      }
-
-      &:hover {
-        opacity: 0.8;
-      }
-      &:disabled {
-        opacity: 0.5;
-      }
-      .paper-airplane {
-        font-size: 32px;
-      }
-
-      &.loading {
-        color: #2475fc;
-      }
-      .send-pause {
-        font-size: 32px;
-      }
-    }
-
-    .select-file-btn {
-      position: relative;
       display: flex;
       align-items: center;
       justify-content: center;
       width: 32px;
       height: 32px;
       padding: 0;
-      margin-right: 8px;
-      border-radius: 50%;
+      margin: 0 0 0 auto;
+      font-size: 28px;
       border: none;
-      background: #fff;
-      cursor: pointer;
+      outline: none;
+      background: none;
       transition: all 0.2s;
-      border: 1px solid #f0f0f0;
+      cursor: pointer;
+      color: #2475fc;
 
       &:hover {
-        background: #e4e6eb;
+        opacity: 0.8;
+      }
+      &:disabled {
+        opacity: 0.3;
       }
 
-      .select-file-icon {
+      .send-pause {
+        font-size: 28px;
+      }
+    }
+
+    .file-action {
+      position: relative;
+      display: flex;
+      align-items: center;
+      height: 32px;
+      padding: 0;
+
+      .action-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 28px;
+        height: 28px;
+        padding: 6px;
         font-size: 16px;
         color: #595959;
+        background: #fff;
+        border-radius: 6px;
+        box-sizing: border-box;
+        cursor: pointer;
+
+        &:hover {
+          color: #2475fc;
+          background: #e4e6eb;
+        }
       }
 
       .file-number {
         position: absolute;
-        right: -8px;
+        left: 16px;
         top: -8px;
         width: 16px;
         height: 16px;
@@ -170,10 +166,9 @@
 </style>
 
 <template>
-  <div class="message-input-wrapper">
-    <div class="message-input-container" :class="{ 'is-set': props.value }">
-      <FileToolbar :file-list="fileList" v-if="fileList.length > 0" />
-      <div class="message-input-body">
+  <div class="message-input-box" :class="{ 'is-active': isFocus || props.value || fileList.length }">
+    <FileToolbar :file-list="props.fileList" @delete="deleteFile" v-if="props.fileList.length > 0" />
+    <div class="message-input-body">
         <div class="message-input">
           <textarea
             ref="messageTextarea"
@@ -190,9 +185,9 @@
         </div>
 
         <div class="message-action">
-          <div class="select-file-btn" @click="openFileDialog" v-if="props.showUpload">
-            <svg-icon class="select-file-icon" name="circularNeedle"></svg-icon>
+          <div class="file-action" v-if="props.showUpload">
             <span class="file-number" :class="{ big: fileList.length > 9 }" v-if="fileList.length > 0">{{ fileList.length }}</span>
+            <svg-icon class="action-btn select-file" name="circularNeedle" @click="openFileDialog"></svg-icon>
           </div>
 
           <button
@@ -203,10 +198,9 @@
             @click="props.loading ? stopMessage() : sendMessage()"
           >
             <svg-icon class="send-pause" name="send-pause" v-if="props.loading"></svg-icon>
-            <svg-icon class="paper-airplane" name="paper-airplane-new-active" v-else></svg-icon>
+            <svg-icon name="send-message" width="28px" height="28px" v-else></svg-icon>
           </button>
         </div>
-      </div>
     </div>
   </div>
 </template>
@@ -251,6 +245,7 @@ const { t } = useI18n('views.chat.components.message-input')
 
 const { fileList } = toRefs(props)
 const messageTextarea = ref(null)
+const isFocus = ref(false)
 
 const disabled = computed(() => {
   if (props.loading) {
@@ -287,19 +282,19 @@ const onChange = (event) => {
   emit('update:value', event.target.value)
 }
 
-const inputHeight = ref(22)
-const inputMaxHeight = 5 * 22
+const inputHeight = ref(24)
+const inputMaxHeight = 5 * 24
 const setInputHeight = (value) => {
   if (!value) {
     // 如果值为空，重置为初始高度
-    inputHeight.value = 22
+    inputHeight.value = 24
     if (messageTextarea.value) {
       messageTextarea.value.style.overflow = 'hidden'
     }
   } else {
     // 如果值不为空，重新计算高度
     nextTick(() => {
-      let newHeight = calcTextareaHeight(messageTextarea.value).height || 22
+      let newHeight = calcTextareaHeight(messageTextarea.value).height || 24
       newHeight = parseInt(newHeight)
 
       if (newHeight >= inputMaxHeight) {
@@ -353,12 +348,12 @@ const handleEnter = (event) => {
   }
 }
 
-const onFocus = (event) => {
-  // event.target.parentNode.style.borderColor = '#2475FC'
+const onFocus = () => {
+  isFocus.value = true
 }
 
-const onBlur = (event) => {
-  // event.target.parentNode.style.borderColor = '#DDD'
+const onBlur = () => {
+  isFocus.value = false
 }
 
 const handleSetValue = (data) => {

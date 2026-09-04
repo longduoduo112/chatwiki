@@ -4,11 +4,10 @@
   min-width: 350px;
   margin: 0 auto;
   overflow-x: auto;
-  height: 40px;
+  overflow-y: hidden;
   margin-bottom: 4px;;
 }
 .fast-comand-box {
-  margin-left: 12px;
   height: 32px;
   display: flex;
   align-items: center;
